@@ -6,9 +6,11 @@ import { getVehicleCardData, saveVehicleCardData } from 'backend/vehicleCard';
 const HTML_ID = '#vehicleCardHtml';
 const ROUTES = {
   home: '/myroom-home',
+  daily: '/myroom-daily',
   fleet: '/myroom-fleetchart',
   bookings: '/myroom-bookingboard',
-  contract: '/myroom-contract'
+  contract: '/myroom-contract',
+  settings: '/account-settings'
 };
 
 let authState = null;
@@ -50,6 +52,12 @@ $w.onReady(async function () {
     if (msg.type === 'logout') {
       await logoutBackroom();
       wixLocation.to(ROUTES.home);
+      return;
+    }
+    if (msg.type === 'navigate') {
+      const route = String(msg.route || '').trim();
+      const target = ROUTES[route];
+      if (target) wixLocation.to(target);
       return;
     }
     if (msg.type === 'openContract') {
