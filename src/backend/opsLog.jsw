@@ -1,0 +1,19 @@
+import wixData from "wix-data";
+
+export async function writeOpsLog(entry = {}) {
+  try {
+    const item = {
+      action: String(entry.action || ""),
+      bookingId: entry.bookingId || null,
+      vehicleId: entry.vehicleId || null,
+      oldValue: entry.oldValue || null,
+      newValue: entry.newValue || null,
+      userId: String(entry.userId || ""),
+      userEmail: String(entry.userEmail || ""),
+      createdAt: new Date()
+    };
+    return await wixData.insert("OpsLog", item, { suppressAuth: true });
+  } catch (e) {
+    return { success: false, message: e?.message || String(e) };
+  }
+}

@@ -1,0 +1,547 @@
+{
+  "web-methods": {
+    "backend/bookingEngine.jsw": {
+      "getVehicleCategoriesCatalog": {
+        "siteOwner": {
+          "invoke": true
+        },
+        "siteMember": {
+          "invoke": true
+        },
+        "anonymous": {
+          "invoke": true
+        }
+      },
+      "getVehicleCategoryDetails": {
+        "siteOwner": {
+          "invoke": true
+        },
+        "siteMember": {
+          "invoke": true
+        },
+        "anonymous": {
+          "invoke": true
+        }
+      },
+      "getFleetModelsPreview": {
+        "siteOwner": {
+          "invoke": true
+        },
+        "siteMember": {
+          "invoke": true
+        },
+        "anonymous": {
+          "invoke": true
+        }
+      },
+      "createBooking": {
+        "siteOwner": {
+          "invoke": true
+        },
+        "siteMember": {
+          "invoke": true
+        },
+        "anonymous": {
+          "invoke": true
+        }
+      }
+    },
+    "backend/rentalContract.jsw": {
+      "getContract": {
+        "siteOwner": {
+          "invoke": true
+        },
+        "siteMember": {
+          "invoke": true
+        },
+        "anonymous": {
+          "invoke": true
+        }
+      },
+      "confirmBookingAnalysis": {
+        "siteOwner": {
+          "invoke": true
+        },
+        "siteMember": {
+          "invoke": true
+        },
+        "anonymous": {
+          "invoke": true
+        }
+      },
+      "saveContract": {
+        "siteOwner": {
+          "invoke": true
+        },
+        "siteMember": {
+          "invoke": true
+        },
+        "anonymous": {
+          "invoke": true
+        }
+      }
+    },
+    "backend/staffAccess.jsw": {
+      "resetStaffPassword": {
+        "siteOwner": {
+          "invoke": true
+        },
+        "siteMember": {
+          "invoke": true
+        },
+        "anonymous": {
+          "invoke": true
+        }
+      },
+      "inviteStaffUser": {
+        "siteOwner": {
+          "invoke": true
+        },
+        "siteMember": {
+          "invoke": true
+        },
+        "anonymous": {
+          "invoke": true
+        }
+      },
+      "reactivateStaffUser": {
+        "siteOwner": {
+          "invoke": true
+        },
+        "siteMember": {
+          "invoke": true
+        },
+        "anonymous": {
+          "invoke": true
+        }
+      },
+      "revokeOwnOtherSessions": {
+        "siteOwner": {
+          "invoke": true
+        },
+        "siteMember": {
+          "invoke": true
+        },
+        "anonymous": {
+          "invoke": true
+        }
+      },
+      "getStaffAccessSnapshot": {
+        "siteOwner": {
+          "invoke": true
+        },
+        "siteMember": {
+          "invoke": true
+        },
+        "anonymous": {
+          "invoke": true
+        }
+      },
+      "logoutStaff": {
+        "siteOwner": {
+          "invoke": true
+        },
+        "siteMember": {
+          "invoke": true
+        },
+        "anonymous": {
+          "invoke": true
+        }
+      },
+      "revokeStaffSessions": {
+        "siteOwner": {
+          "invoke": true
+        },
+        "siteMember": {
+          "invoke": true
+        },
+        "anonymous": {
+          "invoke": true
+        }
+      },
+      "getPublicLoginBootstrap": {
+        "siteOwner": {
+          "invoke": true
+        }
+      },
+      "loginStaff": {
+        "siteOwner": {
+          "invoke": true
+        },
+        "siteMember": {
+          "invoke": true
+        },
+        "anonymous": {
+          "invoke": true
+        }
+      },
+      "deactivateStaffUser": {
+        "siteOwner": {
+          "invoke": true
+        },
+        "siteMember": {
+          "invoke": true
+        },
+        "anonymous": {
+          "invoke": true
+        }
+      },
+      "upsertStaffRole": {
+        "siteOwner": {
+          "invoke": true
+        },
+        "siteMember": {
+          "invoke": true
+        },
+        "anonymous": {
+          "invoke": true
+        }
+      },
+      "getSessionState": {
+        "siteOwner": {
+          "invoke": true
+        },
+        "siteMember": {
+          "invoke": true
+        },
+        "anonymous": {
+          "invoke": true
+        }
+      },
+      "changeOwnPassword": {
+        "siteOwner": {
+          "invoke": true
+        },
+        "siteMember": {
+          "invoke": true
+        },
+        "anonymous": {
+          "invoke": true
+        }
+      },
+      "requestAccessRecovery": {
+        "siteOwner": {
+          "invoke": true
+        },
+        "siteMember": {
+          "invoke": true
+        },
+        "anonymous": {
+          "invoke": true
+        }
+      },
+      "getPublicAuthHealth": {
+        "siteOwner": {
+          "invoke": true
+        }
+      },
+      "setStaffPassword": {
+        "siteOwner": {
+          "invoke": true
+        },
+        "siteMember": {
+          "invoke": true
+        },
+        "anonymous": {
+          "invoke": true
+        }
+      },
+      "upsertStaffUser": {
+        "siteOwner": {
+          "invoke": true
+        },
+        "siteMember": {
+          "invoke": true
+        },
+        "anonymous": {
+          "invoke": true
+        }
+      }
+    },
+    "backend/pricingAdmin.jsw": {
+      "deleteCategoryRateRule": {
+        "siteOwner": {
+          "invoke": true
+        },
+        "siteMember": {
+          "invoke": true
+        },
+        "anonymous": {
+          "invoke": true
+        }
+      },
+      "deletePickupLocation": {
+        "siteOwner": {
+          "invoke": true
+        },
+        "siteMember": {
+          "invoke": true
+        },
+        "anonymous": {
+          "invoke": true
+        }
+      },
+      "upsertInsurancePlan": {
+        "siteOwner": {
+          "invoke": true
+        },
+        "siteMember": {
+          "invoke": true
+        },
+        "anonymous": {
+          "invoke": true
+        }
+      },
+      "deletePricingSeason": {
+        "siteOwner": {
+          "invoke": true
+        },
+        "siteMember": {
+          "invoke": true
+        },
+        "anonymous": {
+          "invoke": true
+        }
+      },
+      "deleteFleetVehicle": {
+        "siteOwner": {
+          "invoke": true
+        },
+        "siteMember": {
+          "invoke": true
+        },
+        "anonymous": {
+          "invoke": true
+        }
+      },
+      "deleteVehicleCategory": {
+        "siteOwner": {
+          "invoke": true
+        },
+        "siteMember": {
+          "invoke": true
+        },
+        "anonymous": {
+          "invoke": true
+        }
+      },
+      "upsertPricingSeason": {
+        "siteOwner": {
+          "invoke": true
+        },
+        "siteMember": {
+          "invoke": true
+        },
+        "anonymous": {
+          "invoke": true
+        }
+      },
+      "upsertFeeRule": {
+        "siteOwner": {
+          "invoke": true
+        },
+        "siteMember": {
+          "invoke": true
+        },
+        "anonymous": {
+          "invoke": true
+        }
+      },
+      "upsertFleetVehicle": {
+        "siteOwner": {
+          "invoke": true
+        },
+        "siteMember": {
+          "invoke": true
+        },
+        "anonymous": {
+          "invoke": true
+        }
+      },
+      "resetPricingDefaults": {
+        "siteOwner": {
+          "invoke": true
+        },
+        "siteMember": {
+          "invoke": true
+        },
+        "anonymous": {
+          "invoke": true
+        }
+      },
+      "deletePricingItem": {
+        "siteOwner": {
+          "invoke": true
+        },
+        "siteMember": {
+          "invoke": true
+        },
+        "anonymous": {
+          "invoke": true
+        }
+      },
+      "saveBusinessSettings": {
+        "siteOwner": {
+          "invoke": true
+        },
+        "siteMember": {
+          "invoke": true
+        },
+        "anonymous": {
+          "invoke": true
+        }
+      },
+      "upsertPickupLocation": {
+        "siteOwner": {
+          "invoke": true
+        },
+        "siteMember": {
+          "invoke": true
+        },
+        "anonymous": {
+          "invoke": true
+        }
+      },
+      "getPricingAdminSnapshot": {
+        "siteOwner": {
+          "invoke": true
+        },
+        "siteMember": {
+          "invoke": true
+        },
+        "anonymous": {
+          "invoke": true
+        }
+      },
+      "upsertCategoryRateRule": {
+        "siteOwner": {
+          "invoke": true
+        },
+        "siteMember": {
+          "invoke": true
+        },
+        "anonymous": {
+          "invoke": true
+        }
+      },
+      "seedPricingDefaults": {
+        "siteOwner": {
+          "invoke": true
+        },
+        "siteMember": {
+          "invoke": true
+        },
+        "anonymous": {
+          "invoke": true
+        }
+      },
+      "upsertExtraService": {
+        "siteOwner": {
+          "invoke": true
+        },
+        "siteMember": {
+          "invoke": true
+        },
+        "anonymous": {
+          "invoke": true
+        }
+      },
+      "upsertVehicleCategory": {
+        "siteOwner": {
+          "invoke": true
+        },
+        "siteMember": {
+          "invoke": true
+        },
+        "anonymous": {
+          "invoke": true
+        }
+      }
+    },
+    "backend/pricingCatalog.jsw": {
+      "getPublicPricingCatalog": {
+        "siteOwner": {
+          "invoke": true
+        },
+        "siteMember": {
+          "invoke": true
+        },
+        "anonymous": {
+          "invoke": true
+        }
+      }
+    },
+    "backend/bookingsBoard.jsw": {
+      "getBookingsBoardData": {
+        "siteOwner": {
+          "invoke": true
+        },
+        "siteMember": {
+          "invoke": true
+        },
+        "anonymous": {
+          "invoke": true
+        }
+      },
+      "setBookingBoardStatus": {
+        "siteOwner": {
+          "invoke": true
+        },
+        "siteMember": {
+          "invoke": true
+        },
+        "anonymous": {
+          "invoke": true
+        }
+      }
+    },
+    "backend/dailyOps.jsw": {
+      "getDailyOps": {
+        "siteOwner": {
+          "invoke": true
+        },
+        "siteMember": {
+          "invoke": true
+        },
+        "anonymous": {
+          "invoke": true
+        }
+      }
+    },
+    "backend/fleetCalendar.jsw": {
+      "getFleetCalendarData": {
+        "siteOwner": {
+          "invoke": true
+        },
+        "siteMember": {
+          "invoke": true
+        },
+        "anonymous": {
+          "invoke": true
+        }
+      },
+      "moveBookingVehicleOnly": {
+        "siteOwner": {
+          "invoke": true
+        },
+        "siteMember": {
+          "invoke": true
+        },
+        "anonymous": {
+          "invoke": true
+        }
+      },
+      "confirmAndAutoAssign": {
+        "siteOwner": {
+          "invoke": true
+        },
+        "siteMember": {
+          "invoke": true
+        },
+        "anonymous": {
+          "invoke": true
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,1544 @@
+<!doctype html>
+<html lang="el">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>DIAMOND Rent A Car | Επιλογή Κατηγορίας</title>
+<style>
+:root{
+  --bg:#ad874d;
+  --bg-deep:#8f6b38;
+  --surface:#e2cd97;
+  --surface-2:#efe1b9;
+  --surface-3:#f4ead0;
+  --card:#ead8a8;
+  --line:rgba(77,56,23,.14);
+  --text:#241a10;
+  --muted:#6c593a;
+  --blue:#3f758b;
+  --blue-deep:#2e6072;
+  --gold:#e7c66f;
+  --gold-soft:#f4dfa0;
+  --shadow:0 16px 34px rgba(34,21,6,.12);
+  --shadow-soft:0 10px 22px rgba(34,21,6,.08);
+  --container:1180px;
+  --radius-xl:28px;
+  --radius-lg:22px;
+  --radius-md:16px;
+  --radius-sm:12px;
+}
+*{box-sizing:border-box}
+html,body{
+  margin:0;
+  padding:0;
+  font-family:Inter,Arial,Helvetica,sans-serif;
+  color:var(--text);
+  background:
+    radial-gradient(circle at top left, rgba(255,255,255,.08), transparent 24%),
+    linear-gradient(180deg,var(--bg) 0%, var(--bg-deep) 100%);
+}
+body{overflow-x:hidden}
+a{text-decoration:none;color:inherit}
+button,input,select,textarea{font:inherit}
+.site-header{background:rgba(171,133,74,.82);border-bottom:1px solid rgba(255,255,255,.12);backdrop-filter:blur(8px)}
+.header-inner,.page{
+  width:min(var(--container), calc(100vw - 24px));
+  max-width:var(--container);
+  margin:0 auto;
+}
+.header-inner{
+  padding:12px 16px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:18px;
+}
+.page{padding:18px 0 40px}
+.brand{display:flex;flex-direction:column;gap:2px;color:#fff;min-width:0}
+.brand strong{font-size:17px;line-height:1;letter-spacing:-.03em;font-weight:900}
+.brand strong em{font-style:italic;font-weight:700;color:#f0e0ae}
+.brand span{font-size:11px;opacity:.92;text-transform:uppercase;letter-spacing:.22em}
+.header-nav{display:flex;align-items:center;justify-content:center;gap:10px}
+.header-nav a{
+  color:#fff;
+  font-size:14px;
+  font-weight:800;
+  padding:10px 14px;
+  border-radius:999px;
+  background:rgba(255,255,255,.10);
+  border:1px solid rgba(255,255,255,.12);
+}
+.header-phone{
+  background:linear-gradient(180deg,var(--gold-soft),var(--gold));
+  color:#4a3817;
+  padding:11px 18px;
+  border-radius:999px;
+  font-weight:900;
+  white-space:nowrap;
+  box-shadow:var(--shadow-soft);
+}
+
+.panel,.result-card,.empty-card,.filter-combined{
+  border:1px solid var(--line);
+  box-shadow:var(--shadow-soft);
+}
+.search-wrap{
+  margin-bottom:12px;
+  padding:8px;
+  border-radius:var(--radius-xl);
+  background:linear-gradient(180deg,rgba(228,209,159,.98),rgba(211,184,124,.98));
+}
+.search-bar{
+  border-radius:20px;
+  border:1px solid rgba(255,255,255,.22);
+  background:rgba(243,234,208,.44);
+  padding:10px 12px 12px;
+}
+.search-grid{
+  display:grid;
+  grid-template-columns:1.18fr .88fr .82fr;
+  gap:9px 12px;
+  align-items:end;
+}
+.field{display:flex;flex-direction:column;gap:4px}
+.field label{
+  font-size:10px;
+  font-weight:900;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  color:#5f4c2c;
+  padding-left:3px;
+}
+.field input,.field select{
+  width:100%;
+  height:44px;
+  border-radius:14px;
+  border:1px solid rgba(72,51,17,.10);
+  background:rgba(255,255,255,.92);
+  padding:0 13px;
+  color:var(--text);
+  outline:none;
+}
+.field input:focus,.field select:focus{
+  border-color:var(--blue);
+  box-shadow:0 0 0 3px rgba(63,117,139,.10);
+  background:#fff;
+}
+.panel-footer{
+  margin-top:8px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+}
+.search-note{
+  padding:0 4px;
+  color:#685536;
+  font-size:11.5px;
+  font-weight:700;
+  line-height:1.4;
+}
+
+.filter-combined{
+  margin-bottom:12px;
+  background:linear-gradient(180deg,rgba(244,233,200,.97),rgba(228,205,145,.96));
+  border-radius:22px;
+  padding:12px 14px;
+}
+.filter-row{
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr;
+  gap:14px;
+}
+.filter-slot{display:flex;flex-direction:column;gap:7px}
+.filter-title{
+  margin:0;
+  color:#665435;
+  font-size:11px;
+  font-weight:900;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+.filter-combined select{
+  width:100%;
+  height:44px;
+  border-radius:14px;
+  border:1px solid rgba(72,51,17,.10);
+  background:rgba(255,255,255,.85);
+  padding:0 12px;
+  color:var(--text);
+}
+.helper-note{
+  margin-top:8px;
+  color:#6a5737;
+  font-size:11.5px;
+  font-weight:700;
+}
+
+.list{display:grid;gap:18px}
+.result-card{
+  overflow:hidden;
+  border-radius:30px;
+  background:linear-gradient(180deg,rgba(244,233,200,.98),rgba(228,205,145,.98));
+}
+.result-main{display:grid;grid-template-columns:240px minmax(0,1fr)}
+.media-col{
+  position:relative;
+  padding:18px;
+  min-height:214px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:linear-gradient(180deg,#ddc48f 0%, #c49d5c 100%);
+}
+.media-col::after{
+  content:'';
+  position:absolute;
+  inset:0;
+  background:radial-gradient(circle at 50% 18%, rgba(255,255,255,.22), transparent 44%);
+  pointer-events:none;
+}
+.vehicle-badge{
+  position:absolute;
+  top:14px;
+  left:14px;
+  width:42px;
+  height:42px;
+  border-radius:999px;
+  background:rgba(255,255,255,.92);
+  color:var(--blue-deep);
+  font-weight:900;
+  font-size:14px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  z-index:1;
+}
+.vehicle-image{
+  width:100%;
+  max-width:216px;
+  max-height:152px;
+  object-fit:contain;
+  filter:drop-shadow(0 16px 18px rgba(0,0,0,.16));
+  position:relative;
+  z-index:1;
+}
+.content-col{padding:20px 22px 16px}
+.head-row{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) 170px;
+  gap:14px;
+  align-items:start;
+  margin-bottom:12px;
+}
+.vehicle-title{
+  margin:0;
+  font-size:42px;
+  line-height:1.02;
+  letter-spacing:-.04em;
+}
+.vehicle-title .similar{
+  display:inline-block;
+  margin-left:8px;
+  color:var(--muted);
+  font-size:17px;
+  font-weight:700;
+}
+.vehicle-copy{
+  margin:10px 0 0;
+  color:#5b4a30;
+  font-size:14px;
+  line-height:1.55;
+  font-weight:700;
+}
+.price-box{
+  text-align:right;
+  white-space:nowrap;
+  padding-top:2px;
+}
+.price-box .amount{
+  display:block;
+  font-size:34px;
+  line-height:1;
+  font-weight:900;
+  color:var(--blue-deep);
+}
+.price-box .sub{
+  display:block;
+  margin-top:6px;
+  color:#604f34;
+  font-size:14px;
+  font-weight:800;
+}
+.spec-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:10px;
+}
+.spec{
+  padding:12px 13px;
+  border-radius:15px;
+  background:rgba(255,255,255,.42);
+  border:1px solid rgba(0,0,0,.05);
+}
+.spec .k{
+  display:block;
+  color:#7a6948;
+  text-transform:uppercase;
+  letter-spacing:.08em;
+  font-size:10px;
+  font-weight:900;
+  margin-bottom:6px;
+}
+.spec .v{
+  display:block;
+  font-size:16px;
+  font-weight:850;
+  color:#2d2314;
+}
+.result-bottom{padding:0 16px 16px}
+.total-box{
+  width:100%;
+  border-radius:20px;
+  background:linear-gradient(180deg,var(--blue),var(--blue-deep));
+  color:#fff;
+  padding:16px 18px;
+}
+.total-stack{width:100%;display:grid;gap:8px}
+.total-row{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  gap:12px;
+  align-items:center;
+  padding:6px 0;
+  border-bottom:1px solid rgba(255,255,255,.12);
+}
+.total-row:last-child{border-bottom:0;padding-top:12px}
+.total-row .k{font-size:14px;font-weight:800;opacity:.97}
+.total-row .v{font-size:20px;line-height:1;font-weight:900;text-align:right}
+.total-row.grand .k{font-size:22px;opacity:1}
+.total-row.grand .v{font-size:38px}
+.card-footer{margin-top:12px}
+.cta{
+  width:100%;
+  height:60px;
+  border:0;
+  border-radius:16px;
+  background:linear-gradient(180deg,#f3de9d,#e7c66f);
+  color:#4b3815;
+  font-size:20px;
+  font-weight:900;
+  cursor:pointer;
+  box-shadow:0 12px 24px rgba(98,70,19,.12);
+}
+.empty-card{
+  background:linear-gradient(180deg,rgba(244,233,200,.98),rgba(228,205,145,.98));
+  border-radius:28px;
+  padding:26px;
+  text-align:center;
+}
+.empty-card h2{margin:0 0 8px;font-size:28px;letter-spacing:-.03em}
+.empty-card p{margin:0;color:var(--muted);font-size:15px;line-height:1.6;font-weight:700}
+
+@media (max-width: 1100px){
+  :root{ --container:1000px; }
+  .header-inner{padding:10px 14px;}
+  .header-phone{padding:10px 15px;font-size:14px;}
+  .header-nav a{font-size:13px;padding:9px 12px;}
+  .title-area h2{font-size:48px;}
+}
+@media (max-width: 900px){
+  :root{ --container:920px; }
+  .title-area h2{font-size:42px;}
+  .result-head{gap:12px;}
+  .spec-grid{gap:10px;}
+  .price-total-box{padding:16px 18px;}
+}
+
+
+:root{--container:1080px}
+.header-inner{padding:10px 14px}
+.header-nav a{font-size:13px;padding:9px 12px}
+.header-phone{padding:10px 15px;font-size:14px}
+.search-grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px 10px}
+.filter-row{grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.result-main{grid-template-columns:215px minmax(0,1fr)}
+.media-col{min-height:196px;padding:14px}
+.vehicle-image{max-width:190px;max-height:132px}
+.content-col{padding:16px 18px 14px}
+.head-row{grid-template-columns:minmax(0,1fr) 136px;gap:10px}
+.vehicle-title{font-size:clamp(30px,3.4vw,38px)}
+.vehicle-title .similar{font-size:15px;margin-left:6px}
+.vehicle-copy{font-size:13px;margin-top:8px}
+.price-box .amount{font-size:30px}.price-box .sub{font-size:13px}
+.spec-grid{gap:8px}.spec{padding:10px 11px}.spec .v{font-size:15px}
+.total-box{padding:14px 16px}.total-row .k{font-size:13px}.total-row .v{font-size:18px}.total-row.grand .k{font-size:20px}.total-row.grand .v{font-size:34px}
+.cta{height:56px;font-size:18px}
+@media (max-width:1024px){.header-inner{flex-wrap:wrap;justify-content:center}.header-nav{order:3;width:100%;justify-content:center}.header-phone{width:100%;text-align:center}.search-grid{grid-template-columns:1fr 1fr}.filter-row{grid-template-columns:1fr}.result-main{grid-template-columns:1fr}.media-col{min-height:180px}.head-row{grid-template-columns:1fr}.price-box{text-align:left}.spec-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:620px){.page{padding:12px 0 28px}.header-inner{padding:10px 12px}.search-grid,.filter-row,.spec-grid{grid-template-columns:1fr}.search-wrap,.filter-combined,.result-card,.empty-card{border-radius:22px}.content-col{padding:14px}.vehicle-title{font-size:28px}.total-row.grand .v{font-size:30px}.cta{height:54px;font-size:17px}}
+
+
+@media (max-width:760px){.page{width:min(var(--container), calc(100vw - 8px))}.footer-grid{grid-template-columns:1fr}.footer-bottom{padding:0 16px 18px}}
+.footer{margin-top:18px;background:linear-gradient(180deg,rgba(118,84,37,.78),rgba(104,74,32,.86));border:1px solid rgba(255,255,255,.08);border-radius:26px;box-shadow:0 12px 24px rgba(33,20,6,.12);overflow:hidden}
+.footer-grid{display:grid;grid-template-columns:1.15fr .85fr .85fr;gap:18px;padding:22px}
+.footer-brand{display:grid;gap:10px;color:#fff}.footer-brand strong{font-size:28px;line-height:.92;letter-spacing:-.04em}.footer-brand span{font-size:12px;letter-spacing:.18em;text-transform:uppercase;opacity:.9}
+.footer-col h5{margin:0 0 8px;font-size:14px;color:#f6e7bb;text-transform:uppercase;letter-spacing:.08em}.footer-col p,.footer-col a{display:block;margin:0 0 8px;color:rgba(255,255,255,.92);font-size:15px;line-height:1.55;text-decoration:none;font-weight:700}
+.footer-bottom{padding:0 22px 20px;color:rgba(255,255,255,.74);font-size:13px;font-weight:700}
+@media (max-width:760px){.footer{border-radius:22px}.footer-grid{grid-template-columns:1fr;padding:18px}.footer-bottom{padding:0 18px 18px}}
+
+
+/* Custom page-owned picker UI */
+.native-ui-hidden{
+  position:absolute !important;
+  width:1px !important;
+  height:1px !important;
+  padding:0 !important;
+  margin:-1px !important;
+  overflow:hidden !important;
+  clip:rect(0 0 0 0) !important;
+  clip-path:inset(50%) !important;
+  border:0 !important;
+  white-space:nowrap !important;
+}
+.custom-picker{
+  position:relative;
+  width:100%;
+}
+.custom-trigger{
+  width:100%;
+  min-height:58px;
+  border-radius:17px;
+  border:1px solid rgba(70,50,16,.12);
+  background:rgba(255,255,255,.9);
+  padding:0 16px;
+  color:var(--text, #1f1a13);
+  font-size:17px;
+  font-weight:700;
+  text-align:left;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  cursor:pointer;
+  box-shadow:none;
+}
+.custom-trigger::after{
+  content:'▾';
+  flex:0 0 auto;
+  color:rgba(67,51,26,.72);
+  font-size:15px;
+}
+.custom-picker.open .custom-trigger,
+.custom-trigger[aria-expanded="true"]{
+  border-color:var(--accent, #3f748a);
+  box-shadow:0 0 0 3px rgba(63,116,138,.14);
+  background:#fff;
+}
+.custom-trigger.is-placeholder{color:rgba(60,45,22,.72)}
+.custom-panel{
+  position:absolute;
+  top:calc(100% + 8px);
+  left:0;
+  right:0;
+  z-index:45;
+  display:none;
+  background:rgba(255,255,255,.98);
+  border:1px solid rgba(70,50,16,.14);
+  border-radius:18px;
+  box-shadow:0 20px 40px rgba(0,0,0,.18);
+  padding:10px;
+  max-height:320px;
+  overflow:auto;
+  overscroll-behavior:contain;
+}
+.custom-panel.open{display:block}
+
+.custom-panel-note{margin-top:10px;padding-top:10px;border-top:1px solid rgba(70,50,16,.08);display:grid;gap:4px}
+.custom-panel-note strong{font-size:13px;color:#4a3816;line-height:1.4}
+.custom-panel-note small{font-size:12px;color:rgba(74,56,22,.76);line-height:1.45}
+.custom-calendar-center{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;min-width:0}
+.calendar-jump{position:relative}
+.calendar-jump-trigger{border:1px solid rgba(70,50,16,.12);background:rgba(245,232,194,.55);color:var(--text,#1f1a13);font-size:14px;font-weight:800;border-radius:12px;padding:8px 12px;cursor:pointer}
+.calendar-jump-menu{display:none;position:absolute;top:calc(100% + 8px);left:0;z-index:90;background:#fff;border:1px solid rgba(70,50,16,.14);border-radius:16px;box-shadow:0 16px 34px rgba(21,18,14,.16);padding:10px;min-width:220px}
+.calendar-jump.open .calendar-jump-menu{display:grid}
+.calendar-jump-menu.month-menu{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.calendar-jump-option{border:0;border-radius:10px;background:rgba(245,232,194,.55);padding:10px 8px;font-size:13px;font-weight:800;color:var(--text,#1f1a13);cursor:pointer}
+.calendar-jump-option.is-selected{background:rgba(63,116,138,.14);color:var(--accent2,#2d6072)}
+.custom-options{display:grid;gap:6px}
+.custom-option{
+  width:100%;
+  border:0;
+  border-radius:12px;
+  background:rgba(245,232,194,.55);
+  color:var(--text, #1f1a13);
+  font-size:15px;
+  font-weight:700;
+  text-align:left;
+  padding:12px 14px;
+  cursor:pointer;
+}
+.custom-option:hover,
+.custom-option:focus-visible{background:rgba(231,191,105,.28);outline:none}
+.custom-option.is-selected{background:rgba(63,116,138,.14); color:var(--accent2, #2d6072)}
+.custom-calendar-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  margin-bottom:10px;
+}
+.custom-calendar-head strong{
+  font-size:15px;
+  color:var(--text, #1f1a13);
+}
+.custom-calendar-nav{
+  width:38px;
+  height:38px;
+  border-radius:12px;
+  border:1px solid rgba(70,50,16,.12);
+  background:rgba(245,232,194,.55);
+  color:var(--text, #1f1a13);
+  font-size:18px;
+  font-weight:900;
+  cursor:pointer;
+}
+.custom-calendar-weekdays,
+.custom-calendar-days{
+  display:grid;
+  grid-template-columns:repeat(7, minmax(0,1fr));
+  gap:6px;
+}
+.custom-calendar-weekdays span{
+  text-align:center;
+  font-size:11px;
+  font-weight:900;
+  text-transform:uppercase;
+  letter-spacing:.06em;
+  color:rgba(60,45,22,.72);
+  padding:4px 0;
+}
+.custom-day{
+  min-height:40px;
+  border:0;
+  border-radius:12px;
+  background:rgba(245,232,194,.55);
+  color:var(--text, #1f1a13);
+  font-size:14px;
+  font-weight:800;
+  cursor:pointer;
+}
+.custom-day:hover,
+.custom-day:focus-visible{background:rgba(231,191,105,.28);outline:none}
+.custom-day.is-selected{background:linear-gradient(180deg,var(--accent, #3f748a),var(--accent2, #2d6072));color:#fff}
+.custom-day.is-today{box-shadow:inset 0 0 0 2px rgba(63,116,138,.35)}
+.custom-day.is-disabled{background:rgba(0,0,0,.05);color:rgba(60,45,22,.35);cursor:not-allowed}
+.custom-day.is-empty{background:transparent;cursor:default}
+@media (max-width:620px){
+  .custom-trigger{min-height:54px;font-size:16px}
+  .custom-panel{padding:8px;border-radius:16px;max-height:300px}
+  .custom-option{padding:11px 12px;font-size:14px}
+}
+
+</style>
+</head>
+<body>
+<header class="site-header">
+  <div class="header-inner">
+    <a class="brand" href="/">
+      <strong>DIAMOND <em>Rent A Car</em></strong>
+      <span>Thessaloniki</span>
+    </a>
+    <nav class="header-nav">
+      <a href="/">Αρχική</a>
+      <a href="/categories">Οχήματα</a>
+      <a href="/options">Ασφάλειες &amp; extras</a>
+      <a href="/rental-terms">Όροι ενοικίασης</a>
+      <a href="/booking">Ολοκλήρωση</a>
+    </nav>
+    <a class="header-phone" href="tel:+302310000000">+30 2310 000 000</a>
+  </div>
+</header>
+
+<div class="page">
+  <section class="search-wrap panel">
+    <div class="search-bar">
+      <form id="searchForm">
+        <div class="search-grid">
+          <div class="field">
+            <label>Παραλαβή</label>
+            <select id="pickupLocation">
+              <option>Αεροδρόμιο Μακεδονία Θεσσαλονίκη</option>
+              <option>Κέντρο Θεσσαλονίκης</option>
+              <option>Λιμάνι Θεσσαλονίκης</option>
+              <option>Ξενοδοχείο Θεσσαλονίκη</option>
+              <option>ΟΣΕ Θεσσαλονίκης</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Ημερομηνία παραλαβής</label>
+            <input id="pickupDate" type="date" required />
+          </div>
+          <div class="field">
+            <label>Ώρα παραλαβής</label>
+            <select id="pickupTime" class="time-select" required></select>
+          </div>
+
+          <div class="field">
+            <label>Επιστροφή</label>
+            <select id="dropoffLocation">
+              <option>Αεροδρόμιο Μακεδονία Θεσσαλονίκη</option>
+              <option>Κέντρο Θεσσαλονίκης</option>
+              <option>Λιμάνι Θεσσαλονίκης</option>
+              <option>Ξενοδοχείο Θεσσαλονίκη</option>
+              <option>ΟΣΕ Θεσσαλονίκης</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Ημερομηνία επιστροφής</label>
+            <input id="dropoffDate" type="date" required />
+          </div>
+          <div class="field">
+            <label>Ώρα επιστροφής</label>
+            <select id="dropoffTime" class="time-select" required></select>
+          </div>
+        </div>
+        <div class="panel-footer">
+          <div class="search-note">Η λίστα και το σύνολο ενημερώνονται άμεσα μόλις αλλάζει ημερομηνία, ώρα, ηλικιακή ομάδα ή φίλτρο κατηγορίας.</div>
+        </div>
+      </form>
+    </div>
+  </section>
+
+  <section class="filter-combined">
+    <div class="filter-row">
+      <div class="filter-slot">
+        <p class="filter-title">Κατηγορίες οχημάτων</p>
+        <select id="category">
+          <option value="all">Όλες οι κατηγορίες</option>
+          <option value="A">Κατηγορία A</option>
+          <option value="B">Κατηγορία B</option>
+          <option value="LX">Κατηγορία LX</option>
+        </select>
+      </div>
+      <div class="filter-slot">
+        <p class="filter-title">Ηλικία οδηγού</p>
+        <select id="ageGroup">
+          <option value="23-69">23-69</option>
+          <option value="19-22">19-22</option>
+          <option value="70+">70+</option>
+        </select>
+      </div>
+      <div class="filter-slot">
+        <p class="filter-title">Ταξινόμηση</p>
+        <select id="sortSelect">
+          <option value="priceAsc">Τιμή: Χαμηλότερη → Υψηλό</option>
+          <option value="priceDesc">Τιμή: Υψηλότερη → Χαμηλό</option>
+          <option value="nameAsc">Όνομα: Α → Ω</option>
+        </select>
+      </div>
+    </div>
+    <div class="helper-note" id="categoryHint">Επιλεγμένη κατηγορία: Όλες</div>
+  </section>
+
+  <section class="list" id="list"></section>
+</div>
+
+<footer class="footer">
+  <div class="footer-grid">
+    <div class="footer-brand">
+      <strong>DIAMOND<br>Rent A Car</strong>
+      <span>Thessaloniki</span>
+      <p>Επαγγελματική εμπειρία ενοικίασης οχήματος με καθαρή ροή κράτησης, ξεκάθαρη τιμολόγηση και προσωπική επιβεβαίωση πριν την τελική ολοκλήρωση.</p>
+    </div>
+    <div class="footer-col">
+      <h5>Υπηρεσίες</h5>
+      <a href="/categories">Επιλογή οχήματος</a>
+      <a href="/options">Ασφάλειες & extras</a>
+      <a href="/booking">Ολοκλήρωση κράτησης</a>
+    </div>
+    <div class="footer-col">
+      <h5>Επικοινωνία</h5>
+      <a href="tel:+302310000000">+30 2310 000 000</a>
+      <a href="mailto:info@diamondrentacar.gr">info@diamondrentacar.gr</a>
+      <p>Θεσσαλονίκη, Ελλάδα</p>
+    </div>
+  </div>
+  <div class="footer-bottom">© DIAMOND Rent A Car · Thessaloniki · Όλα τα δικαιώματα διατηρούνται.</div>
+</footer>
+
+<script>
+const API_BASE = "/_functions";
+const ROUTES = { home: "/", categories: "/categories", options: "/options", booking: "/booking" };
+function normalizeRoute(path){
+  const raw = String(path || '').trim();
+  if(!raw) return ROUTES.home;
+  if(raw.startsWith('tel:') || raw.startsWith('mailto:') || raw.startsWith('#')) return raw;
+  if(/^https?:\/\//i.test(raw)){
+    try {
+      const url = new URL(raw);
+      const joined = `${url.pathname || ''}${url.search || ''}${url.hash || ''}`;
+      return joined || ROUTES.home;
+    } catch (err) {}
+  }
+  if(raw === '/checkout') return ROUTES.booking;
+  return raw;
+}
+function parseMessage(raw){
+  if(!raw) return null;
+  if(typeof raw === 'string'){
+    try { return JSON.parse(raw); } catch (err) { return null; }
+  }
+  return raw;
+}
+function isEmbedded(){
+  try { return window.parent && window.parent !== window; } catch (err) { return false; }
+}
+function goTo(path){
+  const target = normalizeRoute(path);
+  if(!target) return;
+  if(isEmbedded()){
+    try {
+      parent.postMessage({ type: "wix-booking-nav", path: target }, "*");
+      return;
+    } catch (err) {}
+  }
+  location.assign(target);
+}
+function bindRouteLinks(root = document){
+  const links = Array.from(root.querySelectorAll('a[href]'));
+  links.forEach((link) => {
+    const href = normalizeRoute(link.getAttribute('href'));
+    if(!href || href.startsWith('tel:') || href.startsWith('mailto:') || href.startsWith('#')) return;
+    link.setAttribute('href', href);
+    link.addEventListener('click', (event) => {
+      event.preventDefault();
+      goTo(href);
+    });
+  });
+}
+bindRouteLinks();
+const PAGE_ROUTES = { home: ROUTES.home, categories: ROUTES.categories, options: ROUTES.options, booking: ROUTES.booking };
+const BOOKING_STORAGE_KEY = "diamond-booking-search-v1";
+const LEGACY_BOOKING_STORAGE_KEY = "diamond_booking_search_v1";
+const PRICING_CATALOG_STORAGE_KEY = "diamond-pricing-catalog-public-v1";
+const VEHICLE_CATEGORIES_STORAGE_KEY = "diamond-vehicle-categories-catalog-v1";
+function qp(name){ return new URLSearchParams(location.search).get(name); }
+function safeRead(key, fallback = {}){
+  for(const store of [sessionStorage, localStorage]){
+    try{
+      const raw = store.getItem(key);
+      if(raw) return JSON.parse(raw);
+    }catch(err){}
+  }
+  return fallback;
+}
+function safeWrite(key, value){
+  const payload = JSON.stringify(value ?? null);
+  for(const store of [sessionStorage, localStorage]){
+    try { store.setItem(key, payload); } catch(err) {}
+  }
+}
+function pad(n){ return String(n).padStart(2,"0"); }
+function toDateInput(date){ return `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}`; }
+function toTimeInput(date){ return `${pad(date.getHours())}:${pad(date.getMinutes())}`; }
+function parseDateTime(value, fallback){
+  const raw = String(value || '').trim();
+  if(!raw) return new Date(fallback || Date.now());
+  const parsed = new Date(raw);
+  if(!Number.isNaN(parsed.getTime())) return parsed;
+  const fixed = raw.replace(' ', 'T');
+  const reparsed = new Date(fixed);
+  if(!Number.isNaN(reparsed.getTime())) return reparsed;
+  return new Date(fallback || Date.now());
+}
+function serializeLocalDateTime(date){
+  const d = new Date(date);
+  return `${toDateInput(d)}T${toTimeInput(d)}:00`;
+}
+function diffDays(a,b){ const ms = new Date(b) - new Date(a); return Math.max(1, Math.ceil(ms / (1000 * 60 * 60 * 24))); }
+function fmtMoney(value){ return new Intl.NumberFormat("el-GR", { style:"currency", currency:"EUR", minimumFractionDigits:2 }).format(Number(value) || 0); }
+function escapeHtml(value){ const map = {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}; return String(value ?? "").replace(/[&<>"']/g, char => map[char]); }
+function ageSurcharge(days, group){ const rule = lookupFeeRule('ageRange', group); if(rule) return Number(rule.amount || 0); if(group === '19-22') return 16; if(group === '70+') return 10; return 0; }
+function ageLabel(group){ if(group === '19-22') return 'Επασφάλιστρο ηλικίας (19-22)'; if(group === '70+') return 'Επασφάλιστρο ηλικίας (70+)'; return `Επασφάλιστρο ηλικίας${group ? ` (${group})` : ''}`; }
+function toNumber(value, fallback = 0){ const num = Number(value); return Number.isFinite(num) ? num : Number(fallback || 0); }
+function currentBusinessSettings(){ return pricingCatalog?.businessSettings || {}; }
+function nightWindowHours(){
+  const settings = currentBusinessSettings();
+  return {
+    startHour: toNumber(settings?.nightStartHour, 22),
+    endHour: toNumber(settings?.nightEndHour, 8)
+  };
+}
+function isNightTime(timeValue){
+  const raw = String(timeValue || '').trim();
+  const match = raw.match(/^(\d{1,2}):(\d{2})$/);
+  if(!match) return false;
+  const hour = Math.max(0, Math.min(23, Number(match[1] || 0)));
+  const { startHour, endHour } = nightWindowHours();
+  if(startHour > endHour) return hour >= startHour || hour < endHour;
+  return hour >= startHour && hour < endHour;
+}
+function nightRuleMeta(ruleType, fallbackLabel){
+  const direct = lookupFeeRule(ruleType);
+  const generic = lookupFeeRule('night');
+  const hit = direct || generic;
+  return {
+    label: String(hit?.label || fallbackLabel || 'Νυχτερινή χρέωση').trim(),
+    amount: toNumber(hit?.amount, 15)
+  };
+}
+function nightCharges(){
+  const rows = [];
+  const pickupTime = document.getElementById('pickupTime').value;
+  const dropoffTime = document.getElementById('dropoffTime').value;
+  if(isNightTime(pickupTime)){
+    const meta = nightRuleMeta('nightPickup', 'Νυχτερινή χρέωση παραλαβής');
+    rows.push({ label: meta.label, amount: meta.amount });
+  }
+  if(isNightTime(dropoffTime)){
+    const meta = nightRuleMeta('nightDropoff', 'Νυχτερινή χρέωση επιστροφής');
+    rows.push({ label: meta.label, amount: meta.amount });
+  }
+  return rows;
+}
+function populateTimeSelect(selectEl){
+  const current = selectEl.value;
+  selectEl.innerHTML = '';
+  for(let h=0; h<24; h++){
+    for(let m=0; m<60; m+=30){
+      const value = `${pad(h)}:${pad(m)}`;
+      const opt = document.createElement('option');
+      opt.value = value;
+      opt.textContent = value;
+      selectEl.appendChild(opt);
+    }
+  }
+  if(current && [...selectEl.options].some(o => o.value === current)) selectEl.value = current;
+  if (typeof window.refreshCustomControls === 'function' && selectEl.id) window.refreshCustomControls([selectEl.id]);
+}
+function normalizeCategoryKey(value){
+  return String(value || '').trim().toUpperCase();
+}
+function extractCategoryCode(value){
+  const raw = String(value || '').trim();
+  if(!raw) return '';
+  const match = raw.match(/^([A-Za-z0-9]+)\s*-/);
+  return normalizeCategoryKey(match ? match[1] : raw);
+}
+function categoryKeyOf(item){
+  return normalizeCategoryKey(item?.category || item?.categoryCode || item?.label || item?.title || item?.name || '');
+}
+function filterVehiclesByCategory(items, selectedCategory){
+  const key = normalizeCategoryKey(selectedCategory);
+  if(!key || key === 'ALL' || key === 'DEFAULT') return [...items];
+  return (items || []).filter((item) => categoryKeyOf(item) === key);
+}
+function syncCategoryOptions(items){
+  const current = normalizeCategoryKey(categorySelect.value || pendingCategory || category || 'all');
+  const categories = [...new Set((items || []).map(categoryKeyOf).filter(Boolean))];
+  categorySelect.innerHTML = `<option value="all">Όλες οι κατηγορίες</option>` + categories.map((key) => `<option value="${escapeHtml(key)}">${escapeHtml(key)}</option>`).join('');
+  if(current && current !== 'ALL' && categories.includes(current)) categorySelect.value = current;
+  else categorySelect.value = 'all';
+  categoryHint.textContent = `Επιλεγμένη κατηγορία: ${categorySelect.value === "all" ? "Όλες" : categorySelect.value}`;
+  if (typeof window.refreshCustomControls === 'function') window.refreshCustomControls(['category']);
+}
+
+const storedSearch = safeRead(BOOKING_STORAGE_KEY) || safeRead(LEGACY_BOOKING_STORAGE_KEY) || {};
+const pickup = qp("pickup") || storedSearch.pickup || serializeLocalDateTime(new Date());
+const dropoff = qp("dropoff") || storedSearch.dropoff || serializeLocalDateTime(new Date(Date.now() + 86400000));
+const pickupLocation = qp("pickupLocation") || storedSearch.pickupLocation || 'Αεροδρόμιο Μακεδονία Θεσσαλονίκη';
+const dropoffLocation = qp("dropoffLocation") || storedSearch.dropoffLocation || 'Αεροδρόμιο Μακεδονία Θεσσαλονίκη';
+const category = qp("category") || storedSearch.category || "all";
+const age = qp("age") || storedSearch.age || '23-69';
+
+let vehicles = [];
+let pricingCatalog = safeRead(PRICING_CATALOG_STORAGE_KEY, null);
+let vehiclesMeta = { displayMode: 'categories', modelsSource: 'fleet' };
+let embeddedVehicleItems = safeRead(VEHICLE_CATEGORIES_STORAGE_KEY, null);
+
+function getVehiclesPageMeta(){
+  const settings = getBusinessSettings();
+  const displayMode = String(vehiclesMeta.displayMode || settings.vehiclesPageDisplayMode || 'categories').trim().toLowerCase() === 'models' ? 'models' : 'categories';
+  const modelsSource = String(vehiclesMeta.modelsSource || settings.vehiclesPageModelsSource || 'fleet').trim().toLowerCase() === 'vehicles' ? 'vehicles' : 'fleet';
+  return { displayMode, modelsSource };
+}
+function isModelMode(){ return getVehiclesPageMeta().displayMode === 'models'; }
+function pageObjectLabel(){ return isModelMode() ? 'μοντέλα' : 'κατηγορίες'; }
+function selectionButtonLabel(){ return isModelMode() ? 'Επιλογή Μοντέλου' : 'Επιλογή Κατηγορίας'; }
+function cardCopy(vehicle){
+  if (isModelMode()) return `Προβολή ενδεικτικού μοντέλου${vehicle?.categoryLabel ? ` · ${vehicle.categoryLabel}` : ''} με καθαρή παρουσίαση τιμής και βασικών χαρακτηριστικών.`;
+  return 'Καθαρή παρουσίαση τιμής και βασικών χαρακτηριστικών ώστε ο πελάτης να επιλέγει κατηγορία εύκολα και γρήγορα.';
+}
+
+function getBusinessSettings(){
+  return (pricingCatalog && pricingCatalog.businessSettings) ? pricingCatalog.businessSettings : {};
+}
+function applyBusinessIdentity(){
+  const settings = getBusinessSettings();
+  const companyName = String(settings.companyName || 'DIAMOND Rent A Car').trim() || 'DIAMOND Rent A Car';
+  const companyCity = String(settings.companyCity || 'Thessaloniki').trim() || 'Thessaloniki';
+  const companyPhone = String(settings.companyPhone || '+30 2310 000 000').trim() || '+30 2310 000 000';
+  const companyEmail = String(settings.companyEmail || 'info@diamondrentacar.gr').trim() || 'info@diamondrentacar.gr';
+  const companyAddress = String(settings.companyAddress || 'Θεσσαλονίκη, Ελλάδα').trim() || 'Θεσσαλονίκη, Ελλάδα';
+  const companyTagline = String(settings.companyTagline || '').trim();
+  const footerNote = String(settings.footerNote || 'Όλα τα δικαιώματα διατηρούνται.').trim() || 'Όλα τα δικαιώματα διατηρούνται.';
+  document.querySelectorAll('.site-header .brand-text strong, .site-header .brand strong').forEach((el) => { el.textContent = companyName; });
+  document.querySelectorAll('.site-header .brand-text span, .site-header .brand span').forEach((el) => { el.textContent = companyCity; });
+  document.querySelectorAll('.header-phone, .footer a[href^="tel:"], .footer-col a[href^="tel:"]').forEach((el) => {
+    el.textContent = companyPhone;
+    try { el.setAttribute('href', `tel:${companyPhone.replace(/\s+/g, '')}`); } catch (err) {}
+  });
+  document.querySelectorAll('.footer a[href^="mailto:"], .footer-col a[href^="mailto:"]').forEach((el) => {
+    el.textContent = companyEmail;
+    try { el.setAttribute('href', `mailto:${companyEmail}`); } catch (err) {}
+  });
+  const footerBrandStrong = document.querySelector('.footer-brand strong');
+  if (footerBrandStrong) footerBrandStrong.textContent = companyName;
+  const footerBrandSpan = document.querySelector('.footer-brand span');
+  if (footerBrandSpan) footerBrandSpan.textContent = companyCity;
+  const footerAddress = document.querySelector('.footer-col:last-child p');
+  if (footerAddress) footerAddress.textContent = companyAddress;
+  const footerBottom = document.querySelector('.footer-bottom');
+  if (footerBottom) footerBottom.textContent = `© ${companyName} · ${companyCity} · ${footerNote}`;
+  const introTagline = document.querySelector('.intro-tagline');
+  if (introTagline && companyTagline) introTagline.textContent = companyTagline;
+}
+applyBusinessIdentity();
+let pendingCategory = category;
+let lastBookingContext = { pickup, dropoff, pickupLocation, dropoffLocation, category, age };
+let requestTimers = [];
+let missingDataTimer = null;
+const list = document.getElementById("list");
+const sortSelect = document.getElementById("sortSelect");
+const categorySelect = document.getElementById("category");
+const ageGroup = document.getElementById('ageGroup');
+const categoryHint = document.getElementById("categoryHint");
+
+populateTimeSelect(document.getElementById("pickupTime"));
+populateTimeSelect(document.getElementById("dropoffTime"));
+const pickupDateTime = parseDateTime(pickup, Date.now());
+const dropoffDateTime = parseDateTime(dropoff, Date.now() + 86400000);
+document.getElementById("pickupDate").value = toDateInput(pickupDateTime);
+document.getElementById("pickupTime").value = toTimeInput(pickupDateTime);
+document.getElementById("dropoffDate").value = toDateInput(dropoffDateTime);
+document.getElementById("dropoffTime").value = toTimeInput(dropoffDateTime);
+document.getElementById('pickupLocation').value = pickupLocation;
+document.getElementById('dropoffLocation').value = dropoffLocation;
+ageGroup.value = age || '23-69';
+categoryHint.textContent = `Επιλεγμένη κατηγορία: ${categorySelect.value === "all" ? "Όλες" : categorySelect.value}`;
+
+function lookupFeeRule(ruleType, audienceGroup = ''){
+  const rules = Array.isArray(pricingCatalog?.feeRules) ? pricingCatalog.feeRules : [];
+  return rules.find((rule) => String(rule?.ruleType || '').trim() === String(ruleType || '').trim() && String(rule?.audienceGroup || '').trim() === String(audienceGroup || '').trim())
+    || rules.find((rule) => String(rule?.ruleType || '').trim() === String(ruleType || '').trim())
+    || null;
+}
+function normalizeKey(value){ return String(value || '').trim().toLowerCase(); }
+function parseDateOnly(value){ const d = new Date(value); if(Number.isNaN(d.getTime())) return null; d.setHours(0,0,0,0); return d; }
+function seasonMatchesDate(date, season){
+  if(!(date instanceof Date) || Number.isNaN(date.getTime())) return false;
+  const start = parseDateOnly(season?.startDate);
+  const end = parseDateOnly(season?.endDate);
+  if(!start || !end) return false;
+  const check = new Date(date); check.setHours(0,0,0,0);
+  if(season?.repeatYearly){
+    const md=(d)=>({m:d.getUTCMonth()+1, day:d.getUTCDate()});
+    const s=md(start), e=md(end), c=md(check);
+    const sv=s.m*100+s.day, ev=e.m*100+e.day, cv=c.m*100+c.day;
+    return sv<=ev ? (cv>=sv && cv<=ev) : (cv>=sv || cv<=ev);
+  }
+  return check >= start && check <= end;
+}
+function resolveSeason(pickupDate){
+  const rows = Array.isArray(pricingCatalog?.pricingSeasons) ? pricingCatalog.pricingSeasons.filter((row)=>row && row.active !== false) : [];
+  const matches = rows.filter((row)=>seasonMatchesDate(pickupDate, row));
+  matches.sort((a,b)=> (Number(b?.priority||0)-Number(a?.priority||0)) || Number(a?.sortOrder||0)-Number(b?.sortOrder||0));
+  return matches[0] || null;
+}
+function resolveDynamicDailyPrice(vehicle, days){
+  const fallback = Number(vehicle?.price || 0);
+  const rules = Array.isArray(pricingCatalog?.categoryRateRules) ? pricingCatalog.categoryRateRules : [];
+  if(!rules.length) return fallback;
+  const code = normalizeCategoryKey(vehicle?.label || vehicle?.category);
+  const vehicleId = String(vehicle?.id || '');
+  const pickupDate = new Date(`${document.getElementById("pickupDate").value}T${document.getElementById("pickupTime").value}:00`);
+  const season = resolveSeason(pickupDate);
+  const candidates = rules.filter((rule)=>{
+    if(!rule || rule.active === false) return false;
+    const ruleCode = normalizeCategoryKey(rule.categoryCode || rule.category);
+    const ruleVehicleId = String(rule.vehicleCategoryId || '');
+    if(ruleCode && code && ruleCode !== code) return false;
+    if(!ruleCode && ruleVehicleId && vehicleId && ruleVehicleId !== vehicleId) return false;
+    const min = Math.max(1, Number(rule.minDays || 1));
+    const max = Math.max(0, Number(rule.maxDays || 0));
+    if(days < min) return false;
+    if(max > 0 && days > max) return false;
+    const ruleSeason = normalizeKey(rule.seasonKey || '');
+    if(season?.key) return !ruleSeason || ruleSeason === normalizeKey(season.key);
+    return !ruleSeason;
+  });
+  candidates.sort((a,b)=>{
+    const seasonA = Number(normalizeKey(a?.seasonKey || '') === normalizeKey(season?.key || ''));
+    const seasonB = Number(normalizeKey(b?.seasonKey || '') === normalizeKey(season?.key || ''));
+    if(seasonA !== seasonB) return seasonB - seasonA;
+    const minA = Math.max(1, Number(a?.minDays || 1));
+    const minB = Math.max(1, Number(b?.minDays || 1));
+    if(minA !== minB) return minB - minA;
+    const maxA = Math.max(0, Number(a?.maxDays || 0)) || 999999;
+    const maxB = Math.max(0, Number(b?.maxDays || 0)) || 999999;
+    return (maxA - minA) - (maxB - minB);
+  });
+  return Number(candidates[0]?.pricePerDay ?? fallback);
+}
+function locationFeeFor(value, kind){
+  const rows = Array.isArray(pricingCatalog?.pickupLocations) ? pricingCatalog.pickupLocations : [];
+  const target = normalizeKey(value);
+  if(!target) return 0;
+  const hit = rows.find((row)=>{
+    const type = normalizeKey(row?.locationType || 'both') || 'both';
+    if(type !== 'both' && type !== normalizeKey(kind)) return false;
+    return normalizeKey(row?.label) === target || normalizeKey(row?.key) === target;
+  });
+  return Number(hit?.extraFee || 0);
+}
+function populateLocationSelectsFromCatalog(){
+  const rows = Array.isArray(pricingCatalog?.pickupLocations) ? pricingCatalog.pickupLocations.filter((row)=>row && row.active !== false && row.publicVisible !== false) : [];
+  if(!rows.length) return;
+  const pickupSelect = document.getElementById('pickupLocation');
+  const dropoffSelect = document.getElementById('dropoffLocation');
+  const build = (type) => rows.filter((row)=>{ const t=normalizeKey(row.locationType || 'both') || 'both'; return t === 'both' || t === type; });
+  const pickupCurrent = pickupSelect.value;
+  const dropoffCurrent = dropoffSelect.value;
+  pickupSelect.innerHTML = build('pickup').map((row)=>`<option value="${escapeHtml(row.label || row.key || '')}">${escapeHtml(row.label || row.key || '')}</option>`).join('');
+  dropoffSelect.innerHTML = build('dropoff').map((row)=>`<option value="${escapeHtml(row.label || row.key || '')}">${escapeHtml(row.label || row.key || '')}</option>`).join('');
+  if([...pickupSelect.options].some((opt)=>opt.value===pickupCurrent)) pickupSelect.value = pickupCurrent;
+  if([...dropoffSelect.options].some((opt)=>opt.value===dropoffCurrent)) dropoffSelect.value = dropoffCurrent;
+  if (typeof window.refreshCustomControls === 'function') window.refreshCustomControls(['pickupLocation','dropoffLocation']);
+}
+function ageGroupSortValue(value){
+  const raw = String(value || '').trim();
+  if (!raw) return 9999;
+  if (raw.includes('+')) return Number(raw.replace(/\D+/g, '')) || 9999;
+  const match = raw.match(/(\d+)/);
+  return match ? Number(match[1]) : 9999;
+}
+function populateAgeSelectFromCatalog(){
+  const select = document.getElementById('ageGroup');
+  if(!select) return;
+  const current = select.value || age || '23-69';
+  const rules = Array.isArray(pricingCatalog?.feeRules) ? pricingCatalog.feeRules : [];
+  const groups = [...new Set(rules.filter((row)=>String(row?.ruleType || '').trim() === 'ageRange').map((row)=>String(row?.audienceGroup || '').trim()).filter(Boolean))];
+  if(!groups.includes('23-69')) groups.push('23-69');
+  groups.sort((a,b)=>ageGroupSortValue(a)-ageGroupSortValue(b));
+  select.innerHTML = groups.map((value)=>`<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join('');
+  if([...select.options].some((opt)=>opt.value===current)) select.value = current;
+  if (typeof window.refreshCustomControls === 'function') window.refreshCustomControls(['ageGroup']);
+}
+
+function applyBookingContext(query){
+  lastBookingContext = { ...(lastBookingContext || {}), ...(query || {}) };
+  const nextPickup = query?.pickup || query?.pickupDateTime;
+  const nextDropoff = query?.dropoff || query?.dropoffDateTime;
+  const nextPickupLocation = query?.pickupLocation;
+  const nextDropoffLocation = query?.dropoffLocation;
+  const nextAge = query?.age;
+  const nextCategory = query?.category;
+  if(nextPickup){
+    const dt = parseDateTime(nextPickup, Date.now());
+    document.getElementById("pickupDate").value = toDateInput(dt);
+    document.getElementById("pickupTime").value = toTimeInput(dt);
+  }
+  if(nextDropoff){
+    const dt = parseDateTime(nextDropoff, Date.now() + 86400000);
+    document.getElementById("dropoffDate").value = toDateInput(dt);
+    document.getElementById("dropoffTime").value = toTimeInput(dt);
+  }
+  if(nextPickupLocation) document.getElementById('pickupLocation').value = nextPickupLocation;
+  if(nextDropoffLocation) document.getElementById('dropoffLocation').value = nextDropoffLocation;
+  if(nextAge) ageGroup.value = nextAge;
+  if(nextCategory) pendingCategory = nextCategory;
+  if (typeof window.refreshCustomControls === 'function') window.refreshCustomControls(['pickupLocation','pickupDate','pickupTime','dropoffLocation','dropoffDate','dropoffTime','ageGroup']);
+}
+
+function currentDays(){
+  return diffDays(
+    new Date(`${document.getElementById("pickupDate").value}T${document.getElementById("pickupTime").value}:00`),
+    new Date(`${document.getElementById("dropoffDate").value}T${document.getElementById("dropoffTime").value}:00`)
+  );
+}
+function sortedVehicles(items, mode){
+  const arr = [...items];
+  const days = currentDays();
+  const priceOf = (item) => resolveDynamicDailyPrice(item, days);
+  if(mode === "priceDesc") arr.sort((a,b) => priceOf(b) - priceOf(a));
+  else if(mode === "nameAsc") arr.sort((a,b) => String(a.name || a.title || "").localeCompare(String(b.name || b.title || ""), "el"));
+  else arr.sort((a,b) => priceOf(a) - priceOf(b));
+  return arr;
+}
+function render(){
+  const filtered = sortedVehicles(vehicles, sortSelect.value);
+  if(!filtered.length){
+    list.innerHTML = `<div class="empty-card"><h2>Δεν βρέθηκαν διαθέσιμα ${escapeHtml(pageObjectLabel())}</h2><p>Δεν υπάρχουν ενεργά ${escapeHtml(pageObjectLabel())} οχημάτων για αυτή την αναζήτηση αυτή τη στιγμή.</p></div>`;
+    notifyHeight();
+    return;
+  }
+  const days = currentDays();
+  const ageExtra = ageSurcharge(days, ageGroup.value);
+  const nightRows = nightCharges();
+  const nightExtra = nightRows.reduce((sum, item) => sum + item.amount, 0);
+
+  list.innerHTML = filtered.map(vehicle => {
+    const dailyPrice = resolveDynamicDailyPrice(vehicle, days);
+    const baseTotal = Number((dailyPrice * days).toFixed(2));
+    const locationExtra = Number((locationFeeFor(document.getElementById('pickupLocation').value, 'pickup') + locationFeeFor(document.getElementById('dropoffLocation').value, 'dropoff')).toFixed(2));
+    const grandTotal = baseTotal + ageExtra + nightExtra + locationExtra;
+    const specs = vehicle.specs || {};
+    const copy = cardCopy(vehicle);
+    return `
+      <article class="result-card">
+        <div class="result-main">
+          <div class="media-col">
+            <div class="vehicle-badge">${escapeHtml(vehicle.categoryLabel || vehicle.label || vehicle.category || "-")}</div>
+            <img class="vehicle-image" src="${escapeHtml(vehicle.image || "")}" alt="${escapeHtml(vehicle.name || vehicle.title || "Όχημα")}">
+          </div>
+          <div class="content-col">
+            <div class="head-row">
+              <div>
+                <h2 class="vehicle-title">${escapeHtml(vehicle.name || vehicle.title || vehicle.model || "Vehicle")} <span class="similar">ή παρόμοιο</span></h2>
+                <p class="vehicle-copy">${escapeHtml(copy)}</p>
+              </div>
+              <div class="price-box">
+                <span class="amount">${fmtMoney(dailyPrice)}</span>
+                <span class="sub">ανά ημέρα</span>
+              </div>
+            </div>
+            <div class="spec-grid">
+              <div class="spec"><span class="k">Κιβώτιο</span><span class="v">${escapeHtml(specs.gearbox || "—")}</span></div>
+              <div class="spec"><span class="k">Καύσιμο</span><span class="v">${escapeHtml(specs.fuel || "—")}</span></div>
+              <div class="spec"><span class="k">Θέσεις</span><span class="v">${escapeHtml(specs.seats || "—")}</span></div>
+              <div class="spec"><span class="k">Βαλίτσες</span><span class="v">${escapeHtml(specs.bags || specs.luggage || "—")}</span></div>
+              <div class="spec"><span class="k">A/C</span><span class="v">${escapeHtml(specs.ac || "—")}</span></div>
+              <div class="spec"><span class="k">Πόρτες</span><span class="v">${escapeHtml(specs.doors || "—")}</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="result-bottom">
+          <div class="total-box">
+            <div class="total-stack">
+              <div class="total-row"><span class="k">Τιμή / ημέρα</span><span class="v">${fmtMoney(dailyPrice)}</span></div>
+              <div class="total-row"><span class="k">Ημέρες</span><span class="v">${days}</span></div>
+              ${ageExtra > 0 ? `<div class="total-row"><span class="k">${ageLabel(ageGroup.value)}</span><span class="v">${fmtMoney(ageExtra)}</span></div>` : ''}
+              ${nightRows.map(item => `<div class=\"total-row\"><span class=\"k\">${item.label}</span><span class=\"v\">${fmtMoney(item.amount)}</span></div>`).join('')}
+              ${locationExtra > 0 ? `<div class=\"total-row\"><span class=\"k\">Χρέωση τοποθεσιών</span><span class=\"v\">${fmtMoney(locationExtra)}</span></div>` : ''}
+              <div class=\"total-row grand\"><span class=\"k\">Σύνολο</span><span class=\"v\">${fmtMoney(grandTotal)}</span></div>
+            </div>
+          </div>
+          <div class="card-footer"><button class="cta" type="button" onclick="goBooking('${escapeHtml(vehicle.vehicleCategoryId || vehicle.id || "")}', '${escapeHtml(extractCategoryCode(vehicle.categoryCode || vehicle.label || vehicle.category || categorySelect.value || category || ""))}')">${escapeHtml(selectionButtonLabel())}</button></div>
+        </div>
+      </article>`;
+  }).join("");
+  notifyHeight();
+}
+function setLoading(message){
+  list.innerHTML = `<div class="empty-card"><h2>Φόρτωση ${escapeHtml(pageObjectLabel())}…</h2><p>${escapeHtml(message || `Ανακτούμε τα διαθέσιμα ${pageObjectLabel()} οχημάτων.`)}</p></div>`;
+  notifyHeight();
+}
+function setError(message){
+  list.innerHTML = `<div class="empty-card"><h2>Σφάλμα φόρτωσης</h2><p>${escapeHtml(message || `Δεν ήταν δυνατή η φόρτωση ${pageObjectLabel()}.`)}</p></div>`;
+  notifyHeight();
+}
+function clearRequestTimers(){
+  requestTimers.forEach((timer) => clearTimeout(timer));
+  requestTimers = [];
+  if(missingDataTimer){ clearTimeout(missingDataTimer); missingDataTimer = null; }
+}
+function requestEmbeddedData(){
+  if(!isEmbedded()) return;
+  try { parent.postMessage({ type: 'categories-ready' }, '*'); } catch (e) {}
+  try { parent.postMessage({ type: 'request-booking-context' }, '*'); } catch (e) {}
+  try { parent.postMessage({ type: 'request-pricing-catalog-data' }, '*'); } catch (e) {}
+  try { parent.postMessage({ type: 'request-vehicles-data' }, '*'); } catch (e) {}
+}
+function startEmbeddedHandshake(){
+  if(!isEmbedded()) return;
+  clearRequestTimers();
+  setLoading(`Αναμένουμε τα live δεδομένα ${pageObjectLabel()} από τη σελίδα Wix.`);
+  [0, 200, 600, 1200, 2200, 3800].forEach((delay) => {
+    requestTimers.push(setTimeout(requestEmbeddedData, delay));
+  });
+  missingDataTimer = setTimeout(() => {
+    if(!Array.isArray(embeddedVehicleItems) || !embeddedVehicleItems.length) setError(`Δεν ήρθαν ακόμα live δεδομένα ${pageObjectLabel()} από τη σελίδα Wix.`);
+  }, 12000);
+}
+window.addEventListener('message', (event) => {
+  const data = parseMessage(event && event.data);
+  if(!data) return;
+  if(data.type === 'booking-context' && data.query){
+    applyBookingContext(data.query || {});
+    updateState(false);
+    return;
+  }
+  if(data.type === 'pricing-catalog-data'){
+    pricingCatalog = data.catalog || pricingCatalog;
+    vehiclesMeta = { displayMode: String(pricingCatalog?.businessSettings?.vehiclesPageDisplayMode || 'categories').trim().toLowerCase() === 'models' ? 'models' : 'categories', modelsSource: String(pricingCatalog?.businessSettings?.vehiclesPageModelsSource || 'fleet').trim().toLowerCase() === 'vehicles' ? 'vehicles' : 'fleet' };
+    safeWrite(PRICING_CATALOG_STORAGE_KEY, pricingCatalog);
+    populateLocationSelectsFromCatalog();
+    populateAgeSelectFromCatalog();
+    applyBookingContext(lastBookingContext || {});
+    applyBusinessIdentity();
+    if(Array.isArray(embeddedVehicleItems)) {
+      vehicles = filterVehiclesByCategory(embeddedVehicleItems, categorySelect.value || pendingCategory || category);
+      render();
+    }
+    return;
+  }
+  if(data.type === 'vehicles-data'){
+    clearRequestTimers();
+    embeddedVehicleItems = Array.isArray(data.items) ? data.items : [];
+    vehiclesMeta = { ...(vehiclesMeta || {}), ...(data.meta || {}) };
+    safeWrite(VEHICLE_CATEGORIES_STORAGE_KEY, embeddedVehicleItems);
+    syncCategoryOptions(embeddedVehicleItems);
+    vehicles = filterVehiclesByCategory(embeddedVehicleItems, categorySelect.value || pendingCategory || category);
+    render();
+    return;
+  }
+  if(data.type === 'vehicles-data-error'){
+    clearRequestTimers();
+    setError(data.message || 'Δεν ήταν δυνατή η ανάκτηση κατηγοριών από τη σελίδα Wix.');
+  }
+});
+
+async function loadVehicles(){
+  if(isEmbedded()){
+    startEmbeddedHandshake();
+    return;
+  }
+  setLoading(`Ανακτούμε τα διαθέσιμα ${pageObjectLabel()} οχημάτων.`);
+  try{
+    const res = await fetch(`${API_BASE}/vehicles?category=${encodeURIComponent(categorySelect.value || category)}`);
+    const data = await res.json();
+    if(!data.success) throw new Error(data.message || "Vehicle load failed");
+    embeddedVehicleItems = data.items || [];
+    syncCategoryOptions(embeddedVehicleItems);
+    vehicles = filterVehiclesByCategory(embeddedVehicleItems, categorySelect.value || pendingCategory || category);
+    render();
+  }catch(err){
+    setError(err.message || `Δεν ήταν δυνατή η φόρτωση ${pageObjectLabel()}.`);
+  }
+}
+function updateState(updateUrl = true){
+  categoryHint.textContent = `Επιλεγμένη κατηγορία: ${categorySelect.value === "all" ? "Όλες" : categorySelect.value}`;
+  const pickupIso = new Date(`${document.getElementById("pickupDate").value}T${document.getElementById("pickupTime").value}:00`);
+  const dropoffIso = new Date(`${document.getElementById("dropoffDate").value}T${document.getElementById("dropoffTime").value}:00`);
+  const payload = {
+    pickup: serializeLocalDateTime(pickupIso),
+    dropoff: serializeLocalDateTime(dropoffIso),
+    pickupLocation: document.getElementById('pickupLocation').value,
+    dropoffLocation: document.getElementById('dropoffLocation').value,
+    category: categorySelect.value,
+    age: ageGroup.value
+  };
+  try{ sessionStorage.setItem(BOOKING_STORAGE_KEY, JSON.stringify(payload)); }catch(err){}
+  try{ localStorage.setItem(BOOKING_STORAGE_KEY, JSON.stringify(payload)); }catch(err){}
+  if(updateUrl){
+    const url = new URL(location.href);
+    url.searchParams.set('pickup', payload.pickup);
+    url.searchParams.set('dropoff', payload.dropoff);
+    url.searchParams.set('pickupLocation', payload.pickupLocation);
+    url.searchParams.set('dropoffLocation', payload.dropoffLocation);
+    url.searchParams.set('category', payload.category);
+    url.searchParams.set('age', payload.age);
+    history.replaceState({}, '', url);
+  }
+}
+sortSelect.addEventListener("change", () => { updateState(); render(); });
+ageGroup.addEventListener('change', () => { updateState(); render(); });
+['pickupDate','pickupTime','dropoffDate','dropoffTime','pickupLocation','dropoffLocation'].forEach(id => {
+  document.getElementById(id).addEventListener('change', () => { updateState(); render(); });
+});
+categorySelect.addEventListener("change", () => {
+  updateState();
+  if(Array.isArray(embeddedVehicleItems)){
+    vehicles = filterVehiclesByCategory(embeddedVehicleItems, categorySelect.value);
+    render();
+  } else {
+    loadVehicles();
+  }
+});
+function goBooking(vehicleId, vehicleCategoryCode){
+  const pickupIso = new Date(`${document.getElementById("pickupDate").value}T${document.getElementById("pickupTime").value}:00`);
+  const dropoffIso = new Date(`${document.getElementById("dropoffDate").value}T${document.getElementById("dropoffTime").value}:00`);
+  const pickupLocation = document.getElementById('pickupLocation').value;
+  const dropoffLocation = document.getElementById('dropoffLocation').value;
+  const payload = {
+    pickup: serializeLocalDateTime(pickupIso),
+    dropoff: serializeLocalDateTime(dropoffIso),
+    pickupLocation,
+    dropoffLocation,
+    category: categorySelect.value,
+    age: ageGroup.value
+  };
+  try{ sessionStorage.setItem(BOOKING_STORAGE_KEY, JSON.stringify(payload)); }catch(err){}
+  try{ localStorage.setItem(BOOKING_STORAGE_KEY, JSON.stringify(payload)); }catch(err){}
+  goTo(`${PAGE_ROUTES.options}?vehicle=${encodeURIComponent(vehicleId)}&pickup=${encodeURIComponent(payload.pickup)}&dropoff=${encodeURIComponent(payload.dropoff)}&pickupLocation=${encodeURIComponent(pickupLocation)}&dropoffLocation=${encodeURIComponent(dropoffLocation)}&category=${encodeURIComponent(extractCategoryCode(vehicleCategoryCode || categorySelect.value))}&age=${encodeURIComponent(ageGroup.value)}`);
+}
+initPageOwnedControls([
+  { id:'pickupLocation', type:'select', placeholder:'Επιλογή τοποθεσίας' },
+  { id:'pickupDate', type:'date', placeholder:'Επιλογή ημερομηνίας' },
+  { id:'pickupTime', type:'select', placeholder:'Επιλογή ώρας' },
+  { id:'dropoffLocation', type:'select', placeholder:'Επιλογή τοποθεσίας' },
+  { id:'dropoffDate', type:'date', placeholder:'Επιλογή ημερομηνίας' },
+  { id:'dropoffTime', type:'select', placeholder:'Επιλογή ώρας' },
+  { id:'category', type:'select', placeholder:'Κατηγορία οχήματος' },
+  { id:'ageGroup', type:'select', placeholder:'Ηλικία οδηγού' },
+  { id:'sortSelect', type:'select', placeholder:'Ταξινόμηση' }
+]);
+if(Array.isArray(embeddedVehicleItems)){
+  syncCategoryOptions(embeddedVehicleItems);
+  populateLocationSelectsFromCatalog();
+  populateAgeSelectFromCatalog();
+  applyBookingContext(lastBookingContext || {});
+  vehicles = filterVehiclesByCategory(embeddedVehicleItems, categorySelect.value || pendingCategory || category);
+  render();
+}
+loadVehicles();
+if (typeof window.refreshCustomControls === 'function') window.refreshCustomControls();
+
+
+function escapeCustomUi(value){
+  return String(value ?? '').replace(/[&<>"']/g, (ch) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[ch]));
+}
+function initPageOwnedControls(configs){
+  if (window.__diamondCustomUiInitialized) {
+    if (typeof window.refreshCustomControls === 'function') window.refreshCustomControls();
+    return;
+  }
+  window.__diamondCustomUiInitialized = true;
+  const MONTHS = ['Ιανουάριος','Φεβρουάριος','Μάρτιος','Απρίλιος','Μάιος','Ιούνιος','Ιούλιος','Αύγουστος','Σεπτέμβριος','Οκτώβριος','Νοέμβριος','Δεκέμβριος'];
+  const WEEKDAYS = ['Δε','Τρ','Τε','Πε','Πα','Σα','Κυ'];
+  const controls = new Map();
+
+  const toIsoDate = (date) => {
+    const d = new Date(date);
+    if (Number.isNaN(d.getTime())) return '';
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+  const parseIsoDate = (value) => {
+    const raw = String(value || '').trim();
+    if (!raw) return null;
+    const hit = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!hit) return null;
+    const out = new Date(Number(hit[1]), Number(hit[2]) - 1, Number(hit[3]));
+    out.setHours(0,0,0,0);
+    return Number.isNaN(out.getTime()) ? null : out;
+  };
+  const formatDateDisplay = (value) => {
+    const d = parseIsoDate(value);
+    if (!d) return '';
+    return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+  };
+  const dispatchNativeChange = (el) => {
+    el.dispatchEvent(new Event('input', { bubbles:true }));
+    el.dispatchEvent(new Event('change', { bubbles:true }));
+  };
+  const closeAll = (exceptId = '') => {
+    controls.forEach((ctrl, id) => {
+      if (exceptId && id === exceptId) return;
+      ctrl.wrapper.classList.remove('open');
+      ctrl.panel.classList.remove('open');
+      ctrl.trigger.setAttribute('aria-expanded', 'false');
+    });
+  };
+  const eventInsideCustomPicker = (event) => {
+    if (!event) return false;
+    if (typeof event.composedPath === 'function') {
+      const path = event.composedPath();
+      if (Array.isArray(path) && path.some((node) => node && node.classList && node.classList.contains('custom-picker'))) return true;
+    }
+    const target = event.target;
+    return !!(target && target.closest && target.closest('.custom-picker'));
+  };
+  const ensureWrapper = (nativeEl, kind) => {
+    nativeEl.classList.add('native-ui-hidden');
+    let wrapper = nativeEl.nextElementSibling;
+    if (!wrapper || !wrapper.classList || !wrapper.classList.contains('custom-picker')) {
+      wrapper = document.createElement('div');
+      wrapper.className = `custom-picker custom-picker-${kind}`;
+      nativeEl.insertAdjacentElement('afterend', wrapper);
+    }
+    wrapper.innerHTML = '<button type="button" class="custom-trigger" aria-expanded="false"></button><div class="custom-panel"></div>';
+    return {
+      wrapper,
+      trigger: wrapper.querySelector('.custom-trigger'),
+      panel: wrapper.querySelector('.custom-panel')
+    };
+  };
+  function getTimePickerMetaHtml(){
+    const settings = (pricingCatalog && pricingCatalog.businessSettings) ? pricingCatalog.businessSettings : {};
+    const hours = String(settings.operatingHoursLabel || '09:00 - 21:00').trim();
+    const note = String(settings.afterHoursNotice || 'Για εξυπηρέτηση εκτός ωραρίου ισχύουν επιπλέον χρεώσεις.').trim();
+    return `<div class="custom-panel-note">${hours ? `<strong>Ώρες λειτουργίας: ${escapeCustomUi(hours)}</strong>` : ''}${note ? `<small>${escapeCustomUi(note)}</small>` : ''}</div>`;
+  }
+  const syncSelect = (ctrl) => {
+    const nativeEl = ctrl.native;
+    const triggerText = nativeEl.options[nativeEl.selectedIndex]?.textContent?.trim() || nativeEl.getAttribute('placeholder') || 'Επιλογή';
+    ctrl.trigger.textContent = triggerText;
+    ctrl.trigger.classList.toggle('is-placeholder', !nativeEl.value);
+    ctrl.trigger.disabled = nativeEl.disabled;
+    const baseSignature = [...nativeEl.options].map((opt) => `${opt.value}::${opt.textContent}::${opt.disabled?'1':'0'}`).join('||');
+    const signature = ctrl.flavor === 'time' ? `${baseSignature}##${pricingCatalog?.businessSettings?.operatingHoursLabel || ''}##${pricingCatalog?.businessSettings?.afterHoursNotice || ''}` : baseSignature;
+    if (signature !== ctrl.signature) {
+      ctrl.signature = signature;
+      const noteHtml = ctrl.flavor === 'time' ? getTimePickerMetaHtml() : '';
+      ctrl.panel.innerHTML = `<div class="custom-options">${[...nativeEl.options].map((opt) => `<button type="button" class="custom-option${opt.value === nativeEl.value ? ' is-selected' : ''}" data-value="${escapeCustomUi(opt.value)}" ${opt.disabled ? 'disabled' : ''}>${escapeCustomUi(opt.textContent || '')}</button>`).join('')}</div>${noteHtml}`;
+      ctrl.panel.querySelectorAll('.custom-option').forEach((btn) => {
+        btn.addEventListener('click', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          nativeEl.value = btn.dataset.value || '';
+          dispatchNativeChange(nativeEl);
+          syncSelect(ctrl);
+          closeAll();
+        });
+      });
+    } else {
+      ctrl.panel.querySelectorAll('.custom-option').forEach((btn) => btn.classList.toggle('is-selected', btn.dataset.value === nativeEl.value));
+    }
+  };
+  const renderCalendar = (ctrl) => {
+    const nativeEl = ctrl.native;
+    const selected = parseIsoDate(nativeEl.value);
+    const minDate = parseIsoDate(nativeEl.min);
+    const maxDate = parseIsoDate(nativeEl.max);
+    const monthRef = ctrl.monthRef || selected || minDate || new Date();
+    const viewDate = new Date(monthRef.getFullYear(), monthRef.getMonth(), 1);
+    ctrl.monthRef = viewDate;
+    const firstWeekday = (viewDate.getDay() + 6) % 7;
+    const daysInMonth = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 0).getDate();
+    const todayIso = toIsoDate(new Date());
+    let daysHtml = '';
+    for (let i = 0; i < firstWeekday; i += 1) daysHtml += '<button type="button" class="custom-day is-empty" disabled></button>';
+    for (let day = 1; day <= daysInMonth; day += 1) {
+      const candidate = new Date(viewDate.getFullYear(), viewDate.getMonth(), day);
+      candidate.setHours(0,0,0,0);
+      const iso = toIsoDate(candidate);
+      const disabled = (minDate && candidate < minDate) || (maxDate && candidate > maxDate);
+      const cls = [
+        'custom-day',
+        iso === nativeEl.value ? 'is-selected' : '',
+        iso === todayIso ? 'is-today' : '',
+        disabled ? 'is-disabled' : ''
+      ].filter(Boolean).join(' ');
+      daysHtml += `<button type="button" class="${cls}" data-date="${iso}" ${disabled ? 'disabled' : ''}>${day}</button>`;
+    }
+    const monthJump = `<div class="calendar-jump" data-jump="month"><button type="button" class="calendar-jump-trigger" data-open-jump="month">${MONTHS[viewDate.getMonth()]}</button><div class="calendar-jump-menu month-menu">${MONTHS.map((label, idx) => `<button type="button" class="calendar-jump-option${idx === viewDate.getMonth() ? ' is-selected' : ''}" data-jump-value="${idx}" data-jump-kind="month">${label}</button>`).join('')}</div></div>`;
+    ctrl.panel.innerHTML = `
+      <div class="custom-calendar-head">
+        <button type="button" class="custom-calendar-nav" data-step="-1">‹</button>
+        <div class="custom-calendar-center">${monthJump}<strong>${viewDate.getFullYear()}</strong></div>
+        <button type="button" class="custom-calendar-nav" data-step="1">›</button>
+      </div>
+      <div class="custom-calendar-weekdays">${WEEKDAYS.map((day) => `<span>${day}</span>`).join('')}</div>
+      <div class="custom-calendar-days">${daysHtml}</div>
+    `;
+    ctrl.panel.querySelectorAll('[data-open-jump]').forEach((btn) => {
+      btn.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const box = btn.closest('.calendar-jump');
+        ctrl.panel.querySelectorAll('.calendar-jump').forEach((item) => { if (item !== box) item.classList.remove('open'); });
+        if (box) box.classList.toggle('open');
+      });
+    });
+    ctrl.panel.querySelectorAll('[data-jump-value]').forEach((btn) => {
+      btn.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        ctrl.monthRef = new Date(viewDate.getFullYear(), Number(btn.dataset.jumpValue || viewDate.getMonth()), 1);
+        renderCalendar(ctrl);
+      });
+    });
+    ctrl.panel.querySelectorAll('.custom-calendar-nav').forEach((btn) => {
+      btn.addEventListener('click', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+        ctrl.monthRef = new Date(viewDate.getFullYear(), viewDate.getMonth() + Number(btn.dataset.step || '0'), 1);
+        renderCalendar(ctrl);
+      });
+    });
+    ctrl.panel.querySelectorAll('.custom-day[data-date]').forEach((btn) => {
+      btn.addEventListener('click', (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+        nativeEl.value = btn.dataset.date || '';
+        dispatchNativeChange(nativeEl);
+        syncDate(ctrl);
+        closeAll();
+      });
+    });
+  };
+  const syncDate = (ctrl) => {
+    const nativeEl = ctrl.native;
+    ctrl.trigger.textContent = formatDateDisplay(nativeEl.value) || ctrl.placeholder || 'Επιλογή ημερομηνίας';
+    ctrl.trigger.classList.toggle('is-placeholder', !nativeEl.value);
+    ctrl.trigger.disabled = nativeEl.disabled;
+    ctrl.monthRef = parseIsoDate(nativeEl.value) || parseIsoDate(nativeEl.min) || new Date();
+    if (ctrl.panel.classList.contains('open')) renderCalendar(ctrl);
+  };
+  configs.forEach((config) => {
+    const nativeEl = document.getElementById(config.id) || document.querySelector(config.selector || '');
+    if (!nativeEl || controls.has(config.id)) return;
+    const base = ensureWrapper(nativeEl, config.type);
+    const ctrl = { id: config.id, native: nativeEl, type: config.type, wrapper: base.wrapper, trigger: base.trigger, panel: base.panel, placeholder: config.placeholder || '', flavor: config.flavor || base.wrapper.dataset.pickerFlavor || '' };
+    controls.set(config.id, ctrl);
+    ctrl.wrapper.addEventListener('pointerdown', (event) => event.stopPropagation());
+    ctrl.wrapper.addEventListener('click', (event) => event.stopPropagation());
+    ctrl.trigger.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (ctrl.panel.classList.contains('open')) { closeAll(); return; }
+      closeAll(ctrl.id);
+      ctrl.wrapper.classList.add('open');
+      ctrl.panel.classList.add('open');
+      ctrl.trigger.setAttribute('aria-expanded', 'true');
+      if (ctrl.type === 'date') renderCalendar(ctrl);
+      else syncSelect(ctrl);
+    });
+    nativeEl.addEventListener('change', () => {
+      if (ctrl.type === 'date') syncDate(ctrl); else syncSelect(ctrl);
+    });
+    if (ctrl.type === 'date') syncDate(ctrl); else syncSelect(ctrl);
+  });
+  document.addEventListener('pointerdown', (event) => {
+    if (!eventInsideCustomPicker(event)) closeAll();
+  });
+  document.addEventListener('click', (event) => {
+    if (!eventInsideCustomPicker(event)) closeAll();
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') closeAll();
+  });
+  window.refreshCustomControls = (ids) => {
+    const allow = Array.isArray(ids) && ids.length ? new Set(ids) : null;
+    controls.forEach((ctrl, id) => {
+      if (allow && !allow.has(id)) return;
+      if (ctrl.type === 'date') syncDate(ctrl); else syncSelect(ctrl);
+    });
+  };
+}
+
+function notifyHeight(){
+  const h = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
+  try { if (window.frameElement) window.frameElement.style.height = h + 'px'; } catch (e) {}
+  try { parent.postMessage({ type:'wix-booking-height', height:h }, '*'); } catch (e) {}
+}
+window.addEventListener('load', () => { notifyHeight(); setTimeout(notifyHeight, 250); });
+window.addEventListener('resize', notifyHeight);
+try { new ResizeObserver(notifyHeight).observe(document.body); } catch (e) {}
+
+</script>
+</body>
+</html>

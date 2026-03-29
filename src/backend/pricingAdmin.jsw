@@ -1,0 +1,715 @@
+import wixData from 'wix-data';
+import { PRICING_COLLECTIONS, clearPricingCatalogCache, getFallbackCatalogSnapshot, getPricingCatalog } from 'backend/pricingCatalog.jsw';
+import { requireStaffAccess } from 'backend/staffAccess.jsw';
+import { getVehicleCategoriesCatalog } from 'backend/bookingEngine';
+
+const AUDIT_COLLECTION = 'StaffAuditLog';
+const VEHICLE_CATEGORIES_COLLECTION = 'Vehicles';
+const FLEET_COLLECTION = 'Fleet';
+
+function text(value, fallback = ''){ const out = String(value ?? '').trim(); return out || fallback; }
+function toNumber(value, fallback = 0){ const num = Number(value); return Number.isFinite(num) ? num : fallback; }
+function readBool(value, fallback = false){ if (typeof value === 'boolean') return value; if (typeof value === 'number') return value !== 0; const t = String(value ?? '').trim().toLowerCase(); if (!t) return fallback; return ['1','true','yes','y','on'].includes(t); }
+function cleanId(value){ const raw = String(value ?? '').trim(); return raw || ''; }
+function slugKey(value){ return String(value ?? '').trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').replace(/_{2,}/g, '_').toLowerCase(); }
+async function queryAllRows(collectionName, includeFields = []){
+  try {
+    let q = wixData.query(collectionName).limit(1000);
+    for (const field of (includeFields || [])) {
+      try { q = q.include(field); } catch (_) {}
+    }
+    const res = await q.find({ suppressAuth: true, suppressHooks: true });
+    return Array.isArray(res?.items) ? res.items : [];
+  } catch (_) {
+    return [];
+  }
+}
+
+async function requirePricingView(authToken){ return requireStaffAccess({ sessionToken: authToken, area: 'pricing', action: 'View' }); }
+async function requirePricingEdit(authToken){ return requireStaffAccess({ sessionToken: authToken, area: 'pricing', action: 'Edit' }); }
+
+async function writePricingAudit(actor = {}, action = '', entityType = 'pricing', entityId = '', oldValue = null, newValue = null, summary = '') {
+  try {
+    await wixData.insert(AUDIT_COLLECTION, {
+      entityType: text(entityType, 'pricing'),
+      entityId: text(entityId),
+      action: text(action),
+      summary: text(summary),
+      oldValue: oldValue == null ? '' : JSON.stringify(oldValue),
+      newValue: newValue == null ? '' : JSON.stringify(newValue),
+      actorEmail: text(actor?.email).toLowerCase(),
+      actorName: text(actor?.fullName || actor?.name || actor?.email),
+      createdAt: new Date(),
+      retentionUntil: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
+    });
+  } catch (_) {}
+}
+
+async function queryFirstByField(collectionName, fieldName, value, includeFields = []){
+  if (!text(value)) return null;
+  try {
+    let q = wixData.query(collectionName).eq(fieldName, value).limit(1);
+    for (const field of (includeFields || [])) {
+      try { q = q.include(field); } catch (_) {}
+    }
+    const res = await q.find({ suppressAuth: true, suppressHooks: true });
+    return res?.items?.[0] || null;
+  } catch (_) {
+    return null;
+  }
+}
+
+async function queryRowsByNormalizedKey(collectionName, key){
+  const norm = slugKey(key);
+  if (!norm) return [];
+  const rows = await queryAllRows(collectionName);
+  return rows.filter((row) => slugKey(row?.key || row?.label || row?.title) === norm);
+}
+
+async function seedCollectionIfEmpty(collectionName, rows){
+  try {
+    const existing = await wixData.query(collectionName).limit(1).find();
+    if (Array.isArray(existing?.items) && existing.items.length) return 0;
+  } catch (_) {}
+  let inserted = 0;
+  for (const row of rows) {
+    try {
+      const safe = { ...row };
+      delete safe._id;
+      await wixData.insert(collectionName, safe);
+      inserted += 1;
+    } catch (_) {}
+  }
+  return inserted;
+}
+
+async function ensurePricingSeeded(){
+  const fallback = getFallbackCatalogSnapshot();
+  await seedCollectionIfEmpty(PRICING_COLLECTIONS.businessSettings, [fallback.businessSettings]);
+  await seedCollectionIfEmpty(PRICING_COLLECTIONS.insurancePlans, fallback.insurancePlans);
+  await seedCollectionIfEmpty(PRICING_COLLECTIONS.extraServices, fallback.extraServices);
+  await seedCollectionIfEmpty(PRICING_COLLECTIONS.feeRules, fallback.feeRules);
+  clearPricingCatalogCache();
+}
+
+function vehicleCategoryImageUrl(value){
+  const src = value?.src || value?.url || value;
+  if (!src) return '';
+  const raw = String(src);
+  if (/^https?:\/\//i.test(raw)) return raw;
+  const match = raw.match(/^wix:image:\/\/v1\/([^\/]+)\//i);
+  if (match) return `https://static.wixstatic.com/media/${match[1]}`;
+  return raw;
+}
+
+function resolveFleetCategoryCode(value){
+  if (value && typeof value === 'object') return text(value.category || value.code || value.key || value.title || value.name || value.label || value._id).toUpperCase();
+  return text(value).toUpperCase();
+}
+
+function categoryLookupMaps(rows = []) {
+  const byId = new Map();
+  const byCode = new Map();
+  for (const row of (rows || [])) {
+    const normalized = mapVehicleCategoryAdminRow(row);
+    if (normalized?._id) byId.set(String(normalized._id), normalized);
+    if (normalized?.category) byCode.set(String(normalized.category).toUpperCase(), normalized);
+  }
+  return { byId, byCode };
+}
+
+function resolveFleetCategoryMeta(value, lookups = { byId: new Map(), byCode: new Map() }) {
+  const rawId = value && typeof value === 'object' ? cleanId(value._id || value.id || value.categoryId || value._ref) : '';
+  const rawCode = resolveFleetCategoryCode(value);
+  const byId = lookups?.byId instanceof Map ? lookups.byId : new Map();
+  const byCode = lookups?.byCode instanceof Map ? lookups.byCode : new Map();
+  const matched = (rawId && byId.get(rawId)) || (rawCode && byCode.get(String(rawCode).toUpperCase())) || null;
+  return {
+    code: matched?.category || (rawCode && !/^[0-9A-F-]{16,}$/i.test(rawCode) ? rawCode : ''),
+    id: matched?._id || rawId || '',
+    title: matched?.title || '',
+    displayTitle: matched?.displayTitle || (matched ? buildVehicleCategoryDisplayTitle(matched) : ''),
+    matched
+  };
+}
+
+function buildVehicleCategoryDisplayTitle(payload = {}) {
+  const category = text(payload.category || payload.Category).toUpperCase();
+  const title = text(payload.title || payload.Title || payload.name || payload.Name);
+  if (category && title) return `${category} - ${title}`;
+  return title || category || 'Όχημα';
+}
+
+function normalizeVehicleCategoryItem(payload = {}) {
+  const safeId = cleanId(payload._id || payload.id);
+  const category = text(payload.category || payload.Category).toUpperCase();
+  const title = text(payload.title || payload.Title || payload.label || payload.Label || '');
+  const image = payload.image ?? payload.Image ?? '';
+  return {
+    ...(safeId ? { _id: safeId } : {}),
+    title: title || category || 'Όχημα',
+    category,
+    price: toNumber(payload.price ?? payload.Price, 0),
+    image,
+    active: readBool(payload.active ?? payload.Active, true),
+    status: text(payload.status || payload.Status, 'active'),
+    sortOrder: toNumber(payload.sortOrder ?? payload.SortOrder, 9999),
+    transmission: text(payload.transmission || payload.Transmission),
+    fuelType: text(payload.fuelType || payload.FuelType),
+    seats: text(payload.seats || payload.Seats),
+    doors: text(payload.doors || payload.Doors),
+    luggage: text(payload.luggage || payload.Luggage),
+    airCondition: readBool(payload.airCondition ?? payload.AirCondition, true),
+    publicVisible: readBool(payload.publicVisible, true),
+    badge: text(payload.badge || payload.Badge),
+    description: text(payload.description || payload.Description)
+  };
+}
+
+function mapVehicleCategoryAdminRow(item = {}) {
+  const normalized = normalizeVehicleCategoryItem(item);
+  const displayTitle = buildVehicleCategoryDisplayTitle(normalized);
+  return {
+    ...normalized,
+    imageUrl: vehicleCategoryImageUrl(normalized.image),
+    displayTitle
+  };
+}
+
+async function getVehicleCategoriesAdminRows() {
+  let rows = await queryAllRows(VEHICLE_CATEGORIES_COLLECTION);
+  if (!Array.isArray(rows) || !rows.length) {
+    try {
+      const catalogRows = await getVehicleCategoriesCatalog();
+      rows = Array.isArray(catalogRows) ? catalogRows : [];
+    } catch (_) {
+      rows = [];
+    }
+  }
+  return (rows || [])
+    .map(mapVehicleCategoryAdminRow)
+    .sort((a, b) => {
+      const orderDiff = Number(a.sortOrder || 9999) - Number(b.sortOrder || 9999);
+      if (orderDiff !== 0) return orderDiff;
+      return String(a.displayTitle || '').localeCompare(String(b.displayTitle || ''), 'el');
+    });
+}
+
+async function findVehicleCategoryByCategoryCode(categoryCode = '') {
+  const code = text(categoryCode).toUpperCase();
+  if (!code) return null;
+  const rows = await queryAllRows(VEHICLE_CATEGORIES_COLLECTION);
+  return rows.find((row) => text(row?.category).toUpperCase() === code) || null;
+}
+
+function normalizeFleetVehicleItem(payload = {}, categoryLookups = { byId: new Map(), byCode: new Map() }) {
+  const safeId = cleanId(payload._id || payload.id);
+  const plate = text(payload.plate || payload.Plate).toUpperCase();
+  const model = text(payload.model || payload.Model || payload.title || payload.Title);
+  const categoryMeta = resolveFleetCategoryMeta(payload.category ?? payload.Category ?? payload.categoryCode ?? payload.categorycode, categoryLookups);
+  return {
+    ...(safeId ? { _id: safeId } : {}),
+    plate,
+    model,
+    category: categoryMeta.code || '',
+    categoryId: categoryMeta.id || '',
+    categoryDisplayTitle: categoryMeta.displayTitle || categoryMeta.code || '',
+    categoryTitle: categoryMeta.title || '',
+    status: text(payload.status || payload.Status, activeStatusFrom(payload)),
+    active: readBool(payload.active ?? payload.Active, true),
+    notes: text(payload.notes || payload.Notes || payload.description || payload.Description)
+  };
+}
+
+function activeStatusFrom(payload = {}) {
+  const active = readBool(payload.active ?? payload.Active, true);
+  return active ? 'available' : 'inactive';
+}
+
+function buildFleetVehicleDisplayTitle(payload = {}, categoryLookups = { byId: new Map(), byCode: new Map() }) {
+  const plate = text(payload.plate || payload.Plate).toUpperCase();
+  const model = text(payload.model || payload.Model || payload.title || payload.Title);
+  const categoryMeta = resolveFleetCategoryMeta(payload.category ?? payload.Category ?? payload.categoryCode ?? payload.categorycode ?? payload.categoryId, categoryLookups);
+  const category = categoryMeta.displayTitle || categoryMeta.code || '';
+  const label = plate ? (model ? `${plate} - ${model}` : plate) : (model || 'Στόλος');
+  return category ? `${label} (${category})` : label;
+}
+
+function mapFleetVehicleAdminRow(item = {}, categoryLookups = { byId: new Map(), byCode: new Map() }) {
+  const normalized = normalizeFleetVehicleItem(item, categoryLookups);
+  return {
+    ...normalized,
+    displayTitle: buildFleetVehicleDisplayTitle(normalized, categoryLookups)
+  };
+}
+
+async function getFleetVehiclesAdminRows() {
+  const [rows, vehicleCategoryRows] = await Promise.all([
+    queryAllRows(FLEET_COLLECTION, ['category', 'Category']),
+    queryAllRows(VEHICLE_CATEGORIES_COLLECTION)
+  ]);
+  const lookups = categoryLookupMaps(vehicleCategoryRows);
+  return (rows || [])
+    .map((row) => mapFleetVehicleAdminRow(row, lookups))
+    .sort((a, b) => {
+      const activeDiff = Number(b.active !== false) - Number(a.active !== false);
+      if (activeDiff !== 0) return activeDiff;
+      const plateDiff = String(a.plate || '').localeCompare(String(b.plate || ''), 'el');
+      if (plateDiff !== 0) return plateDiff;
+      return String(a.model || '').localeCompare(String(b.model || ''), 'el');
+    });
+}
+
+async function findFleetVehicleByPlate(plateValue = '') {
+  const plate = text(plateValue).toUpperCase();
+  if (!plate) return null;
+  const rows = await queryAllRows(FLEET_COLLECTION, ['category', 'Category']);
+  return rows.find((row) => text(row?.plate || row?.Plate).toUpperCase() === plate) || null;
+}
+
+
+function normalizePickupLocationItem(payload = {}) {
+  const safeId = cleanId(payload._id || payload.id);
+  return {
+    ...(safeId ? { _id: safeId } : {}),
+    key: slugKey(payload.key || payload.label || payload.title || payload.address || 'location'),
+    label: text(payload.label || payload.title || 'Location'),
+    description: text(payload.description),
+    locationType: text(payload.locationType || payload.type, 'both') || 'both',
+    address: text(payload.address),
+    mapUrl: text(payload.mapUrl || payload.mapsUrl || payload.googleMapsUrl),
+    extraFee: toNumber(payload.extraFee ?? payload.fee ?? payload.price, 0),
+    sortOrder: toNumber(payload.sortOrder, 9999),
+    active: readBool(payload.active, true),
+    publicVisible: readBool(payload.publicVisible, true)
+  };
+}
+
+function mapPickupLocationAdminRow(item = {}) {
+  const normalized = normalizePickupLocationItem(item);
+  return {
+    ...normalized,
+    displayTitle: normalized.label || normalized.address || normalized.key || 'Location'
+  };
+}
+
+async function getPickupLocationsAdminRows() {
+  const rows = await queryAllRows(PRICING_COLLECTIONS.pickupLocations);
+  return (rows || []).map(mapPickupLocationAdminRow).sort((a, b) => {
+    const orderDiff = Number(a.sortOrder || 9999) - Number(b.sortOrder || 9999);
+    if (orderDiff !== 0) return orderDiff;
+    return String(a.displayTitle || '').localeCompare(String(b.displayTitle || ''), 'el');
+  });
+}
+
+export async function getPricingAdminSnapshot({ authToken } = {}){
+  await requirePricingView(authToken);
+  await ensurePricingSeeded();
+  const [catalog, vehicleCategories, fleetVehicles, pickupLocations] = await Promise.all([
+    getPricingCatalog({ scope: 'all', force: true }),
+    getVehicleCategoriesAdminRows(),
+    getFleetVehiclesAdminRows(),
+    getPickupLocationsAdminRows()
+  ]);
+  return { ...catalog, vehicleCategories, fleetVehicles, pickupLocations };
+}
+
+export async function saveBusinessSettings({ authToken, payload = {} } = {}){
+  const actor = await requirePricingEdit(authToken);
+  await ensurePricingSeeded();
+  const existing = await wixData.query(PRICING_COLLECTIONS.businessSettings).ascending('_createdDate').limit(1).find().catch(() => ({ items: [] }));
+  const base = existing.items?.[0] || {};
+  const before = { ...base };
+  const item = {
+    ...base,
+    title: text(payload.title, 'Business settings'),
+    currency: text(payload.currency, 'EUR'),
+    vatRate: toNumber(payload.vatRate, 24),
+    nightStartHour: toNumber(payload.nightStartHour, 22),
+    nightEndHour: toNumber(payload.nightEndHour, 8),
+    defaultDeposit: toNumber(payload.defaultDeposit, 300),
+    companyName: text(payload.companyName, 'DIAMOND Rent A Car'),
+    companyTagline: text(payload.companyTagline),
+    companyCity: text(payload.companyCity, 'Thessaloniki'),
+    companyAddress: text(payload.companyAddress, 'Θεσσαλονίκη, Ελλάδα'),
+    footerNote: text(payload.footerNote),
+    companyPhone: text(payload.companyPhone, '+30 2310 000 000'),
+    companyEmail: text(payload.companyEmail, 'info@diamondrentacar.gr'),
+    operatingHoursLabel: text(payload.operatingHoursLabel, '09:00 - 21:00'),
+    afterHoursNotice: text(payload.afterHoursNotice, 'Για εξυπηρέτηση εκτός ωραρίου ισχύουν επιπλέον χρεώσεις.'),
+    allowOverbooking: readBool(payload.allowOverbooking, false),
+    enableTriggeredEmails: readBool(payload.enableTriggeredEmails, false),
+    bookingConfirmedTriggerId: text(payload.bookingConfirmedTriggerId),
+    bookingCanceledTriggerId: text(payload.bookingCanceledTriggerId),
+    vehiclesPageDisplayMode: ['models', 'categories'].includes(text(payload.vehiclesPageDisplayMode).toLowerCase()) ? text(payload.vehiclesPageDisplayMode).toLowerCase() : 'categories',
+    vehiclesPageModelsSource: ['vehicles', 'fleet'].includes(text(payload.vehiclesPageModelsSource).toLowerCase()) ? text(payload.vehiclesPageModelsSource).toLowerCase() : 'fleet',
+    insuranceTermsTitle: text(payload.insuranceTermsTitle, 'Όροι και λεπτομέρειες ασφαλειών'),
+    insuranceTermsIntro: text(payload.insuranceTermsIntro),
+    insuranceTermsBody: text(payload.insuranceTermsBody),
+    insuranceDetailsTitle: text(payload.insuranceDetailsTitle, 'Λεπτομέρειες ασφαλιστικών επιλογών'),
+    insuranceDetailsIntro: text(payload.insuranceDetailsIntro),
+    insuranceDetailsBody: text(payload.insuranceDetailsBody),
+    rentalTermsTitle: text(payload.rentalTermsTitle, 'Όροι ενοικίασης και πολιτικές'),
+    rentalTermsIntro: text(payload.rentalTermsIntro),
+    rentalTermsBody: text(payload.rentalTermsBody),
+    rentalRequirementsBody: text(payload.rentalRequirementsBody),
+    rentalPoliciesBody: text(payload.rentalPoliciesBody),
+    rentalPrivacyBody: text(payload.rentalPrivacyBody),
+    active: readBool(payload.active, true)
+  };
+  const saved = item._id ? await wixData.update(PRICING_COLLECTIONS.businessSettings, item) : await wixData.insert(PRICING_COLLECTIONS.businessSettings, item);
+  clearPricingCatalogCache();
+  await writePricingAudit(actor, 'pricing.saveBusinessSettings', 'pricing.businessSettings', String(saved._id || 'singleton'), before, saved, 'Ενημέρωση business settings');
+  return saved;
+}
+
+function normalizeCatalogItem(payload = {}, kind = 'insurance'){
+  const safeId = cleanId(payload._id);
+  const key = slugKey(payload.key || payload.label || payload.title);
+  const base = {
+    ...(safeId ? { _id: safeId } : {}),
+    title: text(payload.title || payload.label || key),
+    key,
+    label: text(payload.label || payload.title || key),
+    description: text(payload.description),
+    sortOrder: toNumber(payload.sortOrder, 9999),
+    active: readBool(payload.active, true),
+    publicVisible: readBool(payload.publicVisible, true)
+  };
+  if (kind === 'insurance') return { ...base, pricePerDay: toNumber(payload.pricePerDay ?? payload.price, 0), billingMode: 'perDay' };
+  if (kind === 'extra') return { ...base, price: toNumber(payload.price ?? payload.pricePerDay, 0), billingMode: text(payload.billingMode, 'perDay') === 'perBooking' ? 'perBooking' : 'perDay' };
+  return { ...base, ruleType: text(payload.ruleType, 'manual'), audienceGroup: text(payload.audienceGroup), amount: toNumber(payload.amount ?? payload.price, 0), billingMode: text(payload.billingMode, 'perBooking') === 'perDay' ? 'perDay' : 'perBooking' };
+}
+
+async function upsertByKey(collectionName, item){
+  const safeItem = { ...item, key: slugKey(item?.key || item?.label || item?.title) };
+  const safeId = cleanId(safeItem._id);
+  if (safeId) safeItem._id = safeId;
+  else delete safeItem._id;
+
+  let duplicates = [];
+  if (!safeItem._id && safeItem.key) {
+    duplicates = await queryRowsByNormalizedKey(collectionName, safeItem.key);
+    const existing = duplicates[0] || null;
+    if (existing?._id) safeItem._id = existing._id;
+  } else if (safeItem.key) {
+    duplicates = await queryRowsByNormalizedKey(collectionName, safeItem.key);
+  }
+
+  const previous = safeItem._id ? (await queryFirstByField(collectionName, '_id', safeItem._id) || null) : null;
+  const saved = safeItem._id
+    ? await wixData.update(collectionName, { ...(previous || {}), ...safeItem })
+    : await wixData.insert(collectionName, safeItem);
+
+  const keepId = saved?._id;
+  for (const row of duplicates) {
+    if (row?._id && row._id !== keepId) {
+      try { await wixData.remove(collectionName, row._id); } catch (_) {}
+    }
+  }
+
+  clearPricingCatalogCache();
+  return { saved, previous, mode: previous ? 'update' : 'insert' };
+}
+
+export async function upsertInsurancePlan({ authToken, payload = {} } = {}){
+  const actor = await requirePricingEdit(authToken);
+  await ensurePricingSeeded();
+  const result = await upsertByKey(PRICING_COLLECTIONS.insurancePlans, normalizeCatalogItem(payload, 'insurance'));
+  await writePricingAudit(actor, `pricing.${result.mode}`, 'pricing.insurance', String(result.saved?.key || result.saved?._id || ''), result.previous, result.saved, `${result.mode === 'insert' ? 'Νέο' : 'Ενημέρωση'} insurance plan ${text(result.saved?.label)}`);
+  return result.saved;
+}
+export async function upsertExtraService({ authToken, payload = {} } = {}){
+  const actor = await requirePricingEdit(authToken);
+  await ensurePricingSeeded();
+  const result = await upsertByKey(PRICING_COLLECTIONS.extraServices, normalizeCatalogItem(payload, 'extra'));
+  await writePricingAudit(actor, `pricing.${result.mode}`, 'pricing.extra', String(result.saved?.key || result.saved?._id || ''), result.previous, result.saved, `${result.mode === 'insert' ? 'Νέο' : 'Ενημέρωση'} extra service ${text(result.saved?.label)}`);
+  return result.saved;
+}
+export async function upsertFeeRule({ authToken, payload = {} } = {}){
+  const actor = await requirePricingEdit(authToken);
+  await ensurePricingSeeded();
+  const result = await upsertByKey(PRICING_COLLECTIONS.feeRules, normalizeCatalogItem(payload, 'fee'));
+  await writePricingAudit(actor, `pricing.${result.mode}`, 'pricing.fee', String(result.saved?.key || result.saved?._id || ''), result.previous, result.saved, `${result.mode === 'insert' ? 'Νέο' : 'Ενημέρωση'} fee rule ${text(result.saved?.label)}`);
+  return result.saved;
+}
+export async function deletePricingItem({ authToken, collectionName, itemId, itemKey } = {}){
+  const actor = await requirePricingEdit(authToken);
+  if (!collectionName || (!itemId && !itemKey)) throw new Error('Missing collectionName or itemId/itemKey');
+  const allowed = new Set(Object.values(PRICING_COLLECTIONS));
+  if (!allowed.has(collectionName)) throw new Error('Collection not allowed');
+  const previous = itemId ? await queryFirstByField(collectionName, '_id', itemId) : null;
+  const keyToClean = slugKey(itemKey || previous?.key || previous?.label || previous?.title);
+  let removed = 0;
+  if (itemId) {
+    try { await wixData.remove(collectionName, itemId); removed += 1; } catch (_) {}
+  }
+  if (keyToClean) {
+    const dupes = await queryRowsByNormalizedKey(collectionName, keyToClean);
+    for (const row of dupes) {
+      if (!row?._id || row._id === itemId) continue;
+      try { await wixData.remove(collectionName, row._id); removed += 1; } catch (_) {}
+    }
+  }
+  clearPricingCatalogCache();
+  await writePricingAudit(actor, 'pricing.delete', `pricing.${collectionName}`, String(keyToClean || previous?.key || itemId || ''), previous, null, `Διαγραφή pricing item ${text(previous?.label || previous?.title || keyToClean || itemId)} (${removed} row(s))`);
+  return { success: true, removed };
+}
+
+
+export async function seedPricingDefaults({ authToken, target = 'all' } = {}) {
+  const actor = await requirePricingEdit(authToken);
+  await ensurePricingSeeded();
+  const fallback = getFallbackCatalogSnapshot();
+  const result = { business: { inserted: 0, updated: 0, total: 0 }, insurance: { inserted: 0, updated: 0, total: 0 }, extras: { inserted: 0, updated: 0, total: 0 }, fees: { inserted: 0, updated: 0, total: 0 } };
+
+  function isBlank(value) {
+    return value === undefined || value === null || (typeof value === 'string' && !String(value).trim());
+  }
+
+  function applyMissing(existing = {}, defaults = {}) {
+    const merged = { ...existing };
+    let changed = false;
+    for (const [key, value] of Object.entries(defaults || {})) {
+      if (key === '_id') continue;
+      const current = merged[key];
+      const shouldFill =
+        isBlank(current) ||
+        (typeof value === 'number' && !Number.isFinite(Number(current))) ||
+        (typeof value === 'boolean' && typeof current !== 'boolean');
+      if (shouldFill) {
+        merged[key] = value;
+        changed = true;
+      }
+    }
+    return { changed, merged };
+  }
+
+  async function seedBusiness() {
+    const existing = await wixData.query(PRICING_COLLECTIONS.businessSettings).ascending('_createdDate').limit(1).find().catch(() => ({ items: [] }));
+    const prev = existing.items?.[0] || null;
+    if (!prev) {
+      const saved = await wixData.insert(PRICING_COLLECTIONS.businessSettings, { ...fallback.businessSettings });
+      result.business = { inserted: 1, updated: 0, total: 1, saved };
+      await writePricingAudit(actor, 'pricing.seedDefaults', 'pricing.businessSettings', String(saved._id || 'singleton'), null, saved, 'Seed business settings defaults');
+      return;
+    }
+    const { changed, merged } = applyMissing(prev, fallback.businessSettings);
+    result.business.total = 1;
+    if (!changed) return;
+    const saved = await wixData.update(PRICING_COLLECTIONS.businessSettings, { ...prev, ...merged, _id: prev._id });
+    result.business.updated = 1;
+    result.business.saved = saved;
+    await writePricingAudit(actor, 'pricing.seedDefaults', 'pricing.businessSettings', String(saved._id || 'singleton'), prev, saved, 'Seed missing business settings defaults');
+  }
+
+  async function seedRows(kind, collectionName, rows, normalizer, bucket) {
+    for (const row of rows) {
+      const normalized = normalizer(row);
+      const existing = await queryFirstByField(collectionName, 'key', normalized.key);
+      if (!existing) {
+        const saved = await wixData.insert(collectionName, normalized);
+        result[bucket].inserted += 1;
+        result[bucket].total += 1;
+        await writePricingAudit(actor, 'pricing.seedDefaults', `pricing.${kind}`, String(saved?.key || saved?._id || ''), null, saved, `Seed missing ${kind} default ${text(saved?.label)}`);
+        continue;
+      }
+      const { changed, merged } = applyMissing(existing, normalized);
+      result[bucket].total += 1;
+      if (!changed) continue;
+      const saved = await wixData.update(collectionName, { ...existing, ...merged, _id: existing._id });
+      result[bucket].updated += 1;
+      await writePricingAudit(actor, 'pricing.seedDefaults', `pricing.${kind}`, String(saved?.key || saved?._id || ''), existing, saved, `Seed missing ${kind} fields για ${text(saved?.label)}`);
+    }
+  }
+
+  if (target === 'all' || target === 'business') await seedBusiness();
+  if (target === 'all' || target === 'insurance') await seedRows('insurance', PRICING_COLLECTIONS.insurancePlans, fallback.insurancePlans, (row) => normalizeCatalogItem(row, 'insurance'), 'insurance');
+  if (target === 'all' || target === 'extras') await seedRows('extra', PRICING_COLLECTIONS.extraServices, fallback.extraServices, (row) => normalizeCatalogItem(row, 'extra'), 'extras');
+  if (target === 'all' || target === 'fees') await seedRows('fee', PRICING_COLLECTIONS.feeRules, fallback.feeRules, (row) => normalizeCatalogItem(row, 'fee'), 'fees');
+  clearPricingCatalogCache();
+  return result;
+}
+
+export async function resetPricingDefaults({ authToken, target = 'all' } = {}) {
+  const actor = await requirePricingEdit(authToken);
+  await ensurePricingSeeded();
+  const fallback = getFallbackCatalogSnapshot();
+  const result = { business: { inserted: 0, updated: 0, total: 0 }, insurance: { inserted: 0, updated: 0, total: 0 }, extras: { inserted: 0, updated: 0, total: 0 }, fees: { inserted: 0, updated: 0, total: 0 } };
+
+  async function resetBusiness() {
+    const existing = await wixData.query(PRICING_COLLECTIONS.businessSettings).ascending('_createdDate').limit(1).find().catch(() => ({ items: [] }));
+    const prev = existing.items?.[0] || null;
+    const row = { ...(prev || {}), ...fallback.businessSettings };
+    const saved = row._id ? await wixData.update(PRICING_COLLECTIONS.businessSettings, row) : await wixData.insert(PRICING_COLLECTIONS.businessSettings, row);
+    result.business = { inserted: prev ? 0 : 1, updated: prev ? 1 : 0, total: 1, saved };
+    await writePricingAudit(actor, 'pricing.resetDefaults', 'pricing.businessSettings', String(saved._id || 'singleton'), prev, saved, 'Reset business settings στα defaults');
+  }
+
+  async function resetRows(kind, collectionName, rows, normalizer, bucket) {
+    for (const row of rows) {
+      const normalized = normalizer(row);
+      const existing = await queryFirstByField(collectionName, 'key', normalized.key);
+      const saveRow = existing ? { ...existing, ...normalized, _id: existing._id } : normalized;
+      const saved = existing ? await wixData.update(collectionName, saveRow) : await wixData.insert(collectionName, saveRow);
+      result[bucket].inserted += existing ? 0 : 1;
+      result[bucket].updated += existing ? 1 : 0;
+      result[bucket].total += 1;
+      await writePricingAudit(actor, 'pricing.resetDefaults', `pricing.${kind}`, String(saved?.key || saved?._id || ''), existing, saved, `Reset ${kind} default ${text(saved?.label)}`);
+    }
+  }
+
+  if (target === 'all' || target === 'business') await resetBusiness();
+  if (target === 'all' || target === 'insurance') await resetRows('insurance', PRICING_COLLECTIONS.insurancePlans, fallback.insurancePlans, (row) => normalizeCatalogItem(row, 'insurance'), 'insurance');
+  if (target === 'all' || target === 'extras') await resetRows('extra', PRICING_COLLECTIONS.extraServices, fallback.extraServices, (row) => normalizeCatalogItem(row, 'extra'), 'extras');
+  if (target === 'all' || target === 'fees') await resetRows('fee', PRICING_COLLECTIONS.feeRules, fallback.feeRules, (row) => normalizeCatalogItem(row, 'fee'), 'fees');
+  clearPricingCatalogCache();
+  return result;
+}
+
+export async function upsertVehicleCategory({ authToken, payload = {} } = {}){
+  const actor = await requirePricingEdit(authToken);
+  const normalized = normalizeVehicleCategoryItem(payload);
+  if (!normalized.title) throw new Error('Missing vehicle category title');
+  if (!normalized.category) throw new Error('Missing vehicle category code');
+
+  let previous = null;
+  if (normalized._id) previous = await queryFirstByField(VEHICLE_CATEGORIES_COLLECTION, '_id', normalized._id);
+  if (!previous) previous = await findVehicleCategoryByCategoryCode(normalized.category);
+
+  const saveRow = previous ? { ...previous, ...normalized, _id: previous._id } : normalized;
+  const saved = previous
+    ? await wixData.update(VEHICLE_CATEGORIES_COLLECTION, saveRow)
+    : await wixData.insert(VEHICLE_CATEGORIES_COLLECTION, saveRow);
+
+  await writePricingAudit(actor, previous ? 'pricing.updateVehicleCategory' : 'pricing.insertVehicleCategory', 'pricing.vehicleCategory', String(saved?._id || saved?.category || ''), previous, saved, `${previous ? 'Ενημέρωση' : 'Νέα'} κατηγορία οχήματος ${buildVehicleCategoryDisplayTitle(saved)}`);
+  return mapVehicleCategoryAdminRow(saved);
+}
+
+export async function deleteVehicleCategory({ authToken, itemId, categoryCode } = {}){
+  const actor = await requirePricingEdit(authToken);
+  const previous = itemId
+    ? await queryFirstByField(VEHICLE_CATEGORIES_COLLECTION, '_id', itemId)
+    : await findVehicleCategoryByCategoryCode(categoryCode);
+  if (!previous?._id) throw new Error('Vehicle category not found');
+  await wixData.remove(VEHICLE_CATEGORIES_COLLECTION, previous._id);
+  await writePricingAudit(actor, 'pricing.deleteVehicleCategory', 'pricing.vehicleCategory', String(previous._id || previous.category || ''), previous, null, `Διαγραφή κατηγορίας οχήματος ${buildVehicleCategoryDisplayTitle(previous)}`);
+  return { success: true, removed: 1 };
+}
+
+export async function upsertFleetVehicle({ authToken, payload = {} } = {}){
+  const actor = await requirePricingEdit(authToken);
+  const normalized = normalizeFleetVehicleItem(payload);
+  if (!normalized.plate) throw new Error('Missing fleet plate');
+  if (!normalized.model) throw new Error('Missing fleet model');
+  if (!normalized.category) throw new Error('Missing fleet category');
+
+  let previous = null;
+  if (normalized._id) previous = await queryFirstByField(FLEET_COLLECTION, '_id', normalized._id);
+  if (!previous) previous = await findFleetVehicleByPlate(normalized.plate);
+
+  const saveRow = previous ? { ...previous, ...normalized, _id: previous._id } : normalized;
+  const saved = previous
+    ? await wixData.update(FLEET_COLLECTION, saveRow)
+    : await wixData.insert(FLEET_COLLECTION, saveRow);
+
+  await writePricingAudit(actor, previous ? 'pricing.updateFleetVehicle' : 'pricing.insertFleetVehicle', 'pricing.fleetVehicle', String(saved?._id || saved?.plate || ''), previous, saved, `${previous ? 'Ενημέρωση' : 'Νέο'} όχημα στόλου ${buildFleetVehicleDisplayTitle(saved)}`);
+  return mapFleetVehicleAdminRow(saved);
+}
+
+export async function deleteFleetVehicle({ authToken, itemId, plate } = {}){
+  const actor = await requirePricingEdit(authToken);
+  const previous = itemId
+    ? await queryFirstByField(FLEET_COLLECTION, '_id', itemId)
+    : await findFleetVehicleByPlate(plate);
+  if (!previous?._id) throw new Error('Fleet vehicle not found');
+  await wixData.remove(FLEET_COLLECTION, previous._id);
+  await writePricingAudit(actor, 'pricing.deleteFleetVehicle', 'pricing.fleetVehicle', String(previous._id || previous.plate || ''), previous, null, `Διαγραφή οχήματος στόλου ${buildFleetVehicleDisplayTitle(previous)}`);
+  return { success: true, removed: 1 };
+}
+
+
+function normalizePricingSeasonItem(payload = {}) {
+  const safeId = cleanId(payload._id || payload.id);
+  return {
+    ...(safeId ? { _id: safeId } : {}),
+    key: slugKey(payload.key || payload.label || payload.title || `${payload.startDate || ''}_${payload.endDate || ''}`),
+    label: text(payload.label || payload.title || 'Season'),
+    description: text(payload.description),
+    startDate: text(payload.startDate || payload.start || payload.fromDate),
+    endDate: text(payload.endDate || payload.end || payload.toDate),
+    priority: toNumber(payload.priority, 0),
+    sortOrder: toNumber(payload.sortOrder, 9999),
+    repeatYearly: readBool(payload.repeatYearly, false),
+    active: readBool(payload.active, true),
+    publicVisible: readBool(payload.publicVisible, true)
+  };
+}
+
+function normalizeCategoryRateRuleItem(payload = {}) {
+  const safeId = cleanId(payload._id || payload.id);
+  return {
+    ...(safeId ? { _id: safeId } : {}),
+    key: slugKey(payload.key || payload.label || payload.title || `${payload.categoryCode || payload.category || ''}_${payload.seasonKey || ''}_${payload.minDays || ''}_${payload.maxDays || ''}`),
+    label: text(payload.label || payload.title || 'Rate rule'),
+    description: text(payload.description),
+    categoryCode: text(payload.categoryCode || payload.category || payload.Category).toUpperCase(),
+    vehicleCategoryId: cleanId(payload.vehicleCategoryId || payload.categoryId || payload.vehicleId),
+    seasonKey: slugKey(payload.seasonKey || payload.season || payload.seasonCode || payload.seasonId),
+    minDays: Math.max(1, Math.floor(toNumber(payload.minDays, 1))),
+    maxDays: Math.max(0, Math.floor(toNumber(payload.maxDays, 0))),
+    pricePerDay: toNumber(payload.pricePerDay ?? payload.dailyPrice ?? payload.price, 0),
+    sortOrder: toNumber(payload.sortOrder, 9999),
+    active: readBool(payload.active, true),
+    publicVisible: readBool(payload.publicVisible, true)
+  };
+}
+
+export async function upsertPricingSeason({ authToken, payload = {} } = {}) {
+  const actor = await requirePricingEdit(authToken);
+  const normalized = normalizePricingSeasonItem(payload);
+  if (!normalized.label) throw new Error('Missing pricing season label');
+  if (!normalized.startDate || !normalized.endDate) throw new Error('Missing pricing season dates');
+  const result = await upsertByKey(PRICING_COLLECTIONS.pricingSeasons, normalized);
+  await writePricingAudit(actor, `pricing.${result.mode}`, 'pricing.pricingSeason', String(result.saved?.key || result.saved?._id || ''), result.previous, result.saved, `${result.mode === 'insert' ? 'Νέα' : 'Ενημέρωση'} pricing season ${text(result.saved?.label)}`);
+  return result.saved;
+}
+
+export async function deletePricingSeason({ authToken, itemId, itemKey } = {}) {
+  return deletePricingItem({ authToken, collectionName: PRICING_COLLECTIONS.pricingSeasons, itemId, itemKey });
+}
+
+export async function upsertCategoryRateRule({ authToken, payload = {} } = {}) {
+  const actor = await requirePricingEdit(authToken);
+  const normalized = normalizeCategoryRateRuleItem(payload);
+  if (!normalized.categoryCode && !normalized.vehicleCategoryId) throw new Error('Missing category for rate rule');
+  if (normalized.pricePerDay < 0) throw new Error('Invalid rate rule price');
+  const result = await upsertByKey(PRICING_COLLECTIONS.categoryRateRules, normalized);
+  await writePricingAudit(actor, `pricing.${result.mode}`, 'pricing.categoryRateRule', String(result.saved?.key || result.saved?._id || ''), result.previous, result.saved, `${result.mode === 'insert' ? 'Νέος' : 'Ενημέρωση'} rate rule ${text(result.saved?.label)}`);
+  return result.saved;
+}
+
+export async function deleteCategoryRateRule({ authToken, itemId, itemKey } = {}) {
+  return deletePricingItem({ authToken, collectionName: PRICING_COLLECTIONS.categoryRateRules, itemId, itemKey });
+}
+
+
+export async function upsertPickupLocation({ authToken, payload = {} } = {}) {
+  const actor = await requirePricingEdit(authToken);
+  const normalized = normalizePickupLocationItem(payload);
+  if (!normalized.label) throw new Error('Missing pickup location label');
+  if (!normalized.address) throw new Error('Missing pickup location address');
+  const result = await upsertByKey(PRICING_COLLECTIONS.pickupLocations, normalized);
+  await writePricingAudit(actor, `pricing.${result.mode}`, 'pricing.pickupLocation', String(result.saved?.key || result.saved?._id || ''), result.previous, result.saved, `${result.mode === 'insert' ? 'Νέα' : 'Ενημέρωση'} τοποθεσία ${text(result.saved?.label)}`);
+  return mapPickupLocationAdminRow(result.saved);
+}
+
+export async function deletePickupLocation({ authToken, itemId, itemKey } = {}) {
+  return deletePricingItem({ authToken, collectionName: PRICING_COLLECTIONS.pickupLocations, itemId, itemKey });
+}
+
+export async function exportPricingCatalogSnapshot({ authToken } = {}) {
+  await requirePricingView(authToken);
+  await ensurePricingSeeded();
+  return getPricingCatalog({ scope: 'all', force: true });
+}

@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="el">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    :root{--bg:#f6f7fb;--card:#ffffff;--text:#0f172a;--sub:#475569;--border:rgba(0,0,0,.10);--shadow:0 12px 30px rgba(0,0,0,.06);--accent1:rgba(180,138,79,.12);--accent2:rgba(108,82,46,.10);--pri1:#a8844a;--pri2:#8e6d3d;--danger:#b91c1c;--ok:#166534}
+    *{box-sizing:border-box} html,body{margin:0;min-height:100%;background:var(--bg);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--text)}
+    .page{padding:12px;display:flex;flex-direction:column;gap:12px;max-width:1440px;margin:0 auto}
+    .topbar,.panel,.section{background:var(--card);border:1px solid var(--border);box-shadow:var(--shadow)}
+    .topbar{border-radius:18px;padding:10px 12px;overflow:visible}
+    .toprow{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px}
+    .leftScroll{min-width:0;overflow-x:auto;overflow-y:visible;-webkit-overflow-scrolling:touch;padding-bottom:2px}
+    .leftLine{min-width:720px;display:flex;align-items:center;gap:10px;white-space:nowrap}
+    .brand{display:inline-flex;align-items:center;gap:10px;padding:9px 12px;border-radius:15px;background:linear-gradient(135deg,var(--accent1),var(--accent2));border:1px solid rgba(0,0,0,.06);font-weight:950;flex:0 0 auto}
+    .logo{width:38px;height:38px;border-radius:14px;display:grid;place-items:center;background:linear-gradient(135deg,var(--pri1),var(--pri2));color:#fff;font-weight:1100;box-shadow:0 10px 26px rgba(180,138,79,.22)}
+    .brandText{display:flex;flex-direction:column;line-height:1.08}.brandTitle{font-weight:1100}.brandSub{font-size:12px;color:#475569;font-weight:900}
+    .tabs{display:inline-flex;align-items:center;gap:8px;flex:0 0 auto}
+    .tab{appearance:none;border:1px solid rgba(0,0,0,.12);background:#fff;color:#0f172a;border-radius:999px;padding:9px 14px;font:800 14px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;cursor:pointer}
+    .tab.active{color:#fff;background:linear-gradient(135deg,var(--pri1),var(--pri2));border-color:transparent}.tab[disabled]{opacity:.45;cursor:not-allowed}
+    .meta{display:inline-flex;align-items:center;gap:10px;flex:0 0 auto}
+    .chip{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;border:1px solid rgba(0,0,0,.08);background:#f8fafc;font:800 13px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#334155}
+    .userWrap{position:relative;display:inline-flex;align-items:center;flex:0 0 auto;overflow:visible;z-index:6}.userBtn{display:inline-flex;align-items:center;gap:10px;padding:8px 12px;border:1px solid rgba(0,0,0,.08);background:#fff;border-radius:999px;cursor:pointer;font:900 13px/1.1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#0f172a;box-shadow:0 8px 18px rgba(0,0,0,.04)}
+    .userBadge{width:30px;height:30px;border-radius:999px;display:grid;place-items:center;background:rgba(180,138,79,.12);color:#6c522e;font-weight:1100;border:1px solid rgba(180,138,79,.20)}
+    .userText{display:flex;flex-direction:column;align-items:flex-start}.userName{font-weight:1000}.userRole{font-size:11px;color:#64748b;font-weight:900}.caret{font-size:10px;color:#64748b}
+    .menu{position:absolute;right:0;top:calc(100% + 8px);min-width:230px;background:#fff;border:1px solid rgba(0,0,0,.10);border-radius:16px;box-shadow:0 18px 45px rgba(0,0,0,.16);display:none;z-index:999999;overflow:hidden}.menu.open{display:block}
+    .menuHead{padding:12px 14px;background:linear-gradient(135deg,rgba(180,138,79,.16),rgba(108,82,46,.10));border-bottom:1px solid rgba(0,0,0,.06)}
+    .menuItem{padding:12px 14px;font:900 13px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#0f172a;background:#fff;border:0;border-bottom:1px solid rgba(0,0,0,.06);text-align:left;cursor:pointer;width:100%}.menuItem:last-child{border-bottom:none}.menuItem:hover{background:rgba(180,138,79,.08)}.menuItem.danger{color:var(--danger)}
+    .grid{display:grid;grid-template-columns:minmax(320px,420px) minmax(0,1fr);gap:14px}
+    .panel{border-radius:22px;padding:22px}.hero{padding:26px;background:linear-gradient(135deg,var(--accent1),var(--accent2));border-radius:22px;border:1px solid rgba(0,0,0,.06)}
+    .hero h1{margin:0 0 10px;font-size:38px;line-height:1.02;letter-spacing:-.03em}.hero p{margin:0;max-width:980px;color:var(--sub);font-size:17px;font-weight:750;line-height:1.6}
+    .authCard{display:flex;flex-direction:column;gap:14px}.authHeader{display:flex;flex-direction:column;gap:6px}.authTitle{font-size:24px;font-weight:1000}.authSub{color:var(--sub);font-size:14px;line-height:1.55;font-weight:700}
+    .field{display:flex;flex-direction:column;gap:6px}.field label{font-size:12px;font-weight:900;color:#334155}.field input{width:100%;padding:12px 14px;border-radius:14px;border:1px solid rgba(0,0,0,.12);font:800 14px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#fff}
+    .field input:focus{outline:none;border-color:#a8844a;box-shadow:0 0 0 4px rgba(180,138,79,.12)}
+    .inline{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}.check{display:inline-flex;align-items:center;gap:8px;font:800 13px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#334155}
+    .btn{appearance:none;border:0;border-radius:14px;padding:12px 16px;font:900 14px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;cursor:pointer}.btn.primary{color:#fff;background:linear-gradient(135deg,var(--pri1),var(--pri2))}.btn.ghost{background:#f7f0e5;color:#6c522e}
+    .note{padding:12px 14px;border-radius:14px;background:#f8fafc;border:1px dashed rgba(0,0,0,.12);font:800 13px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#334155}
+    .note.warn{background:#fff7ed;color:#9a3412;border-style:solid}.note.error{background:#fef2f2;color:#991b1b;border-style:solid}.note.ok{background:#f0fdf4;color:#166534;border-style:solid}
+    .helperList{margin:0;padding-left:18px;color:#334155;font:800 13px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+    .helperList li{margin:4px 0}
+    .hidden{display:none!important}
+    .digest{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:14px}.section{border-radius:18px;padding:18px;background:rgba(0,0,0,.02);cursor:pointer;transition:transform .12s ease, box-shadow .12s ease}.section:hover{transform:translateY(-1px);box-shadow:0 10px 20px rgba(15,23,42,.06)}.sectionTitle{font-size:13px;font-weight:1000;letter-spacing:.02em;margin-bottom:8px}.sectionText{font-size:14px;color:var(--sub);line-height:1.6;font-weight:750}
+    .dash{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.kpi{padding:16px;border-radius:18px;background:#fff;border:1px solid rgba(0,0,0,.08)}.kpiLabel{font-size:12px;font-weight:900;color:#64748b}.kpiValue{font-size:18px;font-weight:1000;margin-top:8px}
+    .footerNote{font-size:12px;font-weight:900;color:rgba(15,23,42,.55)} .section.locked{opacity:.55;filter:saturate(.7)} .section.locked .sectionTitle::after{content:" • locked";color:#b45309;font-size:11px;font-weight:900}
+
+    .entryRail{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-top:14px}
+    .entryCard{position:relative;overflow:hidden;padding:16px 18px;border-radius:20px;border:1px solid rgba(0,0,0,.08);background:linear-gradient(180deg,#ffffff 0%,#fbfdff 100%);box-shadow:0 12px 28px rgba(15,23,42,.05);display:grid;gap:8px}
+    .entryCard::after{content:"";position:absolute;right:-18px;top:-18px;width:82px;height:82px;border-radius:999px;background:radial-gradient(circle,rgba(180,138,79,.12),rgba(180,138,79,0));pointer-events:none}
+    .entryKicker{font-size:11px;font-weight:1000;letter-spacing:.08em;text-transform:uppercase;color:#8e6d3d}
+    .entryTitle{font-size:18px;font-weight:1100;letter-spacing:-.02em;color:#0f172a}
+    .entryText{font-size:13px;line-height:1.55;font-weight:800;color:#475569}
+    .entryMeta{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .entryPill{display:inline-flex;align-items:center;gap:6px;padding:7px 10px;border-radius:999px;border:1px solid rgba(15,23,42,.08);background:#f8fafc;font:900 11px/1.1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#334155}
+    .entryPill.primary{background:rgba(180,138,79,.10);border-color:rgba(180,138,79,.20);color:#6c522e}
+    .section{position:relative;overflow:hidden;background:linear-gradient(180deg,#ffffff 0%,#fbfdff 100%);border:1px solid rgba(15,23,42,.08)}
+    .section::after{content:"";position:absolute;inset:auto -18px -18px auto;width:88px;height:88px;border-radius:999px;background:radial-gradient(circle,rgba(180,138,79,.10),rgba(180,138,79,0));pointer-events:none}
+    .sectionTitle{position:relative;z-index:1}
+    .sectionText{position:relative;z-index:1}
+    @media (max-width: 980px){.grid{grid-template-columns:1fr}.dash,.digest,.entryRail{grid-template-columns:1fr}.hero h1{font-size:32px}.leftLine{min-width:640px}}
+  
+    /* phase 5 home shell alignment */
+    :root{--homeHero1:#8e6d3d;--homeHero2:#b48a4f;--homeHero3:#6c522e;--shellDark1:#4f3a22;--shellDark2:#7a5b33;--shellDark3:#9f7845;}
+    .topbar{padding:0;border-radius:24px;overflow:visible;background:linear-gradient(135deg,var(--shellDark1) 0%,var(--shellDark2) 42%,var(--shellDark3) 100%);border-color:rgba(0,0,0,.06);box-shadow:0 18px 40px rgba(15,23,42,.14)}
+    .toprow{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:stretch;gap:0;overflow:visible}
+    .leftScroll{overflow-x:auto;padding-bottom:0}
+    .leftLine{min-width:860px;display:flex;align-items:center;gap:14px;padding:14px 16px}
+    .brand{padding:14px 16px;border-radius:18px;background:linear-gradient(135deg,var(--homeHero1) 0%,var(--homeHero2) 62%,var(--homeHero3) 100%);border:1px solid rgba(255,255,255,.08);color:#fff;box-shadow:none}
+    .logo{background:rgba(255,255,255,.16);color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.22)}
+    .brandTitle{color:#fff;font-size:16px;letter-spacing:-.02em}.brandSub{color:rgba(255,255,255,.82);font-size:11px}
+    .tabs{gap:10px}
+    .tab{padding:10px 15px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:#fff;box-shadow:none}
+    .tab.active{background:linear-gradient(135deg,#b48a4f,#8e6d3d);color:#fff;border-color:transparent;box-shadow:0 10px 20px rgba(91,68,35,.18)}
+    .tab[disabled]{opacity:.38;background:rgba(255,255,255,.04);color:rgba(255,255,255,.72)}
+    .meta{padding:14px 16px;align-items:center;gap:12px;background:rgba(255,255,255,.02);overflow:visible;position:relative;z-index:3}
+    .chip{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.12);color:rgba(255,244,230,.88)}
+    .userBtn{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.12);color:#fff;box-shadow:none}
+    .userBadge{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.18);color:#fff}
+    .userRole,.caret{color:rgba(255,255,255,.72)}
+    .hero{background:linear-gradient(135deg,rgba(180,138,79,.10),rgba(239,68,68,.04),rgba(108,82,46,.08));border-color:rgba(15,23,42,.06)}
+    .hero h1{font-size:34px;color:#0f172a}.hero p{font-size:16px}
+    .panel{border-radius:24px}.section{border-radius:20px;background:#fff;border:1px solid rgba(15,23,42,.08)}
+    .kpi{border-radius:20px;background:linear-gradient(180deg,#ffffff 0%,#f8fbff 100%)}
+    
+    .commandDeck{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:14px}
+    .commandCard{position:relative;overflow:hidden;padding:15px 16px;border-radius:20px;border:1px solid rgba(15,23,42,.08);background:linear-gradient(180deg,#ffffff 0%,#fbfdff 100%);box-shadow:0 12px 28px rgba(15,23,42,.05);display:grid;gap:8px;min-height:146px}
+    .commandCard::after{content:"";position:absolute;right:-16px;bottom:-18px;width:86px;height:86px;border-radius:999px;background:radial-gradient(circle,rgba(180,138,79,.12),rgba(180,138,79,0));pointer-events:none}
+    .commandKick{font-size:11px;font-weight:1000;letter-spacing:.08em;text-transform:uppercase;color:#8e6d3d}
+    .commandTitle{font-size:18px;font-weight:1100;letter-spacing:-.02em;color:#0f172a}
+    .commandText{font-size:13px;line-height:1.55;font-weight:800;color:#475569}
+    .commandMeta{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .commandPill{display:inline-flex;align-items:center;gap:6px;padding:7px 10px;border-radius:999px;border:1px solid rgba(15,23,42,.08);background:#fff;font:900 11px/1.1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#334155}
+    .commandPill.primary{background:rgba(180,138,79,.10);border-color:rgba(180,138,79,.20);color:#6c522e}
+    .commandActions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:auto}
+    .commandBtn{appearance:none;border:1px solid rgba(15,23,42,.10);background:#fff;color:#0f172a;border-radius:999px;padding:8px 12px;font:900 11.5px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;cursor:pointer;box-shadow:0 8px 18px rgba(15,23,42,.04)}
+    .commandBtn.primary{background:linear-gradient(135deg,var(--pri1),var(--pri2));color:#fff;border-color:transparent}
+    .dash .section{min-height:126px;display:grid;align-content:start;gap:8px}
+    .dash .section .sectionText{max-width:36ch}
+    
+    .patternStrip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:14px 0 2px}
+    .patternCard{position:relative;overflow:hidden;padding:12px 13px;border-radius:18px;border:1px solid rgba(15,23,42,.08);background:linear-gradient(180deg,#ffffff 0%,#fbf8f3 100%);box-shadow:0 10px 22px rgba(15,23,42,.04);display:grid;gap:5px}
+    .patternCard::after{content:"";position:absolute;right:-14px;top:-14px;width:72px;height:72px;border-radius:999px;background:radial-gradient(circle,rgba(180,138,79,.12),rgba(180,138,79,0));pointer-events:none}
+    .patternKick{font-size:10px;font-weight:1000;letter-spacing:.08em;text-transform:uppercase;color:#8e6d3d}
+    .patternValue{font-size:15px;font-weight:1050;letter-spacing:-.02em;color:#0f172a}
+    .patternMeta{font-size:12px;line-height:1.45;font-weight:800;color:#64748b}
+    @media (max-width:980px){.patternStrip{grid-template-columns:repeat(2,minmax(0,1fr));}}
+    @media (max-width:720px){.patternStrip{grid-template-columns:1fr;}}
+
+@media (max-width:980px){.commandDeck{grid-template-columns:repeat(2,minmax(0,1fr));}}
+    @media (max-width:720px){.commandDeck{grid-template-columns:1fr;}}
+
+@media (max-width:980px){.leftLine{min-width:760px}.meta{padding:12px 14px}}
+
+  
+
+    /* phase 16: shared premium micro-interactions */
+    html{scrollbar-color:rgba(142,109,61,.42) rgba(15,23,42,.06)}
+    ::-webkit-scrollbar{width:12px;height:12px}
+    ::-webkit-scrollbar-thumb{background:linear-gradient(180deg,rgba(180,138,79,.44),rgba(108,82,46,.44));border-radius:999px;border:3px solid rgba(255,255,255,.86)}
+    ::-webkit-scrollbar-track{background:rgba(15,23,42,.04);border-radius:999px}
+    .topbar,.panel,.hero,.authCard,.commandCard,.entryCard,.section,.tab,.btn,.userBtn,.chip{transition:transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease}
+    .hero,.panel{box-shadow:0 16px 34px rgba(15,23,42,.07)}
+    .authCard{position:relative;overflow:hidden;background:linear-gradient(180deg,#ffffff 0%,#fbfaf7 100%)}
+    .authCard::after{content:"";position:absolute;right:-30px;top:-26px;width:110px;height:110px;border-radius:999px;background:radial-gradient(circle,rgba(180,138,79,.12),rgba(180,138,79,0));pointer-events:none}
+    .commandCard:hover,.entryCard:hover,.section:hover{transform:translateY(-2px);box-shadow:0 18px 36px rgba(15,23,42,.10);border-color:rgba(180,138,79,.18)}
+    .commandCard:focus-within,.entryCard:focus-within,.section:focus-within{box-shadow:0 0 0 4px rgba(180,138,79,.10),0 18px 36px rgba(15,23,42,.10)}
+    .tab:hover,.btn:hover,.userBtn:hover{transform:translateY(-1px)}
+    .btn.primary,.commandBtn.primary,.entryPill.primary{box-shadow:0 14px 28px rgba(108,82,46,.18)}
+    .field input:hover{border-color:rgba(180,138,79,.22)}
+    .field input:focus{box-shadow:0 0 0 4px rgba(180,138,79,.14),0 12px 24px rgba(108,82,46,.08)}
+    .note{background:linear-gradient(180deg,#fbfcfe 0%,#f6f8fb 100%)}
+    .menu{backdrop-filter:blur(10px);box-shadow:0 24px 54px rgba(15,23,42,.18)}
+</style>
+</head>
+<body>
+  <div class="page">
+    <div class="topbar">
+      <div class="toprow">
+        <div class="leftScroll"><div class="leftLine">
+          <div class="brand"><div class="logo">D</div><div class="brandText"><span class="brandTitle">DIAMOND Backroom</span><span class="brandSub">Private backoffice • custom access</span></div></div>
+          <div class="tabs">
+            <button class="tab active" data-route="home" type="button">Myroom</button>
+            <button class="tab" data-route="daily" type="button">Daily</button>
+            <button class="tab" data-route="fleet" type="button">Fleet</button>
+            <button class="tab" data-route="bookings" type="button">Bookings</button>
+            <button class="tab" data-route="settings" type="button">Settings</button>
+          </div>
+        </div></div>
+        <div class="meta">
+          <span class="chip" id="todayMeta">—</span>
+          <div class="userWrap">
+            <button class="userBtn" id="userMenuBtn" type="button"><span class="userBadge" id="userBadge">G</span><span class="userText"><span class="userName" id="userName">Guest</span><span class="userRole" id="userRole">Not signed in</span></span><span class="caret">▾</span></button>
+            <div class="menu" id="userMenu"><div class="menuHead"><div class="userName" id="menuUserName">Guest</div><div class="userRole" id="menuUserRole">Not signed in</div></div><button class="menuItem" data-menu-action="reload" type="button">Ανανέωση</button><button class="menuItem danger" data-menu-action="logout" type="button">Αποσύνδεση</button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid">
+      <div class="panel authCard" id="authPanel">
+        <div class="authHeader">
+          <div class="authTitle">Σύνδεση backroom</div>
+          <div class="authSub">Αυτή είναι η κεντρική είσοδος του private backoffice. Χρησιμοποίησε το δικό σου εταιρικό email και password για να ανοίξουν οι καρτέλες Operations, Fleet, Bookings και Settings.</div>
+        </div>
+        <div class="note" id="authNotice">Το backroom χρησιμοποιεί δικό του session layer και δικούς του ρόλους.</div>
+        <div class="field"><label for="loginEmail">Email</label><input id="loginEmail" type="email" placeholder="you@company.gr" autocomplete="username" /></div>
+        <div class="field"><label for="loginPassword">Password</label><input id="loginPassword" type="password" placeholder="••••••••" autocomplete="current-password" /></div>
+        <div class="inline"><label class="check"><input id="rememberMe" type="checkbox" /> Να με θυμάται</label><div class="inline" style="justify-content:flex-end"><button class="btn ghost" id="forgotAccessBtn" type="button">Ξέχασα την πρόσβαση</button><button class="btn primary" id="loginBtn" type="button">Είσοδος</button></div></div>
+        <div class="note hidden" id="recoveryBox">Αν έχεις ξεχάσει το password, βάλε πρώτα το εταιρικό σου email και πάτα «Ξέχασα την πρόσβαση». Το αίτημα θα καταγραφεί και ο διαχειριστής θα το δει στο Security / Change History.</div>
+        <div class="note hidden" id="mustChangeBox"></div>
+        <div class="note" id="bootstrapInfo">Γίνεται έλεγχος setup...</div>
+        <div class="note hidden" id="passwordToolsBox">
+          <strong>Αλλαγή password</strong>
+          <div style="height:10px"></div>
+          <div class="field"><label for="currentPassword">Τρέχον password</label><input id="currentPassword" type="password" placeholder="Τρέχον password" autocomplete="current-password" /></div>
+          <div class="field"><label for="newPassword">Νέο password</label><input id="newPassword" type="password" placeholder="Νέο password" autocomplete="new-password" /></div>
+          <div class="field"><label for="confirmNewPassword">Επανάληψη νέου password</label><input id="confirmNewPassword" type="password" placeholder="Επανάληψη νέου password" autocomplete="new-password" /></div>
+          <div class="inline"><button class="btn ghost" id="changePasswordBtn" type="button">Αλλαγή password</button><button class="btn" id="logoutOtherSessionsBtn" type="button">Αποσύνδεση από άλλα devices</button></div>
+        </div>
+      </div>
+
+      <div class="panel" id="dashboardPanel">
+        <div class="hero">
+          <h1>Καλώς ήρθες στο backroom</h1>
+          <p>Το dashboard μένει ελαφρύ και σταθερό. Από εδώ περνάς σε Daily, Fleet, Bookings και Account Settings, με κοινό custom session σε όλο το ιδιωτικό περιβάλλον.</p>
+          <div class="digest">
+            <div class="kpi"><div class="kpiLabel">Status</div><div class="kpiValue" id="statusValue">Not signed in</div></div>
+            <div class="kpi"><div class="kpiLabel">User</div><div class="kpiValue" id="digestUser">Guest</div></div>
+            <div class="kpi"><div class="kpiLabel">Role</div><div class="kpiValue" id="digestRole">—</div></div>
+            <div class="kpi"><div class="kpiLabel">Next target</div><div class="kpiValue" id="digestNext">Backroom</div></div>
+          </div>
+        </div>
+        <div class="entryRail">
+          <div class="entryCard">
+            <div class="entryKicker">Session layer</div>
+            <div class="entryTitle">One private entry for the whole backroom</div>
+            <div class="entryText">Το Myroom μένει η σταθερή αφετηρία: ίδιο custom session, ίδιο role context και ίδιο user dropdown πριν μπεις σε Daily, Fleet, Bookings ή Settings.</div>
+            <div class="entryMeta"><span class="entryPill primary">Private access</span><span class="entryPill">Single session</span></div>
+          </div>
+          <div class="entryCard">
+            <div class="entryKicker">Operator flow</div>
+            <div class="entryTitle">Move from sign-in to action with less friction</div>
+            <div class="entryText">Αφού γίνει το login, το dashboard λειτουργεί σαν command center με καθαρά jumps για operational pages και γρήγορη εικόνα του ρόλου που χειρίζεται το σύστημα.</div>
+            <div class="entryMeta"><span class="entryPill primary">Daily / Fleet / Bookings</span><span class="entryPill">Role-aware</span></div>
+          </div>
+          <div class="entryCard">
+            <div class="entryKicker">Admin readiness</div>
+            <div class="entryTitle">Setup, health και password tools stay visible</div>
+            <div class="entryText">Τα bootstrap και auth-health στοιχεία μένουν στο ίδιο panel ώστε ο διαχειριστής να βλέπει εύκολα αν το private login stack είναι έτοιμο πριν συνεχίσει σε ρυθμίσεις ή runtime pages.</div>
+            <div class="entryMeta"><span class="entryPill primary">Setup check</span><span class="entryPill">Recovery tools</span></div>
+          </div>
+        </div>
+
+        <div class="commandDeck">
+          <div class="commandCard hidden" id="resumeWorkspaceCard" data-resume-workspace="1">
+            <div class="commandKick">Resume</div>
+            <div class="commandTitle" id="resumeWorkspaceTitle">Τελευταίο workspace</div>
+            <div class="commandText" id="resumeWorkspaceText">Συνέχισε από το πιο πρόσφατο operational context χωρίς να ψάχνεις ξανά page και φίλτρα.</div>
+            <div class="commandMeta"><span class="commandPill primary" id="resumeWorkspaceRoute">Backroom</span><span class="commandPill" id="resumeWorkspaceWhen">—</span></div>
+            <div class="commandActions"><button class="commandBtn primary" type="button" id="resumeWorkspaceBtn">Συνέχεια</button></div>
+          </div>
+          <div class="commandCard" data-route-card="daily">
+            <div class="commandKick">Quick launch</div>
+            <div class="commandTitle">Daily shift desk</div>
+            <div class="commandText">Άμεσο πέρασμα στο ημερήσιο operations board για check-outs, check-ins και contract follow-up χωρίς extra navigation.</div>
+            <div class="commandMeta"><span class="commandPill primary">Daily</span><span class="commandPill">Shift-first</span></div>
+            <div class="commandActions"><button class="commandBtn primary" type="button">Άνοιγμα Daily</button></div>
+          </div>
+          <div class="commandCard" data-route-card="fleet">
+            <div class="commandKick">Planner</div>
+            <div class="commandTitle">Fleet control room</div>
+            <div class="commandText">Γρήγορο άνοιγμα timeline, unassigned bookings και auto-assign controls σε πιο καθαρό control-room shell.</div>
+            <div class="commandMeta"><span class="commandPill primary">Fleet</span><span class="commandPill">Timeline</span></div>
+            <div class="commandActions"><button class="commandBtn primary" type="button">Άνοιγμα Fleet</button></div>
+          </div>
+          <div class="commandCard" data-route-card="bookings">
+            <div class="commandKick">Follow-up</div>
+            <div class="commandTitle">Bookings command board</div>
+            <div class="commandText">Search, range, status actions και quick contract από το ίδιο workspace για να καθαρίζεις γρήγορα το visible dataset.</div>
+            <div class="commandMeta"><span class="commandPill primary">Bookings</span><span class="commandPill">Status-safe</span></div>
+            <div class="commandActions"><button class="commandBtn primary" type="button">Άνοιγμα Bookings</button></div>
+          </div>
+          <div class="commandCard" data-route-card="settings">
+            <div class="commandKick">Admin tools</div>
+            <div class="commandTitle">Account settings & business control</div>
+            <div class="commandText">Πέρασμα σε business tabs, users, pricing και audit με ίδια premium γλώσσα με το υπόλοιπο backroom.</div>
+            <div class="commandMeta"><span class="commandPill primary">Settings</span><span class="commandPill">Admin</span></div>
+            <div class="commandActions"><button class="commandBtn primary" type="button">Άνοιγμα Account Settings</button></div>
+          </div>
+        </div>
+
+        <div class="commandDeck" id="workspaceToolsDeck">
+          <div class="commandCard" data-macro-card="today-daily">
+            <div class="commandKick">Operator macro</div>
+            <div class="commandTitle">Άνοιγμα Today Ops</div>
+            <div class="commandText">Άμεσο jump στο Daily για σήμερα, με καθαρό operator context και χωρίς να ψάχνεις ημερομηνίες.</div>
+            <div class="commandMeta"><span class="commandPill primary">Daily</span><span class="commandPill">Today</span></div>
+            <div class="commandActions"><button class="commandBtn primary" type="button" data-macro-action="today-daily">Today Ops</button></div>
+          </div>
+          <div class="commandCard" data-macro-card="fleet-14d">
+            <div class="commandKick">Planner macro</div>
+            <div class="commandTitle">Άνοιγμα Fleet 14d</div>
+            <div class="commandText">Στήνει αυτόματα 14ήμερο operational window για timeline scan και assignment work.</div>
+            <div class="commandMeta"><span class="commandPill primary">Fleet</span><span class="commandPill">14 days</span></div>
+            <div class="commandActions"><button class="commandBtn primary" type="button" data-macro-action="fleet-14d">Fleet 14d</button></div>
+          </div>
+          <div class="commandCard" data-macro-card="bookings-30d">
+            <div class="commandKick">Board macro</div>
+            <div class="commandTitle">Άνοιγμα Bookings 30d</div>
+            <div class="commandText">Γυρίζει το board στις τελευταίες 30 ημέρες για follow-up, status cleanup και export εργασίες.</div>
+            <div class="commandMeta"><span class="commandPill primary">Bookings</span><span class="commandPill">30 days</span></div>
+            <div class="commandActions"><button class="commandBtn primary" type="button" data-macro-action="bookings-30d">Bookings 30d</button></div>
+          </div>
+          <div class="commandCard" data-macro-card="copy-handoff-queue">
+            <div class="commandKick">Shift macro</div>
+            <div class="commandTitle">Copy handoff queue</div>
+            <div class="commandText">Μαζεύει τα queued follow-ups από Bookings, Daily, Fleet, Contract και Settings για γρήγορο handoff note.</div>
+            <div class="commandMeta"><span class="commandPill primary">Queue</span><span class="commandPill">Local only</span></div>
+            <div class="commandActions"><button class="commandBtn primary" type="button" data-macro-action="copy-handoff-queue">Copy queue</button></div>
+          </div>
+          <div class="commandCard" data-macro-card="clear-handoff-queue">
+            <div class="commandKick">Shift macro</div>
+            <div class="commandTitle">Clear handoff queue</div>
+            <div class="commandText">Αδειάζει το local handoff queue αυτού του browser χωρίς να πειράζει δεδομένα του συστήματος.</div>
+            <div class="commandMeta"><span class="commandPill primary">Queue</span><span class="commandPill">Safe clear</span></div>
+            <div class="commandActions"><button class="commandBtn" type="button" data-macro-action="clear-handoff-queue">Clear queue</button></div>
+          </div>
+          <div class="commandCard" data-macro-card="reset-workspace">
+            <div class="commandKick">Reset macro</div>
+            <div class="commandTitle">Καθαρισμός saved workspace state</div>
+            <div class="commandText">Καθαρίζει local resume, recent history, pins και saved page filters από αυτόν τον browser χωρίς να πειράζει δεδομένα του συστήματος.</div>
+            <div class="commandMeta"><span class="commandPill primary">Local only</span><span class="commandPill">Safe reset</span></div>
+            <div class="commandActions"><button class="commandBtn" type="button" data-macro-action="reset-workspace">Καθαρισμός</button></div>
+          </div>
+        </div>
+
+        <div class="commandDeck hidden" id="workspaceHistoryDeck"></div>
+        <div class="commandDeck hidden" id="handoffQueueDeck"></div>
+
+        <div class="patternStrip">
+          <div class="patternCard"><div class="patternKick">Shared system</div><div class="patternValue">One design language</div><div class="patternMeta">Myroom, Settings, Daily, Fleet, Bookings και Contract αρχίζουν πλέον με την ίδια admin ιεραρχία.</div></div>
+          <div class="patternCard"><div class="patternKick">Access model</div><div class="patternValue">Single private entry</div><div class="patternMeta">Το login panel μένει η μοναδική πύλη και ο ίδιος role context ακολουθεί σε κάθε page shell.</div></div>
+          <div class="patternCard"><div class="patternKick">Upgrade path</div><div class="patternValue">Command to workspace</div><div class="patternMeta">Από τα quick launches περνάς σε operator pages χωρίς να αλλάζει η γλώσσα πλοήγησης ή το session layer.</div></div>
+          <div class="patternCard"><div class="patternKick">Next layer</div><div class="patternValue">Ready for real upgrades</div><div class="patternMeta">Το hub είναι πλέον αρκετά σταθερό ώστε οι επόμενες αναβαθμίσεις να πατήσουν σε κοινό admin σύστημα και όχι σε σκόρπια shells.</div></div>
+        </div>
+        <div class="dash" style="margin-top:14px">
+          <div class="section" data-route-card="daily"><div class="sectionTitle">Daily View</div><div class="sectionText">Check-outs, check-ins και γρήγορο άνοιγμα συμβολαίων.</div></div>
+          <div class="section" data-route-card="fleet"><div class="sectionTitle">Fleet Chart</div><div class="sectionText">Αναθέσεις οχημάτων, auto-assign και καθαρό οπτικό calendar.</div></div>
+          <div class="section" data-route-card="bookings"><div class="sectionTitle">Bookings Board</div><div class="sectionText">Status, rental state και κεντρικός έλεγχος κρατήσεων.</div></div>
+        <div class="section" data-route-card="settings"><div class="sectionTitle">Settings</div><div class="sectionText">Pricing catalog, users, roles, sessions και audit σε ένα private console.</div></div></div>
+        <div class="footerNote" style="margin-top:12px">Στο πρώτο admin bootstrap login χρησιμοποίησε το προσωρινό password του setup και μετά όρισε μόνιμα credentials για τους χρήστες.</div>
+      </div>
+    </div>
+  </div>
+<script>
+const state = { authenticated:false, user:'Guest', role:'Not signed in', errorMessage:'', nextPath:'', bootstrap:null, permissions:{} };
+function postToWix(msg){ try{ window.parent.postMessage(msg,'*'); }catch(_){} }
+function reportHeight(extra=0){ const h=Math.max(document.documentElement.scrollHeight, document.body.scrollHeight, document.body.offsetHeight); postToWix({ type:'resizeShell', height:h+20+extra }); }
+function setUserContext(payload={}){ const name=payload.name||state.user||'Guest'; const role=payload.role||state.role||'Not signed in'; const badge=(name||'G').trim().charAt(0).toUpperCase()||'G'; ['userName','menuUserName','digestUser'].forEach(id=>{ const el=document.getElementById(id); if(el) el.textContent=name; }); ['userRole','menuUserRole','digestRole'].forEach(id=>{ const el=document.getElementById(id); if(el) el.textContent=role; }); const b=document.getElementById('userBadge'); if(b) b.textContent=badge; }
+const RESUME_WORKSPACE_KEY='diamond.backroom.resume.v1';
+const WORKSPACE_HISTORY_KEY='diamond.backroom.history.v1';
+const PINNED_WORKSPACES_KEY='diamond.backroom.pins.v1';
+const HANDOFF_QUEUE_KEY='diamond.backroom.handoffQueue.v1';
+const SAVED_VIEWS_KEY='diamond.backroom.savedViews.v1';
+const DAILY_WORKSPACE_KEY='diamond.daily.workspace.v1';
+const FLEET_WORKSPACE_KEY='diamond.fleet.workspace.v1';
+const BOOKINGS_WORKSPACE_KEY='diamond.bookings.workspace.v1';
+const SETTINGS_WORKSPACE_KEY='diamond.settings.workspace.v1';
+const DAILY_SNAPSHOT_KEY='diamond.daily.snapshot.v1';
+const FLEET_SNAPSHOT_KEY='diamond.fleet.snapshot.v1';
+const BOOKINGS_SNAPSHOT_KEY='diamond.bookings.snapshot.v1';
+const SETTINGS_SNAPSHOT_KEY='diamond.settings.snapshot.v1';
+const LEGACY_PRESET_KEYS=[PINNED_WORKSPACES_KEY,SAVED_VIEWS_KEY,DAILY_SNAPSHOT_KEY,FLEET_SNAPSHOT_KEY,BOOKINGS_SNAPSHOT_KEY,SETTINGS_SNAPSHOT_KEY];
+function purgeLegacyPresetState(){ LEGACY_PRESET_KEYS.forEach((key)=>{ try{ localStorage.removeItem(key); }catch(_){} }); }
+function readResumeWorkspace(){ try{ const raw=JSON.parse(localStorage.getItem(RESUME_WORKSPACE_KEY)||'null'); return raw&&typeof raw==='object'?raw:null; }catch(_){ return null; } }
+function readWorkspaceHistory(){ try{ const raw=JSON.parse(localStorage.getItem(WORKSPACE_HISTORY_KEY)||'[]'); return Array.isArray(raw)?raw.filter(item=>item&&typeof item==='object'):[]; }catch(_){ return []; } }
+function readPinnedWorkspaces(){ try{ const raw=JSON.parse(localStorage.getItem(PINNED_WORKSPACES_KEY)||'[]'); return Array.isArray(raw)?raw.filter(item=>item&&typeof item==='object'):[]; }catch(_){ return []; } }
+function readHandoffQueue(){ try{ const raw=JSON.parse(localStorage.getItem(HANDOFF_QUEUE_KEY)||'[]'); return Array.isArray(raw)?raw.filter(item=>item&&typeof item==='object'):[]; }catch(_){ return []; } }
+function readSavedViews(){ try{ const raw=JSON.parse(localStorage.getItem(SAVED_VIEWS_KEY)||'[]'); return Array.isArray(raw)?raw.filter(item=>item&&typeof item==='object'):[]; }catch(_){ return []; } }
+function readSnapshot(key){ try{ const raw=JSON.parse(localStorage.getItem(key)||'null'); return raw&&typeof raw==='object'?raw:null; }catch(_){ return null; } }
+function escapeHtml(value){ return String(value ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function permissionKey(route){ if(route==='daily') return 'rentalsView'; if(route==='fleet') return 'fleetView'; if(route==='bookings') return 'bookingsView'; if(route==='pricing' || route==='settings') return 'pricingView'; return ''; }
+function canAccessRoute(route){ if(route==='home') return true; if(!state.authenticated) return false; const key=permissionKey(route); if(!key) return true; return !!((state.permissions||{})[key]); }
+function formatResumeTime(iso){ try{ const d=new Date(iso); if(isNaN(d.getTime())) return 'Πρόσφατο'; return d.toLocaleString('el-GR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}); }catch(_){ return 'Πρόσφατο'; } }
+
+function toYMD(value){ try{ const d=value instanceof Date?value:new Date(value); if(isNaN(d.getTime())) return ''; return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }catch(_){ return ''; } }
+function addDaysToYmd(ymd,days){ const d=new Date(`${ymd}T00:00:00`); if(isNaN(d.getTime())) return ''; d.setDate(d.getDate()+Number(days||0)); return toYMD(d); }
+function rangeForDays(days){ const end=new Date(); const start=new Date(end); start.setDate(start.getDate()-Math.max(0,Number(days||0)-1)); return { startDate:toYMD(start), endDate:toYMD(end) }; }
+function writeJson(key,value){ try{ localStorage.setItem(key, JSON.stringify(value)); return true; }catch(_){ return false; } }
+function fallbackCopy(text, successMessage, errorMessage){ try{ const ta=document.createElement('textarea'); ta.value=String(text||''); ta.setAttribute('readonly','readonly'); ta.style.position='fixed'; ta.style.opacity='0'; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); setNotice(successMessage||'Έγινε αντιγραφή.','ok'); }catch(_){ setNotice(errorMessage||'Δεν έγινε αντιγραφή.','error'); } }
+function copyTextWithFallback(text, successMessage, errorMessage){ const value=String(text||'').trim(); if(!value){ setNotice(errorMessage||'Δεν υπάρχουν διαθέσιμα δεδομένα.','error'); return; } if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(value).then(()=>setNotice(successMessage||'Έγινε αντιγραφή.','ok')).catch(()=>fallbackCopy(value,successMessage,errorMessage)); return; } fallbackCopy(value,successMessage,errorMessage); }
+function snapshotDefs(){ return [
+  { key:DAILY_SNAPSHOT_KEY, route:'daily', routeLabel:'Daily', fallbackTitle:'Daily snapshot' },
+  { key:FLEET_SNAPSHOT_KEY, route:'fleet', routeLabel:'Fleet', fallbackTitle:'Fleet snapshot' },
+  { key:BOOKINGS_SNAPSHOT_KEY, route:'bookings', routeLabel:'Bookings', fallbackTitle:'Bookings snapshot' },
+  { key:SETTINGS_SNAPSHOT_KEY, route:'settings', routeLabel:'Settings', fallbackTitle:'Settings snapshot' }
+]; }
+function buildOpsDigest(){ const list=snapshotDefs().map((def)=>({ def, snap:readSnapshot(def.key) })).filter((item)=>item.snap&&canAccessRoute(item.def.route)); if(!list.length) return ''; return ['Backroom ops digest', ...list.map(({def,snap})=>{ const bits=[`${snap.title||def.fallbackTitle} (${snap.routeLabel||def.routeLabel})`, snap.subtitle||'', snap.summaryLine||'', ...(Array.isArray(snap.metrics)?snap.metrics.slice(0,3):[])].filter(Boolean); return bits.join('\n'); })].join('\n---\n'); }
+function buildHandoffQueueDigest(){ const list=readHandoffQueue().filter((item)=>canAccessRoute(String(item.route||''))); if(!list.length) return ''; return ['Backroom handoff queue', ...list.slice(0,8).map((item,idx)=>[`${idx+1}. ${item.title||'Queued item'} (${item.routeLabel||item.route||'Backroom'})`, item.subtitle||'', item.summaryLine||'', ...(Array.isArray(item.metrics)?item.metrics.slice(0,2):[])].filter(Boolean).join('\n'))].join('\n---\n'); }
+function buildSavedViewsDigest(){ const list=readSavedViews().filter((item)=>canAccessRoute(String(item.route||''))); if(!list.length) return ''; return ['Backroom saved views', ...list.slice(0,10).map((item,idx)=>[`${idx+1}. ${item.title||'Saved view'} (${item.routeLabel||item.route||'Backroom'})`, item.subtitle||'', item.summaryLine||'', ...(Array.isArray(item.metrics)?item.metrics.slice(0,2):[])].filter(Boolean).join('\n'))].join('\n---\n'); }
+function clearHandoffQueue(){ try{ localStorage.removeItem(HANDOFF_QUEUE_KEY); }catch(_){} renderResumeWorkspace(); setNotice('Το local handoff queue καθαρίστηκε σε αυτόν τον browser.','ok'); }
+function openWorkspaceEntry(entry){ if(!entry || !entry.route) return; if(entry.workspaceKey && entry.workspace){ writeJson(entry.workspaceKey, entry.workspace); } postToWix({ type:'navigate', route:entry.route }); }
+function renderHandoffQueue(){ const deck=document.getElementById('handoffQueueDeck'); if(!deck) return; const list=readHandoffQueue().filter((item)=>canAccessRoute(String(item.route||''))).slice(0,6); if(!list.length){ deck.classList.add('hidden'); deck.innerHTML=''; return; } deck.classList.remove('hidden'); deck.innerHTML=list.map((item,idx)=>`<div class="commandCard" data-queue-card="${idx}"><div class="commandKick">Handoff queue</div><div class="commandTitle">${escapeHtml(item.title||'Queued item')}</div><div class="commandText">${escapeHtml(item.subtitle||item.summaryLine||'Queued follow-up για γρήγορο άνοιγμα.')}</div><div class="commandMeta"><span class="commandPill primary">${escapeHtml(item.routeLabel||item.route||'Backroom')}</span><span class="commandPill">${escapeHtml(formatResumeTime(item.updatedAt))}</span></div>${Array.isArray(item.metrics)&&item.metrics.length?`<div class="commandText">${item.metrics.slice(0,2).map(escapeHtml).join(' • ')}</div>`:''}<div class="commandActions"><button class="commandBtn primary" type="button" data-queue-open="${idx}">Άνοιγμα</button><button class="commandBtn" type="button" data-queue-remove="${idx}">Remove</button></div></div>`).join(''); }
+
+function renderSavedViews(){ const deck=document.getElementById('savedWorkspaceDeck'); if(!deck) return; const list=readSavedViews().filter((item)=>canAccessRoute(String(item.route||''))).slice(0,6); if(!list.length){ deck.classList.add('hidden'); deck.innerHTML=''; return; } deck.classList.remove('hidden'); deck.innerHTML=list.map((item,idx)=>`<div class="commandCard" data-saved-card="${idx}"><div class="commandKick">Saved view</div><div class="commandTitle">${escapeHtml(item.title||'Saved view')}</div><div class="commandText">${escapeHtml(item.subtitle||item.summaryLine||'Reusable operational preset για γρήγορο άνοιγμα.')}</div><div class="commandMeta"><span class="commandPill primary">${escapeHtml(item.routeLabel||item.route||'Backroom')}</span><span class="commandPill">${escapeHtml(formatResumeTime(item.updatedAt))}</span></div>${Array.isArray(item.metrics)&&item.metrics.length?`<div class="commandText">${item.metrics.slice(0,2).map(escapeHtml).join(' • ')}</div>`:''}<div class="commandActions"><button class="commandBtn primary" type="button" data-saved-open="${idx}">Άνοιγμα</button><button class="commandBtn" type="button" data-saved-remove="${idx}">Remove</button></div></div>`).join(''); }
+
+function clearSavedWorkspaceState(){ [RESUME_WORKSPACE_KEY,WORKSPACE_HISTORY_KEY,HANDOFF_QUEUE_KEY,DAILY_WORKSPACE_KEY,FLEET_WORKSPACE_KEY,BOOKINGS_WORKSPACE_KEY,SETTINGS_WORKSPACE_KEY,...LEGACY_PRESET_KEYS].forEach((key)=>{ try{ localStorage.removeItem(key); }catch(_){} }); renderResumeWorkspace(); setNotice('Καθαρίστηκαν local history, queue και προσωρινά filters σε αυτόν τον browser.','ok'); }
+function runWorkspaceMacro(kind){ if(kind==='reset-workspace'){ clearSavedWorkspaceState(); return; } if(kind==='copy-handoff-queue'){ copyTextWithFallback(buildHandoffQueueDigest(), 'Το handoff queue αντιγράφηκε.', 'Δεν υπάρχουν queued follow-ups ακόμη.'); return; } if(kind==='clear-handoff-queue'){ clearHandoffQueue(); return; } if(!state.authenticated){ setNotice('Συνδέσου πρώτα για να χρησιμοποιήσεις τα operator macros.','error'); return; } if(kind==='today-daily'){ if(!canAccessRoute('daily')){ setNotice('Ο ρόλος σου δεν έχει πρόσβαση στο Daily.','error'); return; } const date=toYMD(new Date()); writeJson(DAILY_WORKSPACE_KEY,{ date, globalSearch:'', filterOut:'all', filterIn:'all', filterBk:'all', bookingsCollapsed:false }); postToWix({ type:'navigate', route:'daily' }); return; } if(kind==='fleet-14d'){ if(!canAccessRoute('fleet')){ setNotice('Ο ρόλος σου δεν έχει πρόσβαση στο Fleet.','error'); return; } const from=toYMD(new Date()); const to=addDaysToYmd(from,13); writeJson(FLEET_WORKSPACE_KEY,{ from, to, search:'' }); postToWix({ type:'navigate', route:'fleet' }); return; } if(kind==='bookings-30d'){ if(!canAccessRoute('bookings')){ setNotice('Ο ρόλος σου δεν έχει πρόσβαση στο Bookings.','error'); return; } const activeRange=rangeForDays(30); writeJson(BOOKINGS_WORKSPACE_KEY,{ q:'', filterStatus:'All', activeRange }); postToWix({ type:'navigate', route:'bookings' }); return; } }
+function renderOpsSnapshots(){ const deck=document.getElementById('opsSnapshotDeck'); if(!deck) return; const cards=snapshotDefs().map((def)=>{ const snap=readSnapshot(def.key); if(!snap || !canAccessRoute(def.route)) return ''; const metrics=Array.isArray(snap.metrics)?snap.metrics.slice(0,3):[]; return `<div class="commandCard" data-history-route-card="${escapeHtml(def.route)}"><div class="commandKick">Ops snapshot</div><div class="commandTitle">${escapeHtml(snap.title||def.fallbackTitle)}</div><div class="commandText">${escapeHtml(snap.subtitle||snap.summaryLine||'Saved operator snapshot για γρήγορο άνοιγμα.')}</div><div class="commandMeta"><span class="commandPill primary">${escapeHtml(snap.routeLabel||def.routeLabel)}</span><span class="commandPill">${escapeHtml(formatResumeTime(snap.updatedAt))}</span></div>${metrics.length?`<div class="commandText">${metrics.map(escapeHtml).join(' • ')}</div>`:''}<div class="commandActions"><button class="commandBtn primary" type="button" data-history-route="${escapeHtml(def.route)}">Άνοιγμα</button></div></div>`; }).filter(Boolean); if(!cards.length){ deck.classList.add('hidden'); deck.innerHTML=''; return; } deck.classList.remove('hidden'); deck.innerHTML=cards.join(''); }
+function renderResumeWorkspace(){ const card=document.getElementById('resumeWorkspaceCard'); const title=document.getElementById('resumeWorkspaceTitle'); const text=document.getElementById('resumeWorkspaceText'); const route=document.getElementById('resumeWorkspaceRoute'); const when=document.getElementById('resumeWorkspaceWhen'); const digestNext=document.getElementById('digestNext'); if(!card) return; const info=readResumeWorkspace(); const allowed=info&&canAccessRoute(info.route||''); if(!info || !allowed){ card.classList.add('hidden'); if(digestNext && !state.nextPath) digestNext.textContent='Backroom'; renderWorkspaceHistory(); renderHandoffQueue(); reportHeight(); return; } card.classList.remove('hidden'); if(title) title.textContent=info.title||'Τελευταίο workspace'; if(text) text.textContent=info.subtitle||'Συνέχισε από το πιο πρόσφατο operational context.'; if(route) route.textContent=(info.routeLabel||info.route||'Backroom'); if(when) when.textContent=formatResumeTime(info.updatedAt); if(digestNext && !state.nextPath) digestNext.textContent=info.title||'Backroom'; renderWorkspaceHistory(); renderHandoffQueue(); reportHeight(); }
+function renderPinnedWorkspaces(){ const deck=document.getElementById('pinnedWorkspaceDeck'); if(!deck) return; const list=readPinnedWorkspaces().filter(item=>canAccessRoute(String(item.route||''))).slice(0,4); if(!list.length){ deck.classList.add('hidden'); deck.innerHTML=''; return; } deck.classList.remove('hidden'); deck.innerHTML=list.map((item)=>`<div class="commandCard" data-history-route-card="${String(item.route||'').replace(/"/g,'&quot;')}"><div class="commandKick">Pinned workspace</div><div class="commandTitle">${String(item.title||'Workspace').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div><div class="commandText">${String(item.subtitle||'Γρήγορο άνοιγμα στο ίδιο operational context.').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div><div class="commandMeta"><span class="commandPill primary">${String(item.routeLabel||item.route||'Backroom').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span><span class="commandPill">Pinned</span></div><div class="commandActions"><button class="commandBtn primary" type="button" data-history-route="${String(item.route||'').replace(/"/g,'&quot;')}">Άνοιγμα</button></div></div>`).join(''); }
+function renderWorkspaceHistory(){ const deck=document.getElementById('workspaceHistoryDeck'); if(!deck) return; const list=readWorkspaceHistory().filter(item=>canAccessRoute(String(item.route||''))).slice(0,4); if(!list.length){ deck.classList.add('hidden'); deck.innerHTML=''; return; } deck.classList.remove('hidden'); deck.innerHTML=list.map((item,idx)=>`<div class="commandCard" data-history-route-card="${String(item.route||'').replace(/"/g,'&quot;')}"><div class="commandKick">Recent ${idx===0?'workspace':'route'}</div><div class="commandTitle">${String(item.title||'Workspace').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div><div class="commandText">${String(item.subtitle||'Συνέχισε από πρόσφατο operational context.').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div><div class="commandMeta"><span class="commandPill primary">${String(item.routeLabel||item.route||'Backroom').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</span><span class="commandPill">${formatResumeTime(item.updatedAt)}</span></div><div class="commandActions"><button class="commandBtn primary" type="button" data-history-route="${String(item.route||'').replace(/"/g,'&quot;')}">Άνοιγμα</button></div></div>`).join(''); }
+function setTabsEnabled(flag){ document.querySelectorAll('.tab[data-route]').forEach(btn=>{ const route=btn.getAttribute('data-route')||''; if(flag && canAccessRoute(route)) btn.removeAttribute('disabled'); else btn.setAttribute('disabled','disabled'); }); document.querySelectorAll('[data-route-card]').forEach(card=>{ const route=card.getAttribute('data-route-card')||''; card.classList.toggle('locked', !canAccessRoute(route)); }); document.querySelectorAll('[data-macro-card]').forEach(card=>{ const kind=card.getAttribute('data-macro-card')||''; const route=kind==='today-daily'?'daily':(kind==='fleet-14d'?'fleet':(kind==='bookings-30d'?'bookings':'')); card.classList.toggle('locked', !!route && !canAccessRoute(route)); }); renderResumeWorkspace(); }
+function setNotice(message='',tone=''){ const box=document.getElementById('authNotice'); if(!box) return; box.className='note'; if(tone) box.classList.add(tone); box.textContent=message||'Το backroom χρησιμοποιεί δικό του session layer και δικούς του ρόλους.'; }
+function renderBootstrapInfo(){ const box=document.getElementById('bootstrapInfo'); if(!box) return; const boot=state.bootstrap||null; if(!boot){ box.className='note'; box.textContent='Δεν βρέθηκαν ακόμη public στοιχεία bootstrap.'; return; } const admins=Array.isArray(boot.adminUsers)?boot.adminUsers:[]; const adminsHtml=admins.length ? `<ul class="helperList">${admins.map(item=>`<li>${String(item.fullName||item.email||'')} · ${String(item.email||'')} · ${item.hasCredential?'Credential ready':'Bootstrap login'}</li>`).join('')}</ul>` : '<div>Δεν βρέθηκαν ενεργοί admin users στο StaffUsers.</div>'; box.className='note '+(boot.ready ? 'ok' : 'warn'); box.innerHTML=`<strong>Login setup</strong><div style="height:6px"></div><div>Active staff users: ${Number(boot.usersCount||0)} · Roles: ${Number(boot.rolesCount||0)} · Active credentials: ${Number(boot.credentialsCount||0)}</div><div style="margin-top:6px"><strong>Auth runtime</strong>: ${String(boot.cryptoMode||'unknown')}</div><div style="height:8px"></div><div><strong>Admin users</strong></div>${adminsHtml}<div style="height:8px"></div><div>${String(boot.notes||'')}</div><div style="margin-top:6px"><strong>${boot.bootstrapPassword ? 'Bootstrap password: '+String(boot.bootstrapPassword) : ''}</strong></div>`; }
+
+function renderAuthHealth(){ const box=document.getElementById('authHealthInfo'); if(!box) return; const h=state.authHealth||null; if(!h){ box.className='note'; box.textContent='Δεν υπάρχουν ακόμη στοιχεία health για το custom auth.'; return; } const collections=h.collections||{}; const rows=Object.keys(collections).map(key=>{ const c=collections[key]||{}; return `<li>${String(c.collectionName||key)} · ${c.ok?'OK':'ERROR'}${c.error?` · ${String(c.error)}`:''}</li>`; }).join(''); const missing=Array.isArray(h.missingCollections)&&h.missingCollections.length ? `<div style="margin-top:6px"><strong>Missing/problem collections:</strong> ${h.missingCollections.join(', ')}</div>` : ''; box.className='note '+(h.ok?'ok':'error'); box.innerHTML=`<strong>Auth health</strong><div style="height:6px"></div><div>Users: ${Number(h.usersCount||0)} · Roles: ${Number(h.rolesCount||0)} · Credentials: ${Number(h.credentialsCount||0)}</div><div style="margin-top:6px">${String(h.notes||'')}</div>${missing}<div style="height:6px"></div><ul class="helperList">${rows||'<li>Δεν βρέθηκαν στοιχεία.</li>'}</ul>`; }
+function applyAuthState(payload={}){ state.authenticated=!!payload.authenticated; state.user=payload.user||'Guest'; state.role=payload.role||'Not signed in'; state.nextPath=payload.nextPath||''; state.permissions=payload.permissions||{}; state.bootstrap=payload.bootstrap||state.bootstrap||null; state.authHealth=payload.authHealth||state.authHealth||null; setUserContext({name:state.user,role:state.role}); setTabsEnabled(state.authenticated); const status=document.getElementById('statusValue'); if(status) status.textContent=state.authenticated?'Signed in':'Not signed in'; const next=document.getElementById('digestNext'); if(next) next.textContent=payload.nextPath||'Backroom'; if(payload.denied) setNotice('Δεν έχεις δικαίωμα για τη σελίδα που ζήτησες. Συνδέσου με λογαριασμό που έχει το σωστό role.','error'); else if(payload.errorMessage) setNotice(payload.errorMessage, payload.authenticated ? 'ok':'error'); else if(state.authenticated) setNotice('Το private session είναι ενεργό και ακολουθεί σε όλο το backroom.','ok'); else setNotice('Το backroom χρησιμοποιεί δικό του session layer και δικούς του ρόλους.',''); const warn=document.getElementById('mustChangeBox'); if(warn){ if(payload.mustChangePassword){ warn.classList.remove('hidden'); warn.className='note warn'; warn.textContent='Χρησιμοποιείς προσωρινό password. Άλλαξέ το αμέσως από το πεδίο πιο κάτω.'; } else { warn.classList.add('hidden'); } } const recovery=document.getElementById('recoveryBox'); if(recovery){ if(state.authenticated) recovery.classList.add('hidden'); else recovery.classList.remove('hidden'); } const tools=document.getElementById('passwordToolsBox'); if(tools){ if(state.authenticated) tools.classList.remove('hidden'); else tools.classList.add('hidden'); } renderBootstrapInfo(); renderAuthHealth(); renderResumeWorkspace(); reportHeight(); }
+function wire(){ document.querySelectorAll('.tab[data-route]').forEach(btn=>btn.addEventListener('click',()=>{ if(btn.hasAttribute('disabled')){ setNotice(state.authenticated ? 'Ο ρόλος σου δεν έχει πρόσβαση σε αυτή την ενότητα.' : 'Συνδέσου πρώτα για να ανοίξουν οι καρτέλες του backroom.','error'); return; } postToWix({ type:'navigate', route:btn.getAttribute('data-route') }); })); document.querySelectorAll('[data-route-card]').forEach(card=>card.addEventListener('click',()=>{ const route=card.getAttribute('data-route-card'); if(!canAccessRoute(route)){ setNotice(state.authenticated ? 'Ο ρόλος σου δεν έχει πρόσβαση σε αυτή την ενότητα.' : 'Συνδέσου πρώτα για να ανοίξουν οι ιδιωτικές ενότητες.','error'); return; } postToWix({ type:'navigate', route }); })); const historyDeck=document.getElementById('workspaceHistoryDeck'); if(historyDeck){ historyDeck.addEventListener('click',(e)=>{ const btn=e.target.closest('[data-history-route]'); const card=e.target.closest('[data-history-route-card]'); const route=(btn&&btn.getAttribute('data-history-route')) || (card&&card.getAttribute('data-history-route-card')) || ''; if(!route) return; if(!canAccessRoute(route)){ setNotice(state.authenticated ? 'Ο ρόλος σου δεν έχει πρόσβαση σε αυτό το workspace.' : 'Συνδέσου πρώτα για να συνεχίσεις από saved workspace.','error'); return; } postToWix({ type:'navigate', route }); }); } const pinnedDeck=document.getElementById('pinnedWorkspaceDeck'); if(pinnedDeck){ pinnedDeck.addEventListener('click',(e)=>{ const btn=e.target.closest('[data-history-route]'); const card=e.target.closest('[data-history-route-card]'); const route=(btn&&btn.getAttribute('data-history-route')) || (card&&card.getAttribute('data-history-route-card')) || ''; if(!route) return; if(!canAccessRoute(route)){ setNotice(state.authenticated ? 'Ο ρόλος σου δεν έχει πρόσβαση σε αυτό το pinned workspace.' : 'Συνδέσου πρώτα για να ανοίξεις pinned workspace.','error'); return; } postToWix({ type:'navigate', route }); }); } const savedDeck=document.getElementById('savedWorkspaceDeck'); if(savedDeck){ savedDeck.addEventListener('click',(e)=>{ const openBtn=e.target.closest('[data-saved-open]'); const removeBtn=e.target.closest('[data-saved-remove]'); const card=e.target.closest('[data-saved-card]'); const idxRaw=(openBtn&&openBtn.getAttribute('data-saved-open')) || (removeBtn&&removeBtn.getAttribute('data-saved-remove')) || (card&&card.getAttribute('data-saved-card')) || ''; const idx=Number(idxRaw); if(!Number.isInteger(idx) || idx<0) return; const list=readSavedViews().filter((item)=>canAccessRoute(String(item.route||''))); const entry=list[idx]; if(!entry) return; if(removeBtn){ try{ const all=readSavedViews(); const targetId=String(entry.id||''); const next=all.filter((item)=> String(item&&item.id||'')!==targetId); localStorage.setItem(SAVED_VIEWS_KEY, JSON.stringify(next)); }catch(_){} renderResumeWorkspace(); setNotice('Το saved view αφαιρέθηκε από τη Myroom.','ok'); return; } if(!canAccessRoute(String(entry.route||''))){ setNotice(state.authenticated ? 'Ο ρόλος σου δεν έχει πρόσβαση σε αυτό το saved view.' : 'Συνδέσου πρώτα για να ανοίξεις saved view.','error'); return; } openWorkspaceEntry(entry); }); } const opsDeck=document.getElementById('opsSnapshotDeck'); if(opsDeck){ opsDeck.addEventListener('click',(e)=>{ const btn=e.target.closest('[data-history-route]'); const card=e.target.closest('[data-history-route-card]'); const route=(btn&&btn.getAttribute('data-history-route')) || (card&&card.getAttribute('data-history-route-card')) || ''; if(!route) return; if(!canAccessRoute(route)){ setNotice(state.authenticated ? 'Ο ρόλος σου δεν έχει πρόσβαση σε αυτό το snapshot route.' : 'Συνδέσου πρώτα για να ανοίξεις saved snapshot.','error'); return; } postToWix({ type:'navigate', route }); }); } const handoffDeck=document.getElementById('handoffQueueDeck'); if(handoffDeck){ handoffDeck.addEventListener('click',(e)=>{ const openBtn=e.target.closest('[data-queue-open]'); const removeBtn=e.target.closest('[data-queue-remove]'); const card=e.target.closest('[data-queue-card]'); const idxRaw=(openBtn&&openBtn.getAttribute('data-queue-open')) || (removeBtn&&removeBtn.getAttribute('data-queue-remove')) || (card&&card.getAttribute('data-queue-card')) || ''; const idx=Number(idxRaw); if(!Number.isInteger(idx) || idx<0) return; const list=readHandoffQueue().filter((item)=>canAccessRoute(String(item.route||''))); const entry=list[idx]; if(!entry) return; if(removeBtn){ try{ const all=readHandoffQueue(); const targetId=String(entry.id||''); const next=all.filter((item)=> String(item&&item.id||'')!==targetId); localStorage.setItem(HANDOFF_QUEUE_KEY, JSON.stringify(next)); }catch(_){} renderResumeWorkspace(); setNotice('Το queued item αφαιρέθηκε από το handoff queue.','ok'); return; } if(!canAccessRoute(String(entry.route||''))){ setNotice(state.authenticated ? 'Ο ρόλος σου δεν έχει πρόσβαση σε αυτό το queued route.' : 'Συνδέσου πρώτα για να ανοίξεις queued follow-up.','error'); return; } openWorkspaceEntry(entry); }); } const resumeBtn=document.getElementById('resumeWorkspaceBtn'); if(resumeBtn){ resumeBtn.addEventListener('click',()=>{ const info=readResumeWorkspace(); const route=(info&&info.route)||''; if(!route || !canAccessRoute(route)){ setNotice(state.authenticated ? 'Δεν υπάρχει διαθέσιμο saved workspace για τον ρόλο σου.' : 'Συνδέσου πρώτα για να συνεχίσεις από saved workspace.','error'); return; } postToWix({ type:'navigate', route }); }); } const meta=document.getElementById('todayMeta'); if(meta){ try{ meta.textContent=new Date().toLocaleDateString('el-GR',{weekday:'short',day:'2-digit',month:'2-digit',year:'numeric'});}catch(_){} } const btn=document.getElementById('userMenuBtn'); const menu=document.getElementById('userMenu'); if(btn&&menu){ btn.addEventListener('click',(e)=>{ e.stopPropagation(); menu.classList.toggle('open'); reportHeight(menu.classList.contains('open') ? 300 : 0); }); document.addEventListener('click',(e)=>{ if(!menu.contains(e.target)&&!btn.contains(e.target)){ menu.classList.remove('open'); reportHeight(); }}); menu.querySelectorAll('[data-menu-action]').forEach(node=>node.addEventListener('click',()=>{ postToWix({ type:'menuAction', action:node.getAttribute('data-menu-action') }); menu.classList.remove('open'); reportHeight(); })); }
+const loginBtn=document.getElementById('loginBtn'); if(loginBtn){ loginBtn.addEventListener('click',()=>{ const email=(document.getElementById('loginEmail')||{}).value||''; const password=(document.getElementById('loginPassword')||{}).value||''; const remember=!!((document.getElementById('rememberMe')||{}).checked); postToWix({ type:'staffLogin', email, password, remember }); }); }
+const forgotBtn=document.getElementById('forgotAccessBtn'); if(forgotBtn){ forgotBtn.addEventListener('click',()=>{ const email=(document.getElementById('loginEmail')||{}).value||''; if(!String(email||'').trim()){ setNotice('Γράψε πρώτα το εταιρικό email σου και μετά ζήτησε recovery.','error'); return; } postToWix({ type:'requestAccessRecovery', email }); }); }
+['loginEmail','loginPassword'].forEach(id=>{ const el=document.getElementById(id); if(el) el.addEventListener('keydown',(e)=>{ if(e.key==='Enter'){ e.preventDefault(); document.getElementById('loginBtn')?.click(); }}); });
+const changeBtn=document.getElementById('changePasswordBtn'); if(changeBtn){ changeBtn.addEventListener('click',()=>{ const currentPassword=(document.getElementById('currentPassword')||{}).value||''; const newPassword=(document.getElementById('newPassword')||{}).value||''; const confirmNewPassword=(document.getElementById('confirmNewPassword')||{}).value||''; if(!state.authenticated){ setNotice('Συνδέσου πρώτα για να αλλάξεις password.','error'); return; } if(newPassword.length<8){ setNotice('Το νέο password πρέπει να έχει τουλάχιστον 8 χαρακτήρες.','error'); return; } if(newPassword!==confirmNewPassword){ setNotice('Τα νέα passwords δεν ταιριάζουν.','error'); return; } postToWix({ type:'changeOwnPassword', currentPassword, newPassword }); document.getElementById('currentPassword').value=''; document.getElementById('newPassword').value=''; document.getElementById('confirmNewPassword').value=''; }); }
+const logoutOthersBtn=document.getElementById('logoutOtherSessionsBtn'); if(logoutOthersBtn){ logoutOthersBtn.addEventListener('click',()=>{ if(!state.authenticated){ setNotice('Συνδέσου πρώτα για να ανακαλέσεις sessions.','error'); return; } postToWix({ type:'logoutOtherSessions' }); }); }
+window.addEventListener('message',(event)=>{ const data=event&&event.data; if(!data||!data.type) return; if(data.type==='authState') applyAuthState(data); if(data.type==='userContext') setUserContext(data); });
+postToWix({ type:'homeReady' }); postToWix({ type:'requestLoginBootstrap' }); reportHeight(); }
+wire();
+</script>
+</body>
+</html>

@@ -1,0 +1,712 @@
+// backend/fleetCalendar.jsw
+import wixData from "wix-data";
+import { requireStaffAccess } from "backend/staffAccess.jsw";
+import wixUsersBackend from "wix-users-backend";
+
+/**
+ * =========================
+ * CONFIG (ταιριάζεις εδώ)
+ * =========================
+ */
+const COLLECTIONS = {
+  Bookings: "Bookings",
+  Fleet: "Fleet",
+};
+
+// Bookings fields (canonical keys used by the module)
+const F = {
+  bookingId: "_id",
+
+  status: "status",
+  rentalState: "rentalState",
+
+  categoryId: "categoryId",
+  category: "category",
+
+  bookingNumber: "bookingNumber",
+  customerName: "customerName",
+
+  phone: "phone",
+  email: "email",
+
+  pickupDT: "pickupDateTime",
+  dropoffDT: "dropoffDateTime",
+
+  pickupPoint: "pickuppoint",
+  dropoffPoint: "dropoffpoint",
+
+  pickupComment: "pickupComment",
+  dropoffComment: "dropoffComment",
+
+  assignedFleetId: "assignedVehicle"
+};
+
+// Fleet fields (canonical keys used by the module)
+const VF = {
+  id: "_id",
+  plate: "plate",
+  model: "model",
+  category: "category",
+  active: "active",
+  station: "station",
+  mileage: "mileage",
+  ready: "ready",
+  stall: "stall"
+};
+
+/**
+ * =========================
+ * AUTO FIELD MAPPING (Bookings/Fleet)
+ * - Wix exports can have Title Case / spaces (e.g. "PickupDateTime", "Booking Number").
+ * - We detect real keys once at runtime and mutate F/VF so the rest of the module works unchanged.
+ * =========================
+ */
+let __fieldMappingReady = false;
+
+function _safeText(value) {
+  return String(value == null ? "" : value).trim();
+}
+
+function _isLikelyId(value) {
+  const s = _safeText(value);
+  return /^[0-9a-f]{8}-[0-9a-f-]{12,}$/i.test(s) || /^[0-9a-z]{20,}$/i.test(s);
+}
+
+function extractCode(labelOrCode) {
+  const s = _safeText(labelOrCode);
+  if (!s || _isLikelyId(s)) return "";
+  if (s.includes(" - ")) return _safeText(s.split(" - ")[0]);
+  const m = s.match(/^([A-Za-z0-9]+)/);
+  return m ? _safeText(m[1]) : _safeText(s.split(/\s+/)[0]);
+}
+
+function _has(obj, key) {
+  return obj && Object.prototype.hasOwnProperty.call(obj, key);
+}
+
+function _pickKey(sample, candidates, fallback) {
+  for (const k of candidates) {
+    if (_has(sample, k)) return k;
+  }
+  return fallback;
+}
+
+function _isPublishStatusValue(v) {
+  const s = String(v || "").toUpperCase();
+  return s === "PUBLISHED" || s === "DRAFT" || s === "ARCHIVED";
+}
+
+async function ensureFieldMapping() {
+  if (__fieldMappingReady) return;
+
+  // --- Bookings sample ---
+  try {
+    const bRes = await wixData.query(COLLECTIONS.Bookings).limit(1).find();
+    const b = (bRes.items && bRes.items[0]) || {};
+
+    // status: avoid picking publish-status if that's what "status" means in this schema
+    let statusKey = null;
+    if (_has(b, "status") && !_isPublishStatusValue(b.status)) statusKey = "status";
+    if (!statusKey && _has(b, "Status") && !_isPublishStatusValue(b.Status)) statusKey = "Status";
+    if (!statusKey) statusKey = _pickKey(b, ["bookingStatus", "BookingStatus", "state", "State"], F.status);
+    F.status = statusKey;
+
+    F.bookingNumber = _pickKey(b, ["Booking Number", "bookingNumber", "BookingNumber"], F.bookingNumber);
+    F.customerName  = _pickKey(b, ["Customername", "customerName", "Customer Name", "mainDriver"], F.customerName);
+
+    F.pickupDT  = _pickKey(b, ["PickupDateTime", "pickupDateTime", "PickupDT", "pickupDT"], F.pickupDT);
+    F.dropoffDT = _pickKey(b, ["DropoffDateTime", "dropoffDateTime", "DropoffDT", "dropoffDT"], F.dropoffDT);
+
+    F.pickupPoint  = _pickKey(b, ["Pickuppoint", "pickupPoint", "PickupPoint"], F.pickupPoint);
+    F.dropoffPoint = _pickKey(b, ["Dropoffpoint", "dropoffPoint", "DropoffPoint"], F.dropoffPoint);
+
+    F.categoryId = _pickKey(b, ["Categoryid", "categoryId", "CategoryId"], F.categoryId);
+    F.category   = _pickKey(b, ["category", "Category", "bookedCategoryCode", "bookedCategory"], F.category);
+
+    // Assigned vehicle (Fleet resource id)
+    F.assignedFleetId = _pickKey(b, ["AssignedVehicle", "assignedVehicle", "assignedFleetId", "assignedVehicleId"], F.assignedFleetId);
+
+    // These are usually stable but keep safe fallbacks
+    F.rentalState = _pickKey(b, ["rentalState", "RentalState"], F.rentalState);
+    F.phone = _pickKey(b, ["phone", "Phone"], F.phone);
+    F.email = _pickKey(b, ["email", "Email"], F.email);
+    F.pickupComment = _pickKey(b, ["pickupComment", "PickupComment"], F.pickupComment);
+    F.dropoffComment = _pickKey(b, ["dropoffComment", "DropoffComment"], F.dropoffComment);
+  } catch (_) {
+    // If collection empty or permissions, keep defaults
+  }
+
+  // --- Fleet sample ---
+  try {
+    const fRes = await wixData.query(COLLECTIONS.Fleet).limit(1).find();
+    const v = (fRes.items && fRes.items[0]) || {};
+
+    VF.plate = _pickKey(v, ["Plate", "plate"], VF.plate);
+    VF.model = _pickKey(v, ["Model", "model"], VF.model);
+    VF.category = _pickKey(v, ["Category", "category"], VF.category);
+    VF.active = _pickKey(v, ["Active", "active"], VF.active);
+    VF.station = _pickKey(v, ["Station", "station", "CurrentStation", "currentStation"], VF.station);
+    VF.mileage = _pickKey(v, ["Mileage", "mileage", "Kms", "kms"], VF.mileage);
+    VF.ready = _pickKey(v, ["Ready", "ready", "VehicleReady", "vehicleReady"], VF.ready);
+    VF.stall = _pickKey(v, ["Stall", "stall", "Parking", "parking"], VF.stall);
+  } catch (_) {
+    // keep defaults
+  }
+
+  __fieldMappingReady = true;
+}
+
+async function getFleetMetaById(vehicleId) {
+  const id = refId(vehicleId);
+  if (!id) return null;
+  try {
+    const item = await wixData.get(COLLECTIONS.Fleet, id);
+    if (!item) return null;
+    const plate = String(item?.[VF.plate] || item?.plate || "").trim();
+    const model = String(item?.[VF.model] || item?.model || "").trim();
+    const assignedCategoryCode = catCode(item?.[VF.category] || item?.category || "");
+    return {
+      plate,
+      model,
+      label: plate ? (model ? `${plate} - ${model}` : plate) : model,
+      assignedCategoryCode
+    };
+  } catch (_) {
+    return null;
+  }
+}
+
+/**
+ * =========================
+ * HELPERS
+ * =========================
+ */
+function iso(d) {
+  const x = toDate(d);
+  return x ? x.toISOString() : null;
+}
+
+function toDate(v) {
+  if (!v) return null;
+  if (v instanceof Date) return v;
+  const d = new Date(v);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function asId(v) {
+  if (!v) return "";
+  if (typeof v === "string") return v;
+  if (typeof v === "object") return String(v._id || v.id || v._ref || v.value || "");
+  return String(v);
+}
+
+function refId(v) {
+  const id = asId(v);
+  if (!id) return "";
+  const norm = String(id).trim().toLowerCase();
+  if (norm === "unassigned" || norm === "null" || norm === "undefined") return "";
+  return id;
+}
+
+function isOpaqueCategoryId(value) {
+  const s = String(value || '').trim();
+  return /^[0-9a-f]{8}-[0-9a-f-]{12,}$/i.test(s) || (/^[0-9A-Za-z]{8,}$/i.test(s) && !/^[A-Z]{1,4}$/i.test(s));
+}
+function catCode(v) {
+  if (!v) return "";
+  let s = v;
+  if (Array.isArray(s)) s = s[0];
+  if (typeof s === "object") {
+    // Wix reference/object may expose different keys depending on include()
+    s = s.category || s.code || s.cat || s.title || s.name || s.label || s.value || s._id || "";
+  }
+  s = String(s || "").trim();
+  if (!s || isOpaqueCategoryId(s)) return "";
+  // If it's like "A - Hyundai i10" or "A/..." => take first token
+  const m = s.match(/^([A-Za-z0-9Α-Ω]{1,4})/);
+  const first = m ? m[1] : s;
+  return String(first).replace("Χ","X").toUpperCase();
+}
+
+// ✅ Fleet category code helper (used by buildGroups / assign logic)
+function fleetCatCode(vehicle) {
+  return catCode(vehicle?.[VF.category]) || "Other";
+}
+
+
+function catLabel(v) {
+  if (!v) return "";
+  if (typeof v === "string") return v;
+  if (typeof v === "object") return String(v.title || v.label || v.name || v.code || v.value || "");
+  return String(v);
+}
+function escHtml(value) {
+  return String(value == null ? "" : value)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function yesNo(value) {
+  if (value === true) return "Ready";
+  if (value === false) return "Not ready";
+  const s = _safeText(value);
+  if (!s) return "—";
+  return s;
+}
+
+function renderCategoryHeader(cat, count) {
+  return `<div class="fleetCatCell"><span class="fleetCatCode">${escHtml(cat || "Other")}</span><span class="fleetCatMeta">${escHtml(String(count || 0))} vehicles</span></div>`;
+}
+
+function renderVehicleRow(v, index, cat) {
+  const plate = _safeText(v?.[VF.plate] || v?.plate || v?.[VF.id] || "—");
+  const model = _safeText(v?.[VF.model] || v?.model || "—");
+  const station = _safeText(v?.[VF.station] || v?.station || "—");
+  const category = _safeText(fleetCatCode(v) || cat || "—");
+  const no = String(index + 1);
+  return `
+    <div class="fleetGroupCell">
+      <span class="fleetCol fleetNo">${escHtml(no)}</span>
+      <span class="fleetCol fleetPlate">${escHtml(plate)}</span>
+      <span class="fleetCol fleetModel">${escHtml(model)}</span>
+      <span class="fleetCol fleetStation">${escHtml(station)}</span>
+      <span class="fleetCol fleetCategory">${escHtml(category)}</span>
+    </div>
+  `;
+}
+
+
+function isNonRevenueBooking(b) {
+  // You can tune this logic if you want “blocked”/“maintenance” style bookings.
+  const bn = String(b?.[F.bookingNumber] || "").toLowerCase();
+  const st = String(b?.[F.status] || "").toLowerCase();
+  return bn.includes("block") || bn.includes("maint") || st.includes("block") || st.includes("maint");
+}
+
+/**
+ * =========================
+ * PUBLIC API
+ * =========================
+ */
+
+export async function getFleetCalendarData({ authToken, from, to } = {}) {
+  await requireStaffAccess({ sessionToken: authToken, area: "fleet", action: "View" });
+  await ensureFieldMapping();
+
+  const now = new Date();
+  const f = toDate(from) || new Date(new Date(now).setHours(0,0,0,0));
+  const t = toDate(to) || new Date(now.getTime() + 14 * 86400000);
+
+  const vehicleCategoryMap = await fetchVehicleCategoryMap();
+  const fleet = await fetchFleet();
+  const bookings = await fetchBookingsInRange(iso(f), iso(t));
+
+  const groups = buildGroups(fleet, vehicleCategoryMap);
+  const { items, unassigned } = buildItems(bookings);
+  const heat = buildHeatmap({ from: f, to: t, fleet, items });
+
+  return { groups, items, unassigned, heat };
+}
+
+/**
+ * Move booking to another vehicle ONLY.
+ * Accept BOTH param names: newVehicleId OR resourceId (backwards compatible).
+ */
+export async function moveBookingVehicleOnly({ authToken, bookingId, newVehicleId, resourceId } = {}) {
+  await requireStaffAccess({ sessionToken: authToken, area: "fleet", action: "Edit" });
+  await ensureFieldMapping();
+
+  const rawTarget = newVehicleId || resourceId;
+  if (!bookingId || rawTarget === undefined || rawTarget === null || rawTarget === "") return { success: false, message: "MissingParams" };
+
+  const b = await wixData.get(COLLECTIONS.Bookings, bookingId);
+  if (!b) return { success: false, message: "NotFound" };
+  const rs = String(b[F.rentalState] || "");
+  if (rs === "Active Rental" || rs === "Pre Check-In") {
+    return { success: false, message: "LockedRentalState" };
+  }
+
+  if (isNonRevenueBooking(b)) return { success: false, message: "NonRevenueLocked" };
+
+  const start = toDate(b?.[F.pickupDT]);
+  const end = toDate(b?.[F.dropoffDT]);
+  if (!start || !end) return { success: false, message: "MissingDates" };
+
+  const targetVehicleId = refId(rawTarget);
+
+  if (targetVehicleId) {
+    const res = await wixData.query(COLLECTIONS.Bookings)
+      .eq(F.assignedFleetId, String(targetVehicleId))
+      .ne(F.bookingId, bookingId)
+      .ne(F.status, "Canceled")
+      .lt(F.pickupDT, iso(end))
+      .gt(F.dropoffDT, iso(start))
+      .limit(1000)
+      .find();
+
+    if ((res.items || []).length > 0) return { success: false, message: "Overlap" };
+    b[F.assignedFleetId] = String(targetVehicleId);
+    const meta = await getFleetMetaById(targetVehicleId);
+    if (meta) {
+      b.assignedVehiclePlate = meta.plate || "";
+      b.assignedVehicleModel = meta.model || "";
+      b.assignedVehicleLabel = meta.label || "";
+      b.assignedCategoryCode = meta.assignedCategoryCode || "";
+    }
+  } else {
+    b[F.assignedFleetId] = null;
+    b.assignedVehiclePlate = "";
+    b.assignedVehicleModel = "";
+    b.assignedVehicleLabel = "";
+    b.assignedCategoryCode = "";
+  }
+
+  await wixData.update(COLLECTIONS.Bookings, b);
+  return { success: true, assignedVehicle: targetVehicleId || null };
+}
+
+/**
+ * Confirm + auto-assign.
+ * (Safe default: sample algorithm)
+ */
+export async function confirmAndAutoAssign({ authToken, bookingId } = {}) {
+  await requireStaffAccess({ sessionToken: authToken, area: "fleet", action: "Edit" });
+  await ensureFieldMapping();
+
+  if (!bookingId) return { success: false, message: "MissingParams" };
+
+  const b = await wixData.get(COLLECTIONS.Bookings, bookingId);
+  if (!b) return { success: false, message: "NotFound" };
+
+  
+  // Ensure booking is Confirmed when user clicks Confirm
+  if (String(b[F.status] || "") !== "Confirmed") {
+    b[F.status] = "Confirmed";
+  }
+// If already assigned
+  if (refId(b?.[F.assignedFleetId])) return { success: true, assigned: true, alreadyAssigned: true };
+
+  const start = toDate(b?.[F.pickupDT]);
+  const end = toDate(b?.[F.dropoffDT]);
+  const cat = catCode(b?.[F.categoryId]) || catCode(b?.[F.category]) || "";
+
+  if (!start || !end) return { success: false, message: "MissingDates" };
+
+  const fleet = await fetchFleet();
+  const candidates = (fleet || []).filter(v => {
+    const vcat = catCode(v?.[VF.category]);
+    return !cat || vcat === cat || catLabel(v?.[VF.category]) === cat;
+  });
+
+  for (const v of candidates) {
+    const check = await wixData.query(COLLECTIONS.Bookings)
+      .eq(F.assignedFleetId, String(v[VF.id]))
+      .ne(F.status, "Canceled")
+      .lt(F.pickupDT, iso(end))
+      .gt(F.dropoffDT, iso(start))
+      .limit(1)
+      .find();
+
+    if ((check.items || []).length === 0) {
+      b[F.assignedFleetId] = String(v[VF.id]);
+      const meta = await getFleetMetaById(v[VF.id]);
+      if (meta) {
+        b.assignedVehiclePlate = meta.plate || "";
+        b.assignedVehicleModel = meta.model || "";
+        b.assignedVehicleLabel = meta.label || "";
+        b.assignedCategoryCode = meta.assignedCategoryCode || "";
+      }
+      await wixData.update(COLLECTIONS.Bookings, b);
+      return { success: true, assigned: true, vehicleId: String(v[VF.id]) };
+    }
+  }
+
+  return { success: true, assigned: false };
+}
+
+/**
+ * Acknowledge unassigned bookings in a range (optional)
+ */
+export async function acknowledgeUnassignedInRange({ from, to } = {}) {
+  await ensureFieldMapping();
+
+  const nowIso = new Date().toISOString();
+  const user = wixUsersBackend.currentUser;
+  const userId = user ? user.id : "";
+
+  const now = new Date();
+  const f = toDate(from) || new Date(new Date(now).setHours(0,0,0,0));
+  const t = toDate(to) || new Date(now.getTime() + 14 * 86400000);
+
+  const bookings = await fetchBookingsInRange(iso(f), iso(t));
+  const unassignedBookings = (bookings || []).filter(b =>
+    !refId(b?.[F.assignedFleetId]) &&
+    String(b?.[F.status] || "") !== "Canceled"
+  );
+
+  let updated = 0;
+  for (const b of unassignedBookings) {
+    // If you have ACK fields, set them here; otherwise skip
+    // b["ackAt"] = nowIso;
+    // b["ackBy"] = userId;
+    // await wixData.update(COLLECTIONS.Bookings, b);
+    // updated++;
+  }
+
+  return { success: true, total: unassignedBookings.length, updated };
+}
+
+/**
+ * =========================
+ * DATA FETCH
+ * =========================
+ */
+
+async function fetchVehicleCategoryMap() {
+  // Maps Vehicles._id -> Vehicles.category (A/B/...) for decoding Fleet.Category references
+  try {
+    const res = await wixData.query("Vehicles").limit(1000).find();
+    const map = {};
+    for (const v of (res.items || [])) {
+      const id = String(v._id || "");
+      const code = String(v.category || v.Category || "").trim() || (String(v.title || v.Title || "").split(" - ")[0] || "").trim();
+      if (id && code) map[id] = code;
+    }
+    return map;
+  } catch (_) {
+    return {};
+  }
+}
+
+async function fetchFleet() {
+  await ensureFieldMapping();
+
+  let q = wixData.query(COLLECTIONS.Fleet).include(VF.category).limit(1000);
+  // filter active if field exists
+  try { q = q.eq(VF.active, true); } catch (_) {}
+  const res = await q.find();
+  return res.items || [];
+}
+
+async function fetchBookingsInRange(fromISO, toISO) {
+  await ensureFieldMapping();
+
+  const fromDate = new Date(fromISO);
+  const toDate = new Date(toISO);
+
+  const res = await wixData.query(COLLECTIONS.Bookings)
+    .lt(F.pickupDT, toDate)
+    .gt(F.dropoffDT, fromDate)
+    .limit(1000)
+    .find();
+
+  return res.items || [];
+}
+
+/**
+ * =========================
+ * TRANSFORMS
+ * =========================
+ */
+function buildGroups(fleet) {
+  const byCat = new Map();
+
+  for (const v of (fleet || [])) {
+    const cat = fleetCatCode(v) || "Other";
+    if (!byCat.has(cat)) byCat.set(cat, []);
+    byCat.get(cat).push(v);
+  }
+
+  const cats = Array.from(byCat.keys()).sort((a, b) => {
+    const ax = a === "Other" ? "ZZZ" : a;
+    const bx = b === "Other" ? "ZZZ" : b;
+    return ax.localeCompare(bx, "el");
+  });
+
+  const groups = [];
+
+  for (const cat of cats) {
+    const parentId = `cat_${cat}`;
+    const vehicles = (byCat.get(cat) || []).slice().sort((x, y) => {
+      const px = String(x?.[VF.plate] || "");
+      const py = String(y?.[VF.plate] || "");
+      return px.localeCompare(py, "el");
+    });
+
+    // Parent category group
+    groups.push({
+      id: parentId,
+      content: renderCategoryHeader(cat, vehicles.length),
+      nestedGroups: vehicles.map(v => v[VF.id]),
+      showNested: true,
+      className: "fleetCatGroup"
+    });
+
+    for (const [idx, v] of vehicles.entries()) {
+      const plate = String(v?.[VF.plate] || v[VF.id] || "").trim();
+      const model = String(v?.[VF.model] || "").trim();
+      const station = String(v?.[VF.station] || "").trim();
+      const mileage = String(v?.[VF.mileage] || "").trim();
+      const ready = yesNo(v?.[VF.ready]);
+      const stall = String(v?.[VF.stall] || "").trim();
+      const label = model ? `${plate} • ${model}` : plate;
+      const titleLines = [
+        label,
+        cat ? `Category: ${cat}` : "",
+        station ? `Station: ${station}` : "",
+        mileage ? `Mileage: ${mileage}` : "",
+        ready && ready !== "—" ? `Ready: ${ready}` : "",
+        stall ? `Stall: ${stall}` : ""
+      ].filter(Boolean);
+      groups.push({
+        id: v[VF.id],
+        content: renderVehicleRow(v, idx, cat),
+        plate,
+        model,
+        station,
+        mileage,
+        ready,
+        stall,
+        categoryCode: cat,
+        title: titleLines.join("\n"),
+        className: idx % 2 === 0 ? "fleetRowEven" : "fleetRowOdd"
+      });
+    }
+  }
+
+  // Unassigned pseudo-category
+  groups.push({
+    id: "cat_Unassigned",
+    content: renderCategoryHeader("Unassigned", 1),
+    nestedGroups: ["unassigned"],
+    showNested: true,
+    className: "fleetCatGroup"
+  });
+  groups.push({ id: "unassigned", content: `<div class="fleetGroupCell"><span class="fleetCol fleetNo">—</span><span class="fleetCol fleetPlate">Unassigned</span><span class="fleetCol fleetModel">Queue</span><span class="fleetCol fleetStation">—</span><span class="fleetCol fleetCategory">—</span></div>`, className: "fleetRowEven" });
+
+  return groups;
+}
+
+function buildItems(bookings) {
+  const items = [];
+  const unassigned = [];
+
+  for (const b of (bookings || [])) {
+    const start = toDate(b?.[F.pickupDT]);
+    const end = toDate(b?.[F.dropoffDT]);
+    if (!start || !end) continue;
+
+    const status = String(b?.[F.status] || "");
+    if (status === "Canceled") continue;
+
+    const assignedId = refId(b?.[F.assignedFleetId]);
+    const rentalState = String(b?.[F.rentalState] || "Booking");
+
+    const bookedLabel =
+      catLabel(b?.[F.categoryId]) ||
+      catLabel(b?.[F.category]) ||
+      "";
+
+    const bookingNo = String(
+      b?.[F.bookingNumber] ||
+      b?.title ||
+      b?.[F.bookingId] ||
+      ""
+    );
+
+    const text = `${bookingNo}${bookedLabel ? " • " + bookedLabel : ""}${status ? " • " + status : ""}`;
+
+    const assignedVehiclePlate = String(b?.assignedVehiclePlate || "");
+    const assignedVehicleModel = String(b?.assignedVehicleModel || "");
+    const assignedVehicleLabel = String(b?.assignedVehicleLabel || [assignedVehiclePlate, assignedVehicleModel].filter(Boolean).join(" • ") || "");
+    const source = String(b?.source || b?.Source || "");
+    const agent = String(b?.agent || b?.Agent || "");
+    const remarks = String(b?.remarks || b?.internalMemo || b?.pickupComment || b?.dropoffComment || "");
+    const flightNumber = String(b?.flightNumber || b?.FlightNumber || b?.flightNo || "");
+    const selectedPackage = String(b?.selectedPackage || b?.package || "");
+    const extras = Array.isArray(b?.selectedExtrasList) ? b.selectedExtrasList : (String(b?.extras || "").split(",").map(s=>String(s||"").trim()).filter(Boolean));
+    const item = {
+      id: String(b?.[F.bookingId] || ""),
+      text,
+      name: text, // some frontends use name instead of text
+      start: start.toISOString(),
+      end: end.toISOString(),
+
+      // Compatibility: some UI uses resource, some uses group
+      resource: assignedId || "",
+      group: assignedId || "",
+
+      bookingNumber: bookingNo,
+      status,
+      rentalState,
+      category: bookedLabel,
+      bookedCategoryLabel: bookedLabel,
+      bookedCategoryCode: extractCode(bookedLabel),
+
+      pickupPoint: String(b?.[F.pickupPoint] || ""),
+      dropoffPoint: String(b?.[F.dropoffPoint] || ""),
+      pickuppoint: String(b?.[F.pickupPoint] || ""),
+      dropoffpoint: String(b?.[F.dropoffPoint] || ""),
+      pickupComment: String(b?.[F.pickupComment] || ""),
+      dropoffComment: String(b?.[F.dropoffComment] || ""),
+
+      customerName: String(b?.[F.customerName] || ""),
+      phone: String(b?.[F.phone] || ""),
+      email: String(b?.[F.email] || ""),
+      source,
+      agent,
+      remarks,
+      flightNumber,
+      selectedPackage,
+      selectedExtrasList: extras,
+      extras: extras.join(", "),
+      assignedVehiclePlate,
+      assignedVehicleModel,
+      assignedVehicleLabel,
+
+      // Optional debug helpers (won't break UI)
+      assignedFleetId: assignedId || "",
+      pickupDT: start.toISOString(),
+      dropoffDT: end.toISOString(),
+
+      title: `${bookingNo || "Booking"}\n${String(b?.[F.customerName] || "—")}\n${start.toISOString().slice(0,16).replace("T"," ")} → ${end.toISOString().slice(0,16).replace("T"," ")}\n${assignedVehicleLabel || "Unassigned"}\n${source || agent ? `${source}${source && agent ? " • " : ""}${agent}` : ""}`,
+      raw: b,
+    };
+
+    if (!assignedId) unassigned.push(item);
+    items.push(item);
+  }
+
+  return { items, unassigned };
+}
+/**
+ * Simple heatmap example (kept from your original logic style)
+ */
+function buildHeatmap({ from, to, fleet, items }) {
+  const start = new Date(from);
+  const end = new Date(to);
+  const days = Math.max(1, Math.ceil((end - start) / 86400000));
+  const fleetIds = new Set((fleet || []).map(v => String(v?.[VF.id] || "")));
+
+  // heat[vehicleId][dayIndex] = count
+  const heat = {};
+  for (const vid of fleetIds) heat[vid] = Array(days).fill(0);
+
+  for (const it of (items || [])) {
+    const vid = String(it.resource || "");
+    if (!vid || !heat[vid]) continue;
+
+    const s = new Date(it.start);
+    const e = new Date(it.end);
+
+    const sIdx = Math.max(0, Math.floor((s - start) / 86400000));
+    const eIdx = Math.min(days - 1, Math.floor((e - start) / 86400000));
+
+    for (let i = sIdx; i <= eIdx; i++) heat[vid][i] += 1;
+  }
+
+  return { from: start.toISOString(), to: end.toISOString(), days, heat };
+}

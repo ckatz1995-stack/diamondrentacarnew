@@ -1,0 +1,189 @@
+import wixData from "wix-data";
+import { confirmAndAutoAssign } from "backend/fleetCalendar";
+import { requireStaffAccess } from "backend/staffAccess.jsw";
+
+const BOOKING_LIMIT = 1000;
+
+function safeText(value) { return String(value ?? "").trim(); }
+function safeNum(value) { const n = Number(value); return Number.isFinite(n) ? n : 0; }
+function asDate(value) { const d = value instanceof Date ? value : new Date(value); return Number.isNaN(d.getTime()) ? null : d; }
+function pickLabel(value) {
+  if (!value) return "";
+  if (typeof value === "object") return safeText(value.label || value.title || value.name || value.value || value._id || "");
+  return safeText(value);
+}
+function isOpaqueId(value) {
+  const s = safeText(value);
+  return /^[0-9a-f]{8}-[0-9a-f-]{12,}$/i.test(s) || /^[0-9a-z]{20,}$/i.test(s);
+}
+function extractCode(value) {
+  const raw = safeText(value);
+  if (!raw || isOpaqueId(raw)) return "";
+  if (raw.includes(" - ")) return safeText(raw.split(" - ")[0]);
+  const m = raw.match(/^([A-Za-z0-9]{1,4})\b/);
+  return m ? safeText(m[1]) : raw;
+}
+async function getFleetMap(ids) {
+  const uniq = Array.from(new Set((ids || []).map(String).filter(Boolean)));
+  const map = new Map();
+  if (!uniq.length) return map;
+  let q = wixData.query("Fleet").hasSome("_id", uniq).limit(BOOKING_LIMIT);
+  try { q = q.include("category"); } catch (_) {}
+  const res = await q.find({ suppressAuth: true });
+  for (const item of (res.items || [])) {
+    const plate = safeText(item.plate || item.Plate || "");
+    const model = safeText(item.model || item.Model || item.title || item.Title || "");
+    const categoryObj = item.category || item.Category || item.categoryCode || item.categorycode || "";
+    const assignedCategoryCode = extractCode(categoryObj && typeof categoryObj === "object" ? (categoryObj.category || categoryObj.code || categoryObj.title || categoryObj.name || "") : categoryObj);
+    const label = plate ? (model ? `${plate} - ${model}` : plate) : model;
+    map.set(String(item._id), { plate, model, label, assignedCategoryCode });
+  }
+  return map;
+}
+function deriveBookedCode(booking) {
+  const candidates = [booking?.assignedCategoryCode, booking?.category, booking?.categoryId];
+  for (const raw of candidates) {
+    const code = extractCode(raw);
+    if (code) return code;
+  }
+  return "";
+}
+function rowSource(booking) {
+  return safeText(booking.source || booking.channel || booking.agent || booking.cdp || booking.createdBy || "Unknown");
+}
+
+function startOfDay(date) {
+  const d = new Date(date);
+  d.setHours(0,0,0,0);
+  return d;
+}
+function addDays(date, days) {
+  const d = new Date(date);
+  d.setDate(d.getDate() + Number(days || 0));
+  return d;
+}
+function normalizeBoardRange({ startDate, endDate } = {}) {
+  const today = startOfDay(new Date());
+  const defaultStart = addDays(today, -30);
+  const start = asDate(startDate) || defaultStart;
+  const endBase = asDate(endDate) || today;
+  const startDay = startOfDay(start);
+  const endDay = addDays(startOfDay(endBase), 1);
+  if (endDay.getTime() <= startDay.getTime()) return { start: startDay, end: addDays(startDay, 31) };
+  return { start: startDay, end: endDay };
+}
+function mapBooking(booking, fleetMap, todayStart, tomorrowStart) {
+  const assignedVehicleId = safeText(booking.assignedVehicle || "");
+  const fleet = assignedVehicleId ? fleetMap.get(assignedVehicleId) : null;
+  const assignedVehiclePlate = safeText(booking.assignedVehiclePlate || fleet?.plate || "");
+  const assignedVehicleModel = safeText(booking.assignedVehicleModel || fleet?.model || "");
+  const assignedVehicleLabel = safeText(booking.assignedVehicleLabel || fleet?.label || assignedVehiclePlate || assignedVehicleModel || "");
+  const assignedCategoryCode = safeText(booking.assignedCategoryCode || fleet?.assignedCategoryCode || "");
+  const pickup = asDate(booking.pickupDateTime);
+  const dropoff = asDate(booking.dropoffDateTime);
+  const now = Date.now();
+  const pickupTs = pickup ? pickup.getTime() : 0;
+  const dropoffTs = dropoff ? dropoff.getTime() : 0;
+  const overdue = !!(dropoffTs && dropoffTs < now && safeText(booking.status) !== "Canceled");
+  const startsToday = !!(pickupTs && pickupTs >= todayStart.getTime() && pickupTs < tomorrowStart.getTime());
+  const unassigned = !assignedVehicleId && !assignedVehiclePlate && !assignedVehicleLabel;
+  return {
+    _id: String(booking._id),
+    status: safeText(booking.status || "Pending") || "Pending",
+    createdAt: booking._createdDate || booking.createdAtApp || booking._updatedDate || new Date(),
+    bookingNumber: safeText(booking.bookingNumber || booking._id),
+    category: safeText(booking.category || deriveBookedCode(booking) || "-"),
+    bookedCategoryCode: deriveBookedCode(booking),
+    assignedCategoryCode,
+    pickupDateTime: booking.pickupDateTime || null,
+    dropoffDateTime: booking.dropoffDateTime || null,
+    customerName: safeText(booking.customerName || "-"),
+    phone: safeText(booking.phone || booking.mainDriver?.phone || ""),
+    email: safeText(booking.email || booking.mainDriver?.email || ""),
+    pickuppoint: pickLabel(booking.pickuppoint),
+    dropoffpoint: pickLabel(booking.dropoffpoint),
+    pickupComment: safeText(booking.pickupComment || ""),
+    dropoffComment: safeText(booking.dropoffComment || ""),
+    totalPrice: safeNum(booking.totalPrice),
+    source: rowSource(booking),
+    flightNumber: safeText(booking.flightNumber || ''),
+    originCity: safeText(booking.originCity || booking.city || booking.customerCity || ''),
+    voucherNumber: safeText(booking.voucherNumber || booking.voucher || booking.voucherNo || booking.voucherId || ''),
+    confirmationNumber: safeText(booking.confirmationNumber || booking.confirmation || booking.confirmationNo || booking.confirmationId || ''),
+    basePricePerDay: safeNum(booking.basePricePerDay),
+    insuranceExtraPerDay: safeNum(booking.insuranceExtraPerDay),
+    extrasTotal: safeNum(booking.extrasTotal),
+    selectedPackage: safeText(booking.selectedPackage || ""),
+    selectedExtras: Array.isArray(booking.selectedExtras) ? booking.selectedExtras : [],
+    assignedVehicle: assignedVehicleId,
+    assignedVehicleLabel,
+    assignedVehiclePlate,
+    assignedVehicleModel,
+    overdue,
+    startsToday,
+    unassigned
+  };
+}
+
+export async function getBookingsBoardData({ authToken, startDate, endDate } = {}) {
+  await requireStaffAccess({ sessionToken: authToken, area: "bookings", action: "View" });
+  try {
+    const range = normalizeBoardRange({ startDate, endDate });
+    let query = wixData.query("Bookings")
+      .ge("pickupDateTime", range.start)
+      .lt("pickupDateTime", range.end)
+      .descending("pickupDateTime")
+      .limit(BOOKING_LIMIT);
+
+    const res = await query.find({ suppressAuth: true });
+    const items = res.items || [];
+    const fleetIds = Array.from(new Set(items.map(item => safeText(item.assignedVehicle || "")).filter(Boolean)));
+    const fleetMap = await getFleetMap(fleetIds);
+    const todayStart = startOfDay(new Date());
+    const tomorrowStart = addDays(todayStart, 1);
+    return {
+      success: true,
+      items: items.map(item => mapBooking(item, fleetMap, todayStart, tomorrowStart)),
+      filters: {
+        startDate: range.start.toISOString(),
+        endDate: range.end.toISOString()
+      }
+    };
+  } catch (error) {
+    return { success: false, message: error?.message || String(error), items: [] };
+  }
+}
+
+export async function setBookingBoardStatus({ authToken, bookingId, newStatus } = {}) {
+  await requireStaffAccess({ sessionToken: authToken, area: "bookings", action: "Edit" });
+  try {
+    const id = safeText(bookingId);
+    const targetStatus = safeText(newStatus);
+    const normalizedStatus = targetStatus.toLowerCase();
+    if (["canceled", "cancelled", "canceled booking", "cancel booking"].includes(normalizedStatus)) {
+      await requireStaffAccess({ sessionToken: authToken, area: "bookings", action: "Edit", specialPermission: "cancelBooking" });
+    }
+    if (!id || !targetStatus) return { success: false, message: "Missing params" };
+
+    if (targetStatus === "Confirmed") {
+      const result = await confirmAndAutoAssign({ authToken, bookingId: id });
+      if (!result?.success) return { success: false, message: result?.message || "Confirm failed" };
+      const booking = await wixData.get("Bookings", id);
+      booking.status = "Confirmed";
+      booking.confirmedAt = booking.confirmedAt || new Date();
+      booking.statusChangedAt = new Date();
+      await wixData.update("Bookings", booking);
+      const message = result.assigned ? "Booking confirmed & vehicle assigned" : "Booking confirmed";
+      return { success: true, message };
+    }
+
+    const booking = await wixData.get("Bookings", id);
+    booking.status = targetStatus;
+    booking.statusChangedAt = new Date();
+    if (targetStatus === "Canceled") booking.canceledAt = new Date();
+    await wixData.update("Bookings", booking);
+    return { success: true, message: `Booking ${targetStatus.toLowerCase()}` };
+  } catch (error) {
+    return { success: false, message: error?.message || String(error) };
+  }
+}

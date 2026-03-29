@@ -1,0 +1,1363 @@
+// backend/rentalContract.jsw
+import wixData from "wix-data";
+import { getSecret } from "wix-secrets-backend";
+import { confirmAndAutoAssign } from "backend/fleetCalendar";
+import { requireStaffAccess } from "backend/staffAccess.jsw";
+
+const FLEET_LIMIT = 1000;
+const BOOKING_LIMIT = 1000;
+
+// --------------------
+// Utils
+// --------------------
+function safeText(x){ return (x ?? "").toString(); }
+function safeNum(x){ const n = Number(x); return Number.isFinite(n) ? n : 0; }
+function clamp(n,a,b){ return Math.min(b, Math.max(a,n)); }
+
+function asDate(x){
+  if (!x && x !== 0) return null;
+  const d = (x instanceof Date) ? x : new Date(x);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function pickLabel(x){
+  if (!x) return "";
+  if (typeof x === "object") {
+    const v = x.label || x.title || x.name || x.value || x._id;
+    return safeText(v).trim();
+  }
+  return safeText(x).trim();
+}
+
+function extractCode(labelOrCode){
+  const s = safeText(labelOrCode).trim();
+  if (!s) return "";
+  if (s.includes(" - ")) return s.split(" - ")[0].trim();
+  const m = s.match(/^([A-Za-z0-9]+)/);
+  return m ? m[1].trim() : s.split(/\s+/)[0].trim();
+}
+
+function parsePhotosField(v){
+  if (Array.isArray(v)) return v.map(x => safeText(x).trim()).filter(Boolean);
+  const s = safeText(v).trim();
+  if (!s) return [];
+  return s.split(",").map(x => x.trim()).filter(Boolean);
+}
+
+function normalizeDriversPayload(payload){
+  const normDriver = (d) => {
+    if (!d || typeof d !== "object") return null;
+    return {
+      customerId: safeText(d.customerId),
+      fullName: safeText(d.fullName),
+      phone: safeText(d.phone),
+      email: safeText(d.email),
+      licenseNo: safeText(d.licenseNo),
+      licenseCountry: safeText(d.licenseCountry),
+      licenseIssueDate: toDateInputValue(d.licenseIssueDate),
+      licenseExpiry: toDateInputValue(d.licenseExpiry),
+      idNo: safeText(d.idNo),
+      idCountry: safeText(d.idCountry),
+      idIssueDate: toDateInputValue(d.idIssueDate),
+      idExpiry: toDateInputValue(d.idExpiry),
+      dob: toDateInputValue(d.dob),
+      city: safeText(d.city),
+      address: safeText(d.address),
+      notes: safeText(d.notes),
+    };
+  };
+
+  const main = normDriver(payload?.mainDriver);
+  const additional = Array.isArray(payload?.additionalDrivers)
+    ? payload.additionalDrivers.map(normDriver).filter(Boolean)
+    : [];
+
+  return { mainDriver: main, additionalDrivers: additional };
+}
+
+
+function toDateInputValue(value){
+  const raw = safeText(value);
+  if (!raw) return "";
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  const d = asDate(raw);
+  if (!d) return "";
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function computeVatBreakdown(gross, vatRate = 0.24){
+  const g = safeNum(gross);
+  const r = safeNum(vatRate);
+  if (g <= 0 || r <= 0) return { gross: g, net: g, vat: 0, vatRate: r };
+  const net = g / (1 + r);
+  const vat = g - net;
+  const round2 = (x) => Math.round(x * 100) / 100;
+  return { gross: round2(g), net: round2(net), vat: round2(vat), vatRate: r };
+}
+
+function billableDaysFromBooking(booking){
+  const pickup = asDate(booking?.pickupDateTime);
+  const dropoff = asDate(booking?.dropoffDateTime);
+  if (!pickup || !dropoff) return 1;
+  const diffMs = Math.max(0, dropoff.getTime() - pickup.getTime());
+  const hours = diffMs / (1000 * 60 * 60);
+  return Math.max(1, Math.ceil(hours / 24));
+}
+
+function deriveChargeLines(booking = {}, charges = {}){
+  const days = billableDaysFromBooking(booking);
+  const hasBookingBase = Number.isFinite(Number(booking.baseCost));
+  const hasBookingInsurance = Number.isFinite(Number(booking.insuranceCost));
+  const hasBookingExtras = Number.isFinite(Number(booking.extrasTotal));
+  const hasBookingAge = Number.isFinite(Number(booking.ageFee));
+  const hasBookingNight = Number.isFinite(Number(booking.nightFee));
+
+  const base = hasBookingBase ? safeNum(booking.baseCost) : safeNum(charges.rental || (safeNum(booking.basePricePerDay) * days));
+  const insurance = hasBookingInsurance ? safeNum(booking.insuranceCost) : safeNum(charges.insurance || (safeNum(booking.insuranceExtraPerDay) * days));
+  const options = hasBookingExtras ? safeNum(booking.extrasTotal) : safeNum(charges.options);
+  const ageFee = hasBookingAge ? safeNum(booking.ageFee) : safeNum(charges.ageFee);
+  const nightFee = hasBookingNight ? safeNum(booking.nightFee) : safeNum(charges.nightFee);
+  const transport = safeNum(charges.transport);
+  const damages = safeNum(charges.damages);
+  const surcharges = safeNum(charges.surcharges);
+  const discount = safeNum(charges.discount);
+  const gross = Math.round((base + insurance + options + ageFee + nightFee + transport + damages + surcharges - discount) * 100) / 100;
+  return { rental: base, insurance, options, ageFee, nightFee, transport, damages, surcharges, discount, gross, days };
+}
+
+function syncBookingChargeFields(booking, rental){
+  const ch = deriveChargeLines(booking, rental?.charges || {});
+  booking.baseCost = ch.rental;
+  booking.insuranceCost = ch.insurance;
+  booking.extrasTotal = ch.options;
+  booking.ageFee = ch.ageFee;
+  booking.nightFee = ch.nightFee;
+  booking.totalPrice = ch.gross;
+  if (!safeNum(booking.basePricePerDay) && ch.days > 0) booking.basePricePerDay = Math.round((ch.rental / ch.days) * 100) / 100;
+  if (!safeNum(booking.insuranceExtraPerDay) && ch.days > 0) booking.insuranceExtraPerDay = Math.round((ch.insurance / ch.days) * 100) / 100;
+  if (rental) {
+    rental.charges = { ...(rental.charges || {}), ...ch };
+  }
+  return ch;
+}
+
+
+function round2(value){ return Math.round(Number(value || 0) * 100) / 100; }
+
+function cloneJson(value){
+  return JSON.parse(JSON.stringify(value == null ? null : value));
+}
+
+function buildPricingSnapshot(booking = {}, rental = {}){
+  const lines = deriveChargeLines(booking, rental?.charges || {});
+  return {
+    rental: round2(lines.rental),
+    insurance: round2(lines.insurance),
+    options: round2(lines.options),
+    ageFee: round2(lines.ageFee),
+    nightFee: round2(lines.nightFee),
+    transport: round2(lines.transport),
+    damages: round2(lines.damages),
+    surcharges: round2(lines.surcharges),
+    discount: round2(lines.discount),
+    gross: round2(lines.gross),
+    days: safeNum(lines.days || billableDaysFromBooking(booking)),
+    capturedAt: new Date().toISOString()
+  };
+}
+
+function normalizePricingOverridePayload(raw){
+  const payload = raw && typeof raw === 'object' ? raw : {};
+  return {
+    reason: safeText(payload.reason),
+    note: safeText(payload.note),
+    requestApproval: !!payload.requestApproval,
+    approveNow: !!payload.approveNow
+  };
+}
+
+function computePricingDrift(snapshot = {}, working = {}){
+  const keys = ['rental','insurance','options','ageFee','nightFee','transport','damages','surcharges','discount','gross'];
+  const lineItems = keys.map((key) => {
+    const snapshotValue = round2(snapshot?.[key]);
+    const workingValue = round2(working?.[key]);
+    const delta = round2(workingValue - snapshotValue);
+    return { key, snapshot: snapshotValue, working: workingValue, delta, changed: Math.abs(delta) >= 0.01 };
+  });
+  const deltaGross = round2((working?.gross || 0) - (snapshot?.gross || 0));
+  return {
+    hasDelta: lineItems.some((item) => item.changed),
+    deltaGross,
+    lineItems
+  };
+}
+
+function buildPricingReview(booking = {}, rental = {}){
+  const snapshot = cloneJson(booking?.pricingSnapshot || rental?.pricingSnapshot || buildPricingSnapshot(booking, rental));
+  const working = buildPricingSnapshot(booking, rental);
+  const drift = computePricingDrift(snapshot, working);
+  const override = cloneJson(rental?.pricingOverride || booking?.pricingOverride || {});
+  return { snapshot, working, drift, override };
+}
+
+function normalizeSelectedExtras(raw){
+  if (Array.isArray(raw)) {
+    return raw.map((item) => {
+      if (typeof item === "string") {
+        const label = safeText(item).trim();
+        return label ? { label, price: 0 } : null;
+      }
+      if (item && typeof item === "object") {
+        const label = safeText(item.label || item.title || item.name || item.code || item._id).trim();
+        const price = safeNum(item.price || item.amount || item.value || 0);
+        return label ? { ...item, label, price } : null;
+      }
+      return null;
+    }).filter(Boolean);
+  }
+  const text = safeText(raw).trim();
+  if (!text) return [];
+  return text.split(',').map((part) => part.trim()).filter(Boolean).map((label) => ({ label, price: 0 }));
+}
+
+// --------------------
+// Fleet map
+// --------------------
+async function getFleetMapByIds(ids){
+  const fleetMap = new Map();
+  const uniq = Array.from(new Set((ids || []).filter(Boolean).map(String)));
+  if (!uniq.length) return fleetMap;
+
+  const res = await wixData.query("Fleet")
+    .hasSome("_id", uniq)
+    .include("category")
+    .limit(FLEET_LIMIT)
+    .find({ suppressAuth:true });
+
+  (res.items || []).forEach(f => {
+    const plate = safeText(f.plate).trim();
+    const model = safeText(f.model).trim();
+    let assignedCategoryCode = "";
+
+    if (f.category && typeof f.category === "object") {
+      assignedCategoryCode = extractCode(f.category.category || f.category.code || f.category.title || f.category.name || "");
+    } else {
+      assignedCategoryCode = extractCode(f.category || "");
+    }
+
+    const label = plate ? (model ? `${plate} - ${model}` : plate) : (model || "");
+    fleetMap.set(String(f._id), { plate, model, label, assignedCategoryCode });
+  });
+
+  return fleetMap;
+}
+
+
+function looksLikeOpaqueId(value){
+  const s = safeText(value).trim();
+  return !!s && /[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i.test(s);
+}
+
+function bookingCategoryCode(booking = {}){
+  const assigned = extractCode(booking.assignedCategoryCode || "");
+  if (assigned) return assigned;
+  const categoryText = safeText(booking.category || "").trim();
+  const categoryIdText = safeText(booking.categoryId || "").trim();
+  if (categoryText) return extractCode(categoryText);
+  if (categoryIdText && !looksLikeOpaqueId(categoryIdText)) return extractCode(categoryIdText);
+  return "";
+}
+
+function buildCategoryLabel(code, rawLabel, title){
+  const c = extractCode(code || rawLabel || title || "");
+  const raw = safeText(rawLabel || title || "").trim();
+  if (!c) return raw;
+  if (!raw) return c;
+  if (raw === c) return c;
+  if (raw.startsWith(`${c} -`) || raw.startsWith(`${c}-`)) return raw;
+  if (extractCode(raw) === c && raw.includes('-')) return raw;
+  return `${c} - ${raw}`;
+}
+
+function rangesOverlap(startA, endA, startB, endB){
+  const a1 = asDate(startA); const a2 = asDate(endA); const b1 = asDate(startB); const b2 = asDate(endB);
+  if (!a1 || !a2 || !b1 || !b2) return false;
+  return a1 < b2 && b1 < a2;
+}
+
+async function findBusyAssignedVehicleIds(start, end, excludeBookingId){
+  const busy = new Set();
+  if (!asDate(start) || !asDate(end)) return busy;
+  try {
+    const res = await wixData.query("Bookings").limit(BOOKING_LIMIT).find({ suppressAuth:true });
+    for (const item of (res.items || [])) {
+      if (!item?._id || String(item._id) === String(excludeBookingId || "")) continue;
+      const vehicleId = safeText(item.assignedVehicle || "").trim();
+      if (!vehicleId) continue;
+      const status = safeText(item.status || "").toLowerCase();
+      const rentalState = safeText(item.rentalState || "").toLowerCase();
+      if (status === 'canceled' || rentalState === 'closed rental') continue;
+      if (!rangesOverlap(start, end, item.pickupDateTime, item.dropoffDateTime)) continue;
+      busy.add(vehicleId);
+    }
+  } catch (_) {}
+  return busy;
+}
+
+// --------------------
+// Rentals helpers
+// --------------------
+async function getRentalByBookingId(bookingId){
+  const res = await wixData.query("Rentals")
+    .eq("bookingId", String(bookingId))
+    .limit(1)
+    .find({ suppressAuth:true });
+
+  return (res.items && res.items[0]) ? res.items[0] : null;
+}
+
+async function ensureRentalForBooking(booking){
+  const bookingId = String(booking._id);
+  let rental = await getRentalByBookingId(bookingId);
+  if (rental) return rental;
+
+  const bookedCode = extractCode(booking.categoryId || booking.category || "");
+  const rentalState = safeText(booking.rentalState || "Booking") || "Booking";
+
+  rental = await wixData.insert("Rentals", {
+    bookingId,
+    rentalState,
+    bookedCategoryCode: bookedCode,
+    assignedVehicleLabel: safeText(booking.assignedVehicleLabel || booking.assignedVehiclePlate || ""),
+    assignedCategoryCode: safeText(booking.assignedCategoryCode || ""),
+    checkoutFuelLevel: 1,
+    checkinFuelLevel: 1,
+    mainDriver: null,
+    additionalDrivers: [],
+    charges: deriveChargeLines(booking, {
+      rental: booking.baseCost,
+      insurance: booking.insuranceCost,
+      options: booking.extrasTotal,
+      ageFee: booking.ageFee,
+      nightFee: booking.nightFee,
+      transport: 0,
+      damages: 0,
+      surcharges: 0,
+      discount: 0
+    }),
+    billing: {
+      vatRate: 0.24,
+      vatInclusive: true
+    },
+    financials: {
+      paymentMethod: safeText(booking.paymentMethod || "cash") || "cash",
+      paymentStatus: safeText(booking.paymentStatus || "pending") || "pending",
+      prepaid: safeNum(booking.prepaidAmount || 0),
+      paidNow: safeNum(booking.paidNowAmount || 0),
+      deposit: safeNum(booking.depositAmount || 0)
+    },
+    paymentMethod: safeText(booking.paymentMethod || "cash") || "cash",
+    paymentStatus: safeText(booking.paymentStatus || "pending") || "pending",
+    prepaidAmount: safeNum(booking.prepaidAmount || 0),
+    paidNowAmount: safeNum(booking.paidNowAmount || 0),
+    depositAmount: safeNum(booking.depositAmount || 0),
+    internalMemo: ""
+  }, { suppressAuth:true });
+
+  return rental;
+}
+
+async function mirrorToBooking(booking, rental){
+  const b = booking;
+
+  b.assignedVehicleLabel = safeText(rental.assignedVehicleLabel || b.assignedVehicleLabel || "");
+  if (rental.mainDriver) b.mainDriver = rental.mainDriver;
+  if (Array.isArray(rental.additionalDrivers)) b.additionalDrivers = rental.additionalDrivers;
+
+  b.checkoutAt = rental.checkoutAt || b.checkoutAt || null;
+  b.checkinAt = rental.checkinAt || b.checkinAt || null;
+
+  b.checkoutOdometer = rental.checkoutOdometer ?? b.checkoutOdometer;
+  b.checkinOdometer = rental.checkinOdometer ?? b.checkinOdometer;
+  b.checkoutFuelLevel = rental.checkoutFuelLevel ?? b.checkoutFuelLevel;
+  b.checkinFuelLevel = rental.checkinFuelLevel ?? b.checkinFuelLevel;
+
+  b.checkoutNotes = safeText(rental.checkoutNotes || b.checkoutNotes || "");
+  b.checkinNotes  = safeText(rental.checkinNotes  || b.checkinNotes  || "");
+  b.damagesNotes = safeText(rental.damagesNotes || b.damagesNotes || "");
+
+  b.photos = Array.isArray(rental.photos) ? rental.photos : (b.photos || []);
+  b.charges = rental.charges || b.charges || null;
+  syncBookingChargeFields(b, rental);
+  b.billing = rental.billing || b.billing || null;
+  b.financials = rental.financials || b.financials || null;
+  if (rental.financials && typeof rental.financials === "object") {
+    b.paymentMethod = safeText(rental.financials.paymentMethod || b.paymentMethod || "cash") || "cash";
+    b.paymentStatus = safeText(rental.financials.paymentStatus || b.paymentStatus || "pending") || "pending";
+    b.prepaidAmount = safeNum(rental.financials.prepaid ?? b.prepaidAmount ?? 0);
+    b.paidNowAmount = safeNum(rental.financials.paidNow ?? b.paidNowAmount ?? 0);
+    b.depositAmount = safeNum(rental.financials.deposit ?? b.depositAmount ?? 0);
+  }
+  b.internalMemo = safeText(rental.internalMemo || b.internalMemo || "");
+
+  if (rental.checkinStage) b.checkinStage = rental.checkinStage;
+  if (rental.rentalState) b.rentalState = safeText(rental.rentalState);
+
+  await wixData.update("Bookings", b, { suppressAuth:true });
+  return b;
+}
+
+function applyChargesPayload(rental, payload){
+  const ch = (payload && typeof payload.charges === "object") ? payload.charges : null;
+  if (!ch) return;
+
+  const cur = (rental.charges && typeof rental.charges === "object") ? rental.charges : {};
+  rental.charges = {
+    rental: safeNum(ch.rental ?? cur.rental ?? 0),
+    insurance: safeNum(ch.insurance ?? cur.insurance ?? 0),
+    options: safeNum(ch.options ?? cur.options ?? 0),
+    ageFee: safeNum(ch.ageFee ?? cur.ageFee ?? 0),
+    nightFee: safeNum(ch.nightFee ?? cur.nightFee ?? 0),
+    transport: safeNum(ch.transport ?? cur.transport ?? 0),
+    damages: safeNum(ch.damages ?? cur.damages ?? 0),
+    surcharges: safeNum(ch.surcharges ?? cur.surcharges ?? 0),
+    discount: safeNum(ch.discount ?? cur.discount ?? 0),
+  };
+}
+
+function applyBillingPayload(rental, payload){
+  const b = (payload && typeof payload.billing === "object") ? payload.billing : null;
+  if (!b) return;
+
+  const cur = (rental.billing && typeof rental.billing === "object") ? rental.billing : {};
+  rental.billing = {
+    vatRate: clamp(safeNum(b.vatRate ?? cur.vatRate ?? 0.24), 0, 1),
+    vatInclusive: (b.vatInclusive ?? cur.vatInclusive ?? true) ? true : false,
+    invoiceType: safeText(b.invoiceType ?? cur.invoiceType ?? ""),
+    vatNumber: safeText(b.vatNumber ?? cur.vatNumber ?? ""),
+    companyName: safeText(b.companyName ?? cur.companyName ?? ""),
+    tradeName: safeText(b.tradeName ?? cur.tradeName ?? ""),
+    profession: safeText(b.profession ?? cur.profession ?? ""),
+    taxOffice: safeText(b.taxOffice ?? cur.taxOffice ?? ""),
+    address: safeText(b.address ?? cur.address ?? ""),
+    city: safeText(b.city ?? cur.city ?? ""),
+    zip: safeText(b.zip ?? cur.zip ?? ""),
+    country: safeText(b.country ?? cur.country ?? ""),
+    phone: safeText(b.phone ?? cur.phone ?? ""),
+    companyEmail: safeText(b.companyEmail ?? cur.companyEmail ?? ""),
+    contactPerson: safeText(b.contactPerson ?? cur.contactPerson ?? ""),
+    notes: safeText(b.notes ?? cur.notes ?? ""),
+  };
+}
+
+function applyFinancialsPayload(booking, rental, payload){
+  const f = (payload && typeof payload.financials === "object") ? payload.financials : null;
+  if (!f) return;
+
+  const cur = (rental.financials && typeof rental.financials === "object") ? rental.financials : {};
+  rental.financials = {
+    paymentMethod: safeText(f.paymentMethod ?? cur.paymentMethod ?? rental.paymentMethod ?? booking.paymentMethod ?? "cash") || "cash",
+    paymentStatus: safeText(f.paymentStatus ?? cur.paymentStatus ?? rental.paymentStatus ?? booking.paymentStatus ?? "pending") || "pending",
+    prepaid: safeNum(f.prepaid ?? cur.prepaid ?? rental.prepaidAmount ?? booking.prepaidAmount ?? 0),
+    paidNow: safeNum(f.paidNow ?? cur.paidNow ?? rental.paidNowAmount ?? booking.paidNowAmount ?? 0),
+    deposit: safeNum(f.deposit ?? cur.deposit ?? rental.depositAmount ?? booking.depositAmount ?? 0)
+  };
+
+  rental.paymentMethod = rental.financials.paymentMethod;
+  rental.paymentStatus = rental.financials.paymentStatus;
+  rental.prepaidAmount = rental.financials.prepaid;
+  rental.paidNowAmount = rental.financials.paidNow;
+  rental.depositAmount = rental.financials.deposit;
+
+  booking.financials = { ...(booking.financials || {}), ...rental.financials };
+  booking.paymentMethod = rental.financials.paymentMethod;
+  booking.paymentStatus = rental.financials.paymentStatus;
+  booking.prepaidAmount = rental.financials.prepaid;
+  booking.paidNowAmount = rental.financials.paidNow;
+  booking.depositAmount = rental.financials.deposit;
+}
+
+async function buildContractLookups(booking = {}){
+  const categoryMap = new Map();
+  const addCategory = (rawCode, rawLabel = '', title = '') => {
+    const code = extractCode(rawCode || rawLabel || title || '');
+    if (!code) return;
+    const label = buildCategoryLabel(code, rawLabel, title);
+    const existing = categoryMap.get(code);
+    if (!existing || (safeText(label).length > safeText(existing.label).length)) {
+      categoryMap.set(code, { code, label, title: safeText(title || rawLabel || '').trim() });
+    }
+  };
+
+  try {
+    const categoryRes = await wixData.query("Vehicles").limit(BOOKING_LIMIT).find({ suppressAuth:true });
+    for (const item of (categoryRes.items || [])) {
+      const rawCode = item.categoryId || item.category || item.label || item.name || item.title || item._id || '';
+      const rawLabel = item.category || item.label || item.name || item.title || '';
+      addCategory(rawCode, rawLabel, item.name || item.title || '');
+    }
+  } catch (_) {}
+
+  const vehicles = [];
+  const bookingStart = asDate(booking.pickupDateTime);
+  const bookingEnd = asDate(booking.dropoffDateTime);
+  const busyVehicleIds = await findBusyAssignedVehicleIds(bookingStart, bookingEnd, booking._id);
+
+  try {
+    let q = wixData.query("Fleet").eq("active", true).limit(FLEET_LIMIT);
+    try { q = q.include("category"); } catch (_) {}
+    const fleetRes = await q.find({ suppressAuth:true });
+    for (const item of (fleetRes.items || [])) {
+      const plate = safeText(item.plate || item.Plate || "");
+      const model = safeText(item.model || item.Model || item.title || item.Title || "");
+      const rawCategory = item.category || item.Category || item.categoryCode || item.categoryId || item.categorycode || "";
+      const categoryLabel = rawCategory && typeof rawCategory === 'object'
+        ? safeText(rawCategory.category || rawCategory.label || rawCategory.title || rawCategory.name || rawCategory.code || '')
+        : safeText(rawCategory || '');
+      const categoryCode = extractCode(categoryLabel || rawCategory);
+      addCategory(categoryCode, categoryLabel, model);
+      vehicles.push({
+        _id: String(item._id),
+        plate,
+        model,
+        label: plate ? (model ? `${plate} - ${model}` : plate) : (model || String(item._id)),
+        categoryCode,
+        available: !busyVehicleIds.has(String(item._id)),
+      });
+    }
+  } catch (_) {}
+
+  if (!categoryMap.size && booking) {
+    const fallbackCode = bookingCategoryCode(booking);
+    if (fallbackCode) addCategory(fallbackCode, safeText(booking.category || fallbackCode), safeText(booking.category || fallbackCode));
+  }
+
+  const categories = Array.from(categoryMap.values()).sort((a, b) => String(a.code).localeCompare(String(b.code), 'el', { numeric:true, sensitivity:'base' }));
+  vehicles.sort((a, b) => {
+    if ((a.available ? 1 : 0) !== (b.available ? 1 : 0)) return a.available ? -1 : 1;
+    return String(a.label).localeCompare(String(b.label), 'el', { numeric:true, sensitivity:'base' });
+  });
+
+  const customers = [];
+  try {
+    const customerRes = await wixData.query("Customers").eq("isActive", true).ascending("fullName").limit(500).find({ suppressAuth:true });
+    for (const item of (customerRes.items || [])) {
+      const name = safeText(item.fullName || item.title || [item.firstName, item.lastName].filter(Boolean).join(" "));
+      const email = safeText(item.email || "");
+      const phone = safeText(item.mobilePhone || item.phone || "");
+      const mobile = safeText(item.secondaryPhone || "");
+      const address = safeText(item.address || "");
+      const residenceCity = safeText(item.city || "");
+      const originCity = safeText(item.city || "");
+      const idNo = safeText(item.idNumber || item.passportNumber || "");
+      const idCountry = safeText(item.country || item.nationality || "");
+      const licenseNo = safeText(item.licenseNumber || "");
+      const licenseCountry = safeText(item.licenseCountry || "");
+      const licenseExpiry = toDateInputValue(item.licenseExpiry || "");
+      const licenseIssueDate = toDateInputValue(item.licenseIssueDate || "");
+      const idIssueDate = toDateInputValue(item.idIssueDate || "");
+      const idExpiry = toDateInputValue(item.idExpiry || "");
+      const dob = toDateInputValue(item.dateOfBirth || "");
+      const notes = safeText(item.notes || "");
+      const customerId = safeText(item._id || "");
+      const customerCode = safeText(item.customerCode || "");
+      const searchBlob = safeText(item.searchBlob || "").toLowerCase();
+      if (!name && !email && !phone && !idNo && !licenseNo) continue;
+      customers.push({ customerId, customerCode, name, email, phone, mobile, address, residenceCity, originCity, idNo, idCountry, licenseNo, licenseCountry, licenseIssueDate, licenseExpiry, idIssueDate, idExpiry, dob, notes, searchBlob });
+    }
+  } catch (_) {}
+
+  const companies = [];
+  try {
+    const companyRes = await wixData.query("Companies").eq("isActive", true).ascending("companyName").limit(300).find({ suppressAuth:true });
+    for (const item of (companyRes.items || [])) {
+      const companyId = safeText(item._id || "");
+      const companyName = safeText(item.companyName || item.title || "");
+      const tradeName = safeText(item.tradeName || "");
+      const vatNumber = safeText(item.vatNumber || "");
+      const taxOffice = safeText(item.taxOffice || "");
+      const phone = safeText(item.phone || "");
+      const email = safeText(item.email || "");
+      const address = safeText(item.address || "");
+      const city = safeText(item.city || "");
+      const zip = safeText(item.zipCode || "");
+      const country = safeText(item.country || "");
+      const contactPerson = safeText(item.contactPerson || "");
+      const poNumberDefault = safeText(item.poNumberDefault || "");
+      const notes = safeText(item.notes || "");
+      const searchBlob = safeText(item.searchBlob || "").toLowerCase();
+      if (!companyName && !vatNumber && !email && !phone) continue;
+      companies.push({ companyId, companyName, tradeName, vatNumber, taxOffice, phone, email, address, city, zip, country, contactPerson, poNumberDefault, notes, searchBlob });
+    }
+  } catch (_) {}
+
+  return { categories, vehicles, customers, companies };
+}
+
+
+export async function searchContractCustomers({ authToken, query = "", limit = 50 }) {
+  await requireStaffAccess({ sessionToken: authToken, area: "rentals", action: "View" });
+  try {
+    const q = safeText(query).trim().toLowerCase();
+    let items = [];
+    if (!q) {
+      const res = await wixData.query("Customers").eq("isActive", true).ascending("fullName").limit(Math.min(Math.max(Number(limit) || 50, 1), 200)).find({ suppressAuth:true });
+      items = res.items || [];
+    } else {
+      const res = await wixData.query("Customers").eq("isActive", true).contains("searchBlob", q).limit(Math.min(Math.max(Number(limit) || 50, 1), 200)).find({ suppressAuth:true });
+      items = res.items || [];
+    }
+    return {
+      success: true,
+      items: items.map((item) => ({
+        customerId: safeText(item._id || ""),
+        customerCode: safeText(item.customerCode || ""),
+        name: safeText(item.fullName || item.title || [item.firstName, item.lastName].filter(Boolean).join(" ")),
+        email: safeText(item.email || ""),
+        phone: safeText(item.mobilePhone || item.phone || ""),
+        mobile: safeText(item.secondaryPhone || ""),
+        address: safeText(item.address || ""),
+        residenceCity: safeText(item.city || ""),
+        originCity: safeText(item.city || ""),
+        idNo: safeText(item.idNumber || item.passportNumber || ""),
+        idCountry: safeText(item.country || item.nationality || ""),
+        licenseNo: safeText(item.licenseNumber || ""),
+        licenseCountry: safeText(item.licenseCountry || ""),
+        licenseIssueDate: toDateInputValue(item.licenseIssueDate || ""),
+        licenseExpiry: toDateInputValue(item.licenseExpiry || ""),
+        idIssueDate: toDateInputValue(item.idIssueDate || ""),
+        idExpiry: toDateInputValue(item.idExpiry || ""),
+        dob: toDateInputValue(item.dateOfBirth || ""),
+        notes: safeText(item.notes || ""),
+        searchBlob: safeText(item.searchBlob || "").toLowerCase(),
+      }))
+    };
+  } catch (e) {
+    return { success:false, message:e?.message || String(e), items: [] };
+  }
+}
+
+export async function searchContractCompanies({ authToken, query = "", limit = 50 }) {
+  await requireStaffAccess({ sessionToken: authToken, area: "rentals", action: "View" });
+  try {
+    const q = safeText(query).trim().toLowerCase();
+    let items = [];
+    if (!q) {
+      const res = await wixData.query("Companies").eq("isActive", true).ascending("companyName").limit(Math.min(Math.max(Number(limit) || 50, 1), 200)).find({ suppressAuth:true });
+      items = res.items || [];
+    } else {
+      const res = await wixData.query("Companies").eq("isActive", true).contains("searchBlob", q).limit(Math.min(Math.max(Number(limit) || 50, 1), 200)).find({ suppressAuth:true });
+      items = res.items || [];
+    }
+    return {
+      success: true,
+      items: items.map((item) => ({
+        companyId: safeText(item._id || ""),
+        companyName: safeText(item.companyName || item.title || ""),
+        tradeName: safeText(item.tradeName || ""),
+        vatNumber: safeText(item.vatNumber || ""),
+        taxOffice: safeText(item.taxOffice || ""),
+        phone: safeText(item.phone || ""),
+        email: safeText(item.email || ""),
+        address: safeText(item.address || ""),
+        city: safeText(item.city || ""),
+        zip: safeText(item.zipCode || ""),
+        country: safeText(item.country || ""),
+        contactPerson: safeText(item.contactPerson || ""),
+        poNumberDefault: safeText(item.poNumberDefault || ""),
+        notes: safeText(item.notes || ""),
+        searchBlob: safeText(item.searchBlob || "").toLowerCase(),
+      }))
+    };
+  } catch (e) {
+    return { success:false, message:e?.message || String(e), items: [] };
+  }
+}
+
+
+function digitsOnly(value){
+  return safeText(value).replace(/\D+/g, '');
+}
+
+function normalizeLoose(value){
+  return safeText(value).trim().toLowerCase();
+}
+
+function toIsoDateLabel(value){
+  const d = asDate(value);
+  if (!d) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function bookingStatusLabel(booking = {}, rental = {}){
+  return safeText(rental?.rentalState || booking?.rentalState || booking?.status || 'Draft');
+}
+
+function bookingSourceLabelBackend(booking = {}){
+  return safeText(
+    booking.source || booking.channel || booking.provider || booking.origin || booking.bookingSource || booking.createdSource || ''
+  );
+}
+
+function matchBookingAgainstCustomerSeeds(booking = {}, seeds = {}){
+  const bookingEmail = normalizeLoose(booking.email);
+  const bookingPhone = digitsOnly(booking.phone);
+  const bookingName = normalizeLoose(booking.customerName);
+  if (seeds.email && bookingEmail && bookingEmail === seeds.email) return true;
+  if (seeds.phone && bookingPhone && bookingPhone === seeds.phone) return true;
+  if (seeds.fullName && bookingName && (bookingName === seeds.fullName || bookingName.includes(seeds.fullName) || seeds.fullName.includes(bookingName))) return true;
+  return false;
+}
+
+async function collectBookingMatchesByCustomerSeeds(seeds = {}, limit = 80){
+  const map = new Map();
+  const safeLimit = Math.min(Math.max(Number(limit) || 80, 1), 200);
+  const collect = async (query) => {
+    try {
+      const res = await query.limit(Math.min(safeLimit, BOOKING_LIMIT)).find({ suppressAuth:true });
+      for (const item of (res.items || [])) {
+        if (!item?._id) continue;
+        map.set(String(item._id), item);
+      }
+    } catch (_) {}
+  };
+
+  if (seeds.email) {
+    await collect(wixData.query('Bookings').eq('email', seeds.email));
+  }
+  if (seeds.phone) {
+    await collect(wixData.query('Bookings').eq('phone', seeds.phoneRaw || seeds.phone));
+    if (seeds.phone.length >= 6) {
+      await collect(wixData.query('Bookings').contains('phone', seeds.phone.slice(-6)));
+    }
+  }
+  if (seeds.fullName) {
+    await collect(wixData.query('Bookings').contains('customerName', seeds.fullNameRaw || seeds.fullName));
+  }
+
+  const filtered = Array.from(map.values()).filter((booking) => matchBookingAgainstCustomerSeeds(booking, seeds));
+  filtered.sort((a, b) => {
+    const ad = asDate(a.pickupDateTime)?.getTime() || 0;
+    const bd = asDate(b.pickupDateTime)?.getTime() || 0;
+    return bd - ad;
+  });
+  return filtered.slice(0, safeLimit);
+}
+
+async function getCustomerFinancialInsightsFromBookings(bookings = []){
+  const ids = Array.from(new Set(bookings.map((item) => safeText(item._id)).filter(Boolean)));
+  const rentalMap = new Map();
+  if (ids.length) {
+    for (let i = 0; i < ids.length; i += 50) {
+      const chunk = ids.slice(i, i + 50);
+      try {
+        const res = await wixData.query('Rentals').hasSome('bookingId', chunk).limit(1000).find({ suppressAuth:true });
+        for (const item of (res.items || [])) {
+          rentalMap.set(String(item.bookingId), item);
+        }
+      } catch (_) {}
+    }
+  }
+
+  const now = Date.now();
+  const history = bookings.map((booking) => {
+    const rental = rentalMap.get(String(booking._id)) || {};
+    const pickup = asDate(booking.pickupDateTime);
+    const dropoff = asDate(booking.dropoffDateTime);
+    const total = round2(booking.totalPrice ?? deriveChargeLines(booking, rental?.charges || {}).gross);
+    const prepaid = round2(booking.prepaidAmount ?? rental.prepaidAmount ?? rental.financials?.prepaid ?? 0);
+    const paidNow = round2(booking.paidNowAmount ?? rental.paidNowAmount ?? rental.financials?.paidNow ?? 0);
+    const deposit = round2(booking.depositAmount ?? rental.depositAmount ?? rental.financials?.deposit ?? 0);
+    return {
+      bookingId: safeText(booking._id),
+      bookingNumber: safeText(booking.bookingNumber || booking._id),
+      pickupLabel: pickup ? pickup.toLocaleString('el-GR') : '—',
+      dropoffLabel: dropoff ? dropoff.toLocaleString('el-GR') : '—',
+      pickupDateTime: pickup ? pickup.toISOString() : '',
+      dropoffDateTime: dropoff ? dropoff.toISOString() : '',
+      statusLabel: bookingStatusLabel(booking, rental),
+      source: bookingSourceLabelBackend(booking) || '—',
+      category: safeText(booking.category || booking.categoryId || ''),
+      total,
+      prepaid,
+      paidNow,
+      deposit,
+      isFuture: pickup ? pickup.getTime() > now : false,
+      isPast: dropoff ? dropoff.getTime() < now : false,
+    };
+  });
+
+  const totalBookings = history.length;
+  const pastBookings = history.filter((item) => item.isPast).length;
+  const futureBookings = history.filter((item) => item.isFuture).length;
+  const lifetimeGross = round2(history.reduce((sum, item) => sum + safeNum(item.total), 0));
+  const collected = round2(history.reduce((sum, item) => sum + safeNum(item.prepaid) + safeNum(item.paidNow), 0));
+  const deposits = round2(history.reduce((sum, item) => sum + safeNum(item.deposit), 0));
+  const futureGross = round2(history.filter((item) => item.isFuture).reduce((sum, item) => sum + safeNum(item.total), 0));
+  const avgTicket = totalBookings ? round2(lifetimeGross / totalBookings) : 0;
+
+  const sortedAsc = [...history].sort((a, b) => {
+    const ad = asDate(a.pickupDateTime)?.getTime() || 0;
+    const bd = asDate(b.pickupDateTime)?.getTime() || 0;
+    return ad - bd;
+  });
+  const last = [...history].filter((item) => item.isPast).sort((a, b) => (asDate(b.pickupDateTime)?.getTime() || 0) - (asDate(a.pickupDateTime)?.getTime() || 0))[0] || null;
+  const next = sortedAsc.find((item) => item.isFuture) || null;
+  const lastNextLabel = [last ? `Last ${last.bookingNumber}` : '', next ? `Next ${next.bookingNumber}` : ''].filter(Boolean).join(' · ') || '—';
+
+  return {
+    summary: { totalBookings, pastBookings, futureBookings, lifetimeGross, collected, deposits, futureGross, avgTicket, lastNextLabel },
+    history
+  };
+}
+
+
+
+
+function matchBookingAgainstCompanySeeds(booking = {}, rental = {}, seeds = {}){
+  const billing = mergeBillingFallback(booking, rental);
+  const companyName = normalizeLoose(billing.companyName);
+  const tradeName = normalizeLoose(billing.tradeName);
+  const vatNumber = normalizeLoose(billing.vatNumber);
+  const email = normalizeLoose(billing.companyEmail);
+  const phone = digitsOnly(billing.phone);
+  if (seeds.vatNumber && vatNumber && vatNumber === seeds.vatNumber) return true;
+  if (seeds.email && email && email === seeds.email) return true;
+  if (seeds.phone && phone && phone === seeds.phone) return true;
+  if (seeds.companyName && companyName && (companyName === seeds.companyName || companyName.includes(seeds.companyName) || seeds.companyName.includes(companyName))) return true;
+  if (seeds.tradeName && tradeName && (tradeName === seeds.tradeName || tradeName.includes(seeds.tradeName) || seeds.tradeName.includes(tradeName))) return true;
+  return false;
+}
+
+async function collectBookingMatchesByCompanySeeds(seeds = {}, limit = 80){
+  const safeLimit = Math.min(Math.max(Number(limit) || 80, 1), 200);
+  const bookingMap = new Map();
+  try {
+    const res = await wixData.query('Bookings').descending('pickupDateTime').limit(BOOKING_LIMIT).find({ suppressAuth:true });
+    for (const item of (res.items || [])) {
+      if (item?._id) bookingMap.set(String(item._id), item);
+    }
+  } catch (_) {}
+
+  const rentalMap = new Map();
+  const bookingIds = Array.from(bookingMap.keys());
+  if (bookingIds.length) {
+    for (let i = 0; i < bookingIds.length; i += 50) {
+      const chunk = bookingIds.slice(i, i + 50);
+      try {
+        const res = await wixData.query('Rentals').hasSome('bookingId', chunk).limit(1000).find({ suppressAuth:true });
+        for (const item of (res.items || [])) {
+          const id = safeText(item.bookingId || '');
+          if (id) rentalMap.set(id, item);
+        }
+      } catch (_) {}
+    }
+  }
+
+  const filtered = Array.from(bookingMap.values()).filter((booking) => {
+    const rental = rentalMap.get(String(booking._id)) || {};
+    return matchBookingAgainstCompanySeeds(booking, rental, seeds);
+  });
+
+  filtered.sort((a, b) => {
+    const ad = asDate(a.pickupDateTime)?.getTime() || 0;
+    const bd = asDate(b.pickupDateTime)?.getTime() || 0;
+    return bd - ad;
+  });
+  return filtered.slice(0, safeLimit);
+}
+
+export async function getCompanyInsights({ authToken, company = {}, limit = 80 }) {
+  await requireStaffAccess({ sessionToken: authToken, area: "rentals", action: "View" });
+  try {
+    const companyId = safeText(company?.companyId || '');
+    let companyRecord = null;
+    if (companyId) {
+      try { companyRecord = await wixData.get('Companies', companyId, { suppressAuth:true }); } catch (_) {}
+    }
+
+    const companyNameRaw = safeText(companyRecord?.companyName || company?.companyName || '');
+    const tradeNameRaw = safeText(companyRecord?.tradeName || company?.tradeName || '');
+    const vatNumberRaw = safeText(companyRecord?.vatNumber || company?.vatNumber || '');
+    const emailRaw = safeText(companyRecord?.email || company?.companyEmail || company?.email || '');
+    const phoneRaw = safeText(companyRecord?.phone || company?.phone || '');
+    const seeds = {
+      companyId,
+      companyNameRaw,
+      companyName: normalizeLoose(companyNameRaw),
+      tradeNameRaw,
+      tradeName: normalizeLoose(tradeNameRaw),
+      vatNumberRaw,
+      vatNumber: normalizeLoose(vatNumberRaw),
+      emailRaw,
+      email: normalizeLoose(emailRaw),
+      phoneRaw,
+      phone: digitsOnly(phoneRaw)
+    };
+
+    const bookings = await collectBookingMatchesByCompanySeeds(seeds, limit);
+    const insights = await getCustomerFinancialInsightsFromBookings(bookings);
+    return {
+      success: true,
+      profile: {
+        companyId: companyId || safeText(companyRecord?._id || ''),
+        companyName: companyNameRaw,
+        tradeName: tradeNameRaw,
+        vatNumber: vatNumberRaw,
+        phone: phoneRaw,
+        email: emailRaw,
+        contactPerson: safeText(companyRecord?.contactPerson || company?.contactPerson || ''),
+        city: safeText(companyRecord?.city || company?.city || ''),
+        country: safeText(companyRecord?.country || company?.country || '')
+      },
+      summary: insights.summary,
+      history: insights.history
+    };
+  } catch (e) {
+    return { success:false, message:e?.message || String(e), summary:null, history:[] };
+  }
+}
+
+
+export async function getCustomerInsights({ authToken, customer = {}, limit = 80 }) {
+  await requireStaffAccess({ sessionToken: authToken, area: "rentals", action: "View" });
+  try {
+    const customerId = safeText(customer?.customerId || '');
+    let customerRecord = null;
+    if (customerId) {
+      try { customerRecord = await wixData.get('Customers', customerId, { suppressAuth:true }); } catch (_) {}
+    }
+    const fullNameRaw = safeText(customerRecord?.fullName || customer?.fullName || [customerRecord?.firstName, customerRecord?.lastName].filter(Boolean).join(' '));
+    const emailRaw = safeText(customerRecord?.email || customer?.email || '');
+    const phoneRaw = safeText(customerRecord?.mobilePhone || customerRecord?.phone || customer?.phone || '');
+    const seeds = {
+      customerId,
+      fullNameRaw,
+      fullName: normalizeLoose(fullNameRaw),
+      emailRaw,
+      email: normalizeLoose(emailRaw),
+      phoneRaw,
+      phone: digitsOnly(phoneRaw),
+      idNo: normalizeLoose(customerRecord?.idNumber || customer?.idNo || ''),
+      licenseNo: normalizeLoose(customerRecord?.licenseNumber || customer?.licenseNo || '')
+    };
+
+    const bookings = await collectBookingMatchesByCustomerSeeds(seeds, limit);
+    const insights = await getCustomerFinancialInsightsFromBookings(bookings);
+    return {
+      success: true,
+      profile: {
+        customerId: customerId || safeText(customerRecord?._id || ''),
+        fullName: fullNameRaw,
+        email: emailRaw,
+        phone: phoneRaw,
+        idNo: safeText(customerRecord?.idNumber || customer?.idNo || ''),
+        licenseNo: safeText(customerRecord?.licenseNumber || customer?.licenseNo || '')
+      },
+      summary: insights.summary,
+      history: insights.history
+    };
+  } catch (e) {
+    return { success:false, message:e?.message || String(e), summary:null, history:[] };
+  }
+}
+
+function mergeBillingFallback(booking = {}, rental = {}){
+  const bookingBilling = (booking.billing && typeof booking.billing === 'object') ? booking.billing : {};
+  const rentalBilling = (rental.billing && typeof rental.billing === 'object') ? rental.billing : {};
+  return {
+    vatRate: safeNum(rentalBilling.vatRate ?? bookingBilling.vatRate ?? 0.24),
+    vatInclusive: (rentalBilling.vatInclusive ?? bookingBilling.vatInclusive ?? true) ? true : false,
+    invoiceType: safeText(rentalBilling.invoiceType || bookingBilling.invoiceType || ''),
+    vatNumber: safeText(rentalBilling.vatNumber || bookingBilling.vatNumber || ''),
+    companyName: safeText(rentalBilling.companyName || bookingBilling.companyName || ''),
+    tradeName: safeText(rentalBilling.tradeName || bookingBilling.tradeName || ''),
+    profession: safeText(rentalBilling.profession || bookingBilling.profession || ''),
+    taxOffice: safeText(rentalBilling.taxOffice || bookingBilling.taxOffice || ''),
+    address: safeText(rentalBilling.address || bookingBilling.address || ''),
+    city: safeText(rentalBilling.city || bookingBilling.city || ''),
+    zip: safeText(rentalBilling.zip || bookingBilling.zip || ''),
+    country: safeText(rentalBilling.country || bookingBilling.country || ''),
+    phone: safeText(rentalBilling.phone || bookingBilling.phone || ''),
+    companyEmail: safeText(rentalBilling.companyEmail || bookingBilling.companyEmail || ''),
+    contactPerson: safeText(rentalBilling.contactPerson || bookingBilling.contactPerson || ''),
+    notes: safeText(rentalBilling.notes || bookingBilling.notes || ''),
+  };
+}
+
+function mergeFinancialsFallback(booking = {}, rental = {}){
+  const bookingFinancials = (booking.financials && typeof booking.financials === 'object') ? booking.financials : {};
+  const rentalFinancials = (rental.financials && typeof rental.financials === 'object') ? rental.financials : {};
+  return {
+    paymentMethod: safeText(rentalFinancials.paymentMethod || rental.paymentMethod || bookingFinancials.paymentMethod || booking.paymentMethod || 'cash') || 'cash',
+    paymentStatus: safeText(rentalFinancials.paymentStatus || rental.paymentStatus || bookingFinancials.paymentStatus || booking.paymentStatus || 'pending') || 'pending',
+    prepaid: safeNum(rentalFinancials.prepaid ?? rental.prepaidAmount ?? bookingFinancials.prepaid ?? booking.prepaidAmount ?? 0),
+    paidNow: safeNum(rentalFinancials.paidNow ?? rental.paidNowAmount ?? bookingFinancials.paidNow ?? booking.paidNowAmount ?? 0),
+    deposit: safeNum(rentalFinancials.deposit ?? rental.depositAmount ?? bookingFinancials.deposit ?? booking.depositAmount ?? 0),
+  };
+}
+
+// --------------------
+// ✅ Contract (this MUST work always)
+// --------------------
+export async function getContract({ authToken, bookingId }) {
+  await requireStaffAccess({ sessionToken: authToken, area: "rentals", action: "View" });
+  try {
+    if (!bookingId) return { success:false, message:"Missing bookingId" };
+
+    const booking = await wixData.get("Bookings", bookingId, { suppressAuth:true });
+    if (!booking) return { success:false, message:"Booking not found" };
+
+    booking.pickuppoint = pickLabel(booking.pickuppoint);
+    booking.dropoffpoint = pickLabel(booking.dropoffpoint);
+
+    if (booking.assignedVehicle && typeof booking.assignedVehicle === "string") {
+      const fleetMap = await getFleetMapByIds([booking.assignedVehicle]);
+      const f = fleetMap.get(String(booking.assignedVehicle));
+      if (f) {
+        booking.assignedVehicleLabel = safeText(booking.assignedVehicleLabel || f.label);
+        booking.assignedCategoryCode = safeText(booking.assignedCategoryCode || f.assignedCategoryCode);
+        booking.assignedVehiclePlate = safeText(booking.assignedVehiclePlate || f.plate);
+        booking.assignedVehicleModel = safeText(booking.assignedVehicleModel || f.model);
+      }
+    }
+
+    booking.mainDriverDefault = {
+      fullName: safeText(booking.customerName),
+      phone: safeText(booking.phone),
+      email: safeText(booking.email),
+    };
+
+    const rental = await ensureRentalForBooking(booking);
+    rental.billing = mergeBillingFallback(booking, rental);
+    rental.financials = mergeFinancialsFallback(booking, rental);
+    rental.paymentMethod = rental.financials.paymentMethod;
+    rental.paymentStatus = rental.financials.paymentStatus;
+    rental.prepaidAmount = rental.financials.prepaid;
+    rental.paidNowAmount = rental.financials.paidNow;
+    rental.depositAmount = rental.financials.deposit;
+    booking.financials = { ...(booking.financials || {}), ...rental.financials };
+    booking.paymentMethod = rental.financials.paymentMethod;
+    booking.paymentStatus = rental.financials.paymentStatus;
+    booking.prepaidAmount = rental.financials.prepaid;
+    booking.paidNowAmount = rental.financials.paidNow;
+    booking.depositAmount = rental.financials.deposit;
+    syncBookingChargeFields(booking, rental);
+
+    if (!booking.pricingSnapshot) booking.pricingSnapshot = buildPricingSnapshot(booking, rental);
+    rental.pricingSnapshot = cloneJson(booking.pricingSnapshot);
+    rental.pricingReview = buildPricingReview(booking, rental);
+
+    if (!safeText(rental.assignedVehicleLabel) && safeText(booking.assignedVehicleLabel)) {
+      rental.assignedVehicleLabel = safeText(booking.assignedVehicleLabel);
+    }
+    await wixData.update("Rentals", rental, { suppressAuth:true });
+
+    const lookups = await buildContractLookups(booking);
+    return { success:true, booking, rental, lookups };
+  } catch (e) {
+    return { success:false, message: e?.message || String(e) };
+  }
+}
+
+
+export async function confirmBookingAnalysis({ authToken, bookingId }) {
+  await requireStaffAccess({ sessionToken: authToken, area: "rentals", action: "Edit" });
+  try {
+    if (!bookingId) return { success:false, message:"Missing bookingId" };
+    const result = await confirmAndAutoAssign({ authToken, bookingId });
+    if (!result?.success) return { success:false, message: result?.message || "Confirm failed" };
+    const booking = await wixData.get("Bookings", bookingId, { suppressAuth:true });
+    booking.status = "Confirmed";
+    booking.confirmedAt = booking.confirmedAt || new Date();
+    booking.statusChangedAt = new Date();
+    await wixData.update("Bookings", booking, { suppressAuth:true });
+    return { success:true, assigned: !!result.assigned, message: result.assigned ? "Booking confirmed & vehicle assigned" : "Booking confirmed" };
+  } catch (e) {
+    return { success:false, message: e?.message || String(e) };
+  }
+}
+
+// --------------------
+// Legacy start/close (kept)
+// --------------------
+export async function startRental({ bookingId, by }) {
+  if (!bookingId) return { success:false, message:"Missing bookingId" };
+  const booking = await wixData.get("Bookings", bookingId, { suppressAuth:true });
+  if (!booking) return { success:false, message:"Booking not found" };
+
+  const rental = await ensureRentalForBooking(booking);
+  rental.rentalState = "Active Rental";
+  rental.checkoutAt = rental.checkoutAt || new Date();
+  rental.checkoutBy = safeText(by || rental.checkoutBy || "");
+  await wixData.update("Rentals", rental, { suppressAuth:true });
+
+  booking.rentalState = "Active Rental";
+  await wixData.update("Bookings", booking, { suppressAuth:true });
+  await mirrorToBooking(booking, rental);
+
+  return { success:true };
+}
+
+export async function closeRental({ bookingId, by }) {
+  if (!bookingId) return { success:false, message:"Missing bookingId" };
+  const booking = await wixData.get("Bookings", bookingId, { suppressAuth:true });
+  if (!booking) return { success:false, message:"Booking not found" };
+
+  const rental = await ensureRentalForBooking(booking);
+  rental.rentalState = "Closed Rental";
+  rental.checkinAt = rental.checkinAt || new Date();
+  rental.checkinBy = safeText(by || rental.checkinBy || "");
+  await wixData.update("Rentals", rental, { suppressAuth:true });
+
+  booking.rentalState = "Closed Rental";
+  await wixData.update("Bookings", booking, { suppressAuth:true });
+  await mirrorToBooking(booking, rental);
+
+  return { success:true };
+}
+
+// --------------------
+// ✅ saveContract (PDF+Email are lazy-loaded)
+// --------------------
+export async function saveContract({ authToken, bookingId, payload, stage }) {
+  const access = await requireStaffAccess({ sessionToken: authToken, area: "rentals", action: "Edit" });
+  try {
+    if (!bookingId) return { success:false, message:"Missing bookingId" };
+
+    const booking = await wixData.get("Bookings", bookingId, { suppressAuth:true });
+    if (!booking) return { success:false, message:"Booking not found" };
+
+    const rental = await ensureRentalForBooking(booking);
+
+    if (payload?.assignedVehicle !== undefined) booking.assignedVehicle = safeText(payload.assignedVehicle);
+    if (payload?.assignedVehicleLabel !== undefined) rental.assignedVehicleLabel = safeText(payload.assignedVehicleLabel);
+    if (payload?.assignedVehicleLabel !== undefined) booking.assignedVehicleLabel = safeText(payload.assignedVehicleLabel);
+    if (payload?.assignedVehiclePlate !== undefined) booking.assignedVehiclePlate = safeText(payload.assignedVehiclePlate);
+    if (payload?.assignedVehicleModel !== undefined) booking.assignedVehicleModel = safeText(payload.assignedVehicleModel);
+    if (payload?.assignedCategoryCode !== undefined) {
+      booking.assignedCategoryCode = safeText(payload.assignedCategoryCode);
+      rental.assignedCategoryCode = safeText(payload.assignedCategoryCode);
+    }
+
+    if (payload?.bookingNumber !== undefined) booking.bookingNumber = safeText(payload.bookingNumber);
+    if (payload?.bookingStatus !== undefined) booking.status = safeText(payload.bookingStatus) || booking.status;
+    if (payload?.customerName !== undefined) booking.customerName = safeText(payload.customerName);
+    if (payload?.phone !== undefined) booking.phone = safeText(payload.phone);
+    if (payload?.email !== undefined) booking.email = safeText(payload.email);
+    if (payload?.category !== undefined) booking.category = safeText(payload.category);
+    if (payload?.categoryId !== undefined) booking.categoryId = safeText(payload.categoryId);
+    if (payload?.pickupDateTime !== undefined) { const d = asDate(payload.pickupDateTime); if (d) booking.pickupDateTime = d; }
+    if (payload?.dropoffDateTime !== undefined) { const d = asDate(payload.dropoffDateTime); if (d) booking.dropoffDateTime = d; }
+    if (payload?.flightNumber !== undefined) booking.flightNumber = safeText(payload.flightNumber);
+    if (payload?.voucherNumber !== undefined) booking.voucherNumber = safeText(payload.voucherNumber);
+    if (payload?.confirmationNumber !== undefined) booking.confirmationNumber = safeText(payload.confirmationNumber);
+    if (payload?.originCity !== undefined) booking.originCity = safeText(payload.originCity);
+    if (payload?.customerCity !== undefined) booking.customerCity = safeText(payload.customerCity);
+    if (payload?.pickupLocationNote !== undefined) booking.pickupLocationNote = safeText(payload.pickupLocationNote);
+    if (payload?.dropoffLocationNote !== undefined) booking.dropoffLocationNote = safeText(payload.dropoffLocationNote);
+    if (payload?.selectedPackage !== undefined) booking.selectedPackage = safeText(payload.selectedPackage);
+    if (payload?.selectedExtras !== undefined) booking.selectedExtras = normalizeSelectedExtras(payload.selectedExtras);
+    if (payload?.basePricePerDay !== undefined) booking.basePricePerDay = safeNum(payload.basePricePerDay);
+    if (payload?.insuranceExtraPerDay !== undefined) booking.insuranceExtraPerDay = safeNum(payload.insuranceExtraPerDay);
+
+    const drv = normalizeDriversPayload(payload);
+    if (drv.mainDriver) rental.mainDriver = drv.mainDriver;
+    if (Array.isArray(drv.additionalDrivers)) rental.additionalDrivers = drv.additionalDrivers;
+
+    if (payload?.pickuppoint !== undefined) booking.pickuppoint = safeText(payload.pickuppoint);
+    if (payload?.dropoffpoint !== undefined) booking.dropoffpoint = safeText(payload.dropoffpoint);
+    if (payload?.pickupComment !== undefined) booking.pickupComment = safeText(payload.pickupComment);
+    if (payload?.dropoffComment !== undefined) booking.dropoffComment = safeText(payload.dropoffComment);
+
+    if (payload?.checkoutOdometer !== undefined) rental.checkoutOdometer = safeNum(payload.checkoutOdometer);
+    if (payload?.checkinOdometer !== undefined) rental.checkinOdometer = safeNum(payload.checkinOdometer);
+
+    if (payload?.checkoutFuelLevel !== undefined && payload.checkoutFuelLevel !== null) rental.checkoutFuelLevel = clamp(safeNum(payload.checkoutFuelLevel), 1, 8);
+    if (payload?.checkinFuelLevel !== undefined && payload.checkinFuelLevel !== null) rental.checkinFuelLevel = clamp(safeNum(payload.checkinFuelLevel), 1, 8);
+
+    if (payload?.checkoutNotes !== undefined) rental.checkoutNotes = safeText(payload.checkoutNotes);
+    if (payload?.checkinNotes !== undefined) rental.checkinNotes = safeText(payload.checkinNotes);
+
+    if (payload?.damagesNotes !== undefined) rental.damagesNotes = safeText(payload.damagesNotes);
+    if (payload?.photos !== undefined) rental.photos = parsePhotosField(payload.photos);
+    if (payload?.internalMemo !== undefined) rental.internalMemo = safeText(payload.internalMemo);
+
+    const pricingOverrideInput = normalizePricingOverridePayload(payload?.pricingOverride);
+    const pricingSnapshot = cloneJson(booking.pricingSnapshot || rental.pricingSnapshot || buildPricingSnapshot(booking, rental));
+
+    applyChargesPayload(rental, payload);
+    if (payload?.charges && typeof payload.charges === "object") {
+      booking.baseCost = safeNum(payload.charges.rental);
+      booking.insuranceCost = safeNum(payload.charges.insurance);
+      booking.extrasTotal = safeNum(payload.charges.options);
+      booking.ageFee = safeNum(payload.charges.ageFee);
+      booking.nightFee = safeNum(payload.charges.nightFee);
+      booking.totalPrice = Math.round((booking.baseCost + booking.insuranceCost + booking.extrasTotal + booking.ageFee + booking.nightFee + safeNum(payload.charges.transport) + safeNum(payload.charges.damages) + safeNum(payload.charges.surcharges) - safeNum(payload.charges.discount)) * 100) / 100;
+      const days = billableDaysFromBooking(booking) || 1;
+      booking.basePricePerDay = Math.round(((booking.baseCost / days) || 0) * 100) / 100;
+      booking.insuranceExtraPerDay = Math.round(((booking.insuranceCost / days) || 0) * 100) / 100;
+    }
+    if (payload?.totalPrice !== undefined && !payload?.charges) booking.totalPrice = safeNum(payload.totalPrice);
+    applyBillingPayload(rental, payload);
+    applyFinancialsPayload(booking, rental, payload);
+
+    const s = safeText(stage).toLowerCase();
+    if (s === "checkout") {
+      rental.rentalState = "Active Rental";
+      booking.rentalState = "Active Rental";
+      rental.checkoutAt = rental.checkoutAt || new Date();
+    } else if (s === "pre") {
+      rental.checkinStage = "Pre Check-In";
+      rental.rentalState = "Pre Check-In";
+      booking.rentalState = "Pre Check-In";
+      rental.precheckinAt = rental.precheckinAt || new Date();
+    } else if (s === "final") {
+      rental.checkinStage = "Closed Rental";
+      rental.rentalState = "Closed Rental";
+      booking.rentalState = "Closed Rental";
+      rental.checkinAt = rental.checkinAt || new Date();
+    }
+
+    const vatRate = (rental.billing && typeof rental.billing === "object")
+      ? safeNum(rental.billing.vatRate ?? 0.24)
+      : 0.24;
+
+    const ch = syncBookingChargeFields(booking, rental);
+    const grossTotal = ch.gross;
+
+    rental.totals = computeVatBreakdown(grossTotal, vatRate);
+
+    booking.pricingSnapshot = cloneJson(pricingSnapshot);
+    rental.pricingSnapshot = cloneJson(pricingSnapshot);
+    const pricingDrift = computePricingDrift(pricingSnapshot, ch);
+    const isAdmin = !!(access?.isAdmin || safeText(access?.roleKey).toLowerCase() === 'admin');
+    const specials = Array.isArray(access?.specialPermissions) ? access.specialPermissions : [];
+    const canOverridePricing = isAdmin || specials.includes('overridePricing');
+    const canApproveManualOverride = isAdmin || specials.includes('approveManualOverride');
+    if (pricingOverrideInput.approveNow && !canApproveManualOverride) {
+      return { success:false, message:'ACCESS_DENIED: approval requires manual override approval permission.' };
+    }
+    if (pricingDrift.hasDelta && !canOverridePricing) {
+      return { success:false, message:'ACCESS_DENIED: pricing override permission required.' };
+    }
+    if (pricingDrift.hasDelta) {
+      const actorName = safeText(access?.fullName || access?.email || 'Operator');
+      const actorEmail = safeText(access?.email || '');
+      const status = pricingOverrideInput.approveNow && canApproveManualOverride
+        ? 'approved'
+        : ((pricingOverrideInput.requestApproval || !canApproveManualOverride) ? 'pendingApproval' : 'override');
+      rental.pricingOverride = {
+        status,
+        reason: pricingOverrideInput.reason,
+        note: pricingOverrideInput.note,
+        deltaGross: pricingDrift.deltaGross,
+        requestedBy: actorName,
+        requestedByEmail: actorEmail,
+        requestedAt: new Date(),
+        approvedBy: status === 'approved' ? actorName : safeText(rental?.pricingOverride?.approvedBy),
+        approvedByEmail: status === 'approved' ? actorEmail : safeText(rental?.pricingOverride?.approvedByEmail),
+        approvedAt: status === 'approved' ? new Date() : (rental?.pricingOverride?.approvedAt || null)
+      };
+    } else {
+      rental.pricingOverride = {
+        status: 'clean',
+        reason: pricingOverrideInput.reason || '',
+        note: pricingOverrideInput.note || '',
+        deltaGross: 0,
+        requestedBy: safeText(rental?.pricingOverride?.requestedBy),
+        requestedByEmail: safeText(rental?.pricingOverride?.requestedByEmail),
+        requestedAt: rental?.pricingOverride?.requestedAt || null,
+        approvedBy: safeText(rental?.pricingOverride?.approvedBy),
+        approvedByEmail: safeText(rental?.pricingOverride?.approvedByEmail),
+        approvedAt: rental?.pricingOverride?.approvedAt || null
+      };
+    }
+    rental.pricingReview = buildPricingReview(booking, rental);
+
+    await wixData.update("Rentals", rental, { suppressAuth:true });
+    await wixData.update("Bookings", booking, { suppressAuth:true });
+    await mirrorToBooking(booking, rental);
+
+    // checkout: try PDF/email but NEVER fail the save
+    if (s === "checkout") {
+      try {
+        // lazy-load deps
+        const sgMailMod = require("@sendgrid/mail");
+        const PDFDocument = require("pdfkit");
+
+        // build pdf
+        const pdfBuffer = await new Promise((resolve, reject) => {
+          try {
+            const doc = new PDFDocument({ size:"A4", margin:42 });
+            const chunks = [];
+            doc.on("data", c => chunks.push(c));
+            doc.on("end", () => resolve(Buffer.concat(chunks)));
+            doc.on("error", reject);
+
+            doc.fontSize(18).text("Rental Receipt / Contract");
+            doc.moveDown(0.6);
+            doc.fontSize(10).text(`Booking: ${safeText(booking.bookingNumber)}`);
+            doc.text(`Customer: ${safeText(booking.customerName)}`);
+            doc.text(`Email: ${safeText(booking.email)}`);
+            doc.text(`Phone: ${safeText(booking.phone)}`);
+            doc.moveDown(0.6);
+            doc.fontSize(10).text(`Pickup: ${safeText(booking.pickupDateTime)} @ ${pickLabel(booking.pickuppoint)}`);
+            doc.text(`Dropoff: ${safeText(booking.dropoffDateTime)} @ ${pickLabel(booking.dropoffpoint)}`);
+            doc.moveDown(0.6);
+            doc.fontSize(10).text(`Vehicle: ${safeText(booking.assignedVehicleLabel || booking.assignedVehiclePlate || rental.assignedVehicleLabel || "-")}`);
+            doc.text(`Gross: ${safeText(rental.totals?.gross)} €  (Net ${safeText(rental.totals?.net)} / VAT ${safeText(rental.totals?.vat)})`);
+            doc.end();
+          } catch(e){ reject(e); }
+        });
+
+        // send
+        const apiKey = await getSecret("SENDGRID_API_KEY");
+        const fromEmail = await getSecret("FROM_EMAIL");
+        const opsEmail = await getSecret("OPS_EMAIL");
+
+        if (!apiKey || !fromEmail || !opsEmail) throw new Error("Missing SendGrid secrets");
+
+        sgMailMod.setApiKey(apiKey);
+
+        const customerEmail = safeText(booking.email).trim();
+        const toList = [opsEmail].filter(Boolean);
+        if (customerEmail) toList.push(customerEmail);
+
+        const bookingNo = safeText(booking.bookingNumber || booking._id);
+        await sgMailMod.send({
+          to: toList,
+          from: fromEmail,
+          subject: `Receipt / Contract • ${bookingNo}`,
+          text: `Receipt/Contract for booking ${bookingNo}`,
+          attachments: [{
+            content: pdfBuffer.toString("base64"),
+            filename: `Receipt_${bookingNo}.pdf`,
+            type: "application/pdf",
+            disposition: "attachment"
+          }]
+        });
+      } catch (e) {
+        return { success:true, warning:`Saved but PDF/email failed: ${e?.message || String(e)}`, rentalState:rental.rentalState, totals:rental.totals };
+      }
+    }
+
+    return { success:true, rentalState:rental.rentalState, checkinStage:rental.checkinStage, totals:rental.totals };
+  } catch (e) {
+    return { success:false, message: e?.message || String(e) };
+  }
+}
+
+// legacy (kept)
+export async function saveCheckout({ bookingId, payload }) {
+  return saveContract({ bookingId, payload, stage:"checkout" });
+}
+export async function saveCheckin({ bookingId, payload }) {
+  return saveContract({ bookingId, payload, stage:"final" });
+}

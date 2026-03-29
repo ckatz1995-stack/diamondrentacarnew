@@ -1,0 +1,233 @@
+
+import wixData from 'wix-data';
+import { requireStaffAccess } from 'backend/staffAccess.jsw';
+
+const COLLECTIONS = {
+  vehicles: 'VehiclesNew',
+  fleet: 'FleetNew',
+  bookings: 'BookingsNew',
+  rentals: 'RentalsNew'
+};
+
+function txt(v){ return String(v ?? '').trim(); }
+function num(v){ const n = Number(v); return Number.isFinite(n) ? n : null; }
+function bool(v){
+  if (typeof v === 'boolean') return v;
+  const raw = txt(v).toLowerCase();
+  return raw === 'true' || raw === '1' || raw === 'yes';
+}
+function iso(v){
+  const raw = txt(v);
+  if (!raw) return '';
+  const d = new Date(raw);
+  return Number.isNaN(d.getTime()) ? raw : d.toISOString();
+}
+function fmtDate(v){
+  const raw = txt(v);
+  if (!raw) return '';
+  const d = new Date(raw);
+  return Number.isNaN(d.getTime()) ? raw : d.toISOString();
+}
+function money(v){
+  const n = Number(v || 0);
+  return Number.isFinite(n) ? Math.round(n * 100) / 100 : 0;
+}
+function normalizeFleet(item = {}, category = null){
+  return {
+    fleetVehicleId: txt(item.fleetVehicleId || item._id),
+    plate: txt(item.plate),
+    model: txt(item.model),
+    categoryCode: txt(item.categoryCode || category?.categoryCode),
+    categoryId: txt(item.categoryId || category?.categoryRecordId),
+    categoryLabel: txt(item.categoryLabel || category?.categoryLabel),
+    vehicleLabel: txt(item.vehicleLabel || [txt(item.plate), txt(item.model)].filter(Boolean).join(' - ')),
+    active: bool(item.active),
+    status: txt(item.status),
+    operationalStatus: txt(item.operationalStatus),
+    currentStationCode: txt(item.currentStationCode),
+    currentStationLabel: txt(item.currentStationLabel),
+    mileage: num(item.mileage),
+    fuelLevel: num(item.fuelLevel),
+    fuelType: txt(item.fuelType),
+    excess: num(item.excess),
+    ownershipState: txt(item.ownershipState),
+    poolType: txt(item.poolType),
+    readyToGo: bool(item.readyToGo),
+    hardHold: bool(item.hardHold),
+    notes: txt(item.notes),
+    mediaGallery: txt(item.mediaGallery),
+    needsReview: txt(item.needsReview),
+    legacyCreatedAt: iso(item.legacyCreatedAt),
+    legacyUpdatedAt: iso(item.legacyUpdatedAt),
+    legacyOwner: txt(item.legacyOwner)
+  };
+}
+function normalizeCategory(item = {}){
+  return {
+    categoryRecordId: txt(item.categoryRecordId || item._id),
+    categoryCode: txt(item.categoryCode),
+    categoryLabel: txt(item.categoryLabel),
+    basePricePerDay: num(item.basePricePerDay),
+    active: bool(item.active),
+    status: txt(item.status),
+    image: txt(item.image),
+    engineCc: txt(item.engineCc),
+    transmission: txt(item.transmission),
+    fuelType: txt(item.fuelType),
+    seats: txt(item.seats),
+    doors: txt(item.doors),
+    airCondition: bool(item.airCondition),
+    luggageSmall: txt(item.luggageSmall),
+    luggageLarge: txt(item.luggageLarge)
+  };
+}
+function chargesGross(raw){
+  if (!raw) return 0;
+  try {
+    const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (parsed && typeof parsed === 'object') {
+      if (parsed.gross != null) return money(parsed.gross);
+      const sum = ['rental','insurance','options','transport','damages','surcharges','nightFee','ageFee']
+        .reduce((acc, key) => acc + money(parsed[key] || 0), 0) - money(parsed.discount || 0);
+      return money(sum);
+    }
+  } catch (_) {}
+  return 0;
+}
+function compareDateDesc(a,b){
+  const ad = new Date(a || 0).getTime() || 0;
+  const bd = new Date(b || 0).getTime() || 0;
+  return bd - ad;
+}
+
+async function findFleetRecordByAnyId(rawId){
+  const targetId = txt(rawId);
+  if (!targetId) return null;
+  try {
+    const byInternal = await wixData.get(COLLECTIONS.fleet, targetId, { suppressAuth: true });
+    if (byInternal) return byInternal;
+  } catch (_) {}
+
+  const byFleetVehicleId = await wixData.query(COLLECTIONS.fleet)
+    .eq('fleetVehicleId', targetId)
+    .limit(1)
+    .find({ suppressAuth: true });
+  return (byFleetVehicleId.items || [])[0] || null;
+}
+
+async function findBookingsByIds(ids = []){
+  const bookingIds = Array.from(new Set((ids || []).map((v) => txt(v)).filter(Boolean)));
+  const map = new Map();
+  for (let i = 0; i < bookingIds.length; i += 50) {
+    const chunk = bookingIds.slice(i, i + 50);
+    if (!chunk.length) continue;
+    const res = await wixData.query(COLLECTIONS.bookings).hasSome('bookingId', chunk).limit(1000).find({ suppressAuth: true });
+    (res.items || []).forEach((item) => map.set(txt(item.bookingId), item));
+  }
+  return map;
+}
+
+export async function getVehicleCardData({ sessionToken, fleetVehicleId } = {}) {
+  await requireStaffAccess({ sessionToken, area: 'fleet', action: 'View' });
+  const targetId = txt(fleetVehicleId);
+  if (!targetId) throw new Error('MISSING_FLEET_VEHICLE_ID');
+
+  const fleetRecord = await findFleetRecordByAnyId(targetId);
+  if (!fleetRecord) throw new Error('FLEET_VEHICLE_NOT_FOUND');
+  const categoryQuery = txt(fleetRecord.categoryId)
+    ? await wixData.query(COLLECTIONS.vehicles).eq('categoryRecordId', txt(fleetRecord.categoryId)).limit(1).find({ suppressAuth: true })
+    : await wixData.query(COLLECTIONS.vehicles).eq('categoryCode', txt(fleetRecord.categoryCode)).limit(1).find({ suppressAuth: true });
+  const categoryRecord = normalizeCategory((categoryQuery.items || [])[0] || {});
+  const fleet = normalizeFleet(fleetRecord, categoryRecord);
+
+  const internalId = txt(fleetRecord._id);
+  const fleetVehicleBusinessId = txt(fleetRecord.fleetVehicleId || targetId);
+
+  const rentalsByInternal = await wixData.query(COLLECTIONS.rentals)
+    .eq('assignedVehicleId', internalId)
+    .limit(1000)
+    .find({ suppressAuth: true });
+  const rentalsByBusiness = fleetVehicleBusinessId
+    ? await wixData.query(COLLECTIONS.rentals).eq('assignedVehicleId', fleetVehicleBusinessId).limit(1000).find({ suppressAuth: true })
+    : { items: [] };
+
+  const rentalsMap = new Map();
+  [...(rentalsByInternal.items || []), ...(rentalsByBusiness.items || [])].forEach((item) => {
+    const key = txt(item.rentalId || item._id || item.bookingId);
+    if (key) rentalsMap.set(key, item);
+  });
+  const rentals = Array.from(rentalsMap.values());
+  const bookingsMap = await findBookingsByIds(rentals.map((r) => txt(r.bookingId)));
+
+  const rentalsHistory = rentals.map((r) => {
+    const booking = bookingsMap.get(txt(r.bookingId)) || {};
+    return {
+      rentalId: txt(r.rentalId || r._id),
+      bookingId: txt(r.bookingId),
+      bookingNumber: txt(booking.bookingNumber),
+      customerName: txt(booking.customerName),
+      pickupDateTime: iso(booking.pickupDateTime),
+      dropoffDateTime: iso(booking.dropoffDateTime),
+      pickupPoint: txt(booking.pickupPoint),
+      dropoffPoint: txt(booking.dropoffPoint),
+      rentalState: txt(r.rentalState),
+      paymentStatus: txt(r.paymentStatus),
+      totalGross: chargesGross(r.chargesJson || booking.chargesJson),
+      checkoutAt: iso(r.checkoutAt),
+      checkinAt: iso(r.checkinAt),
+      checkoutOdometer: num(r.checkoutOdometer),
+      checkinOdometer: num(r.checkinOdometer),
+      checkoutFuelLevel: num(r.checkoutFuelLevel),
+      checkinFuelLevel: num(r.checkinFuelLevel)
+    };
+  }).sort((a,b) => compareDateDesc(a.pickupDateTime, b.pickupDateTime));
+
+  const summary = {
+    totalRentals: rentalsHistory.length,
+    activeRentals: rentalsHistory.filter((row) => ['Open Rental','Check-Out','Out'].includes(txt(row.rentalState))).length,
+    bookingOnly: rentalsHistory.filter((row) => txt(row.rentalState) === 'Booking').length,
+    lifetimeRevenue: money(rentalsHistory.reduce((sum, row) => sum + money(row.totalGross), 0)),
+    lastCheckoutAt: rentalsHistory.find((row) => row.checkoutAt)?.checkoutAt || '',
+    lastCheckinAt: rentalsHistory.find((row) => row.checkinAt)?.checkinAt || ''
+  };
+
+  return { success: true, fleet, category: categoryRecord, summary, rentals: rentalsHistory };
+}
+
+export async function saveVehicleCardData({ sessionToken, fleetVehicleId, patch = {} } = {}) {
+  await requireStaffAccess({ sessionToken, area: 'fleet', action: 'Edit' });
+  const targetId = txt(fleetVehicleId);
+  if (!targetId) throw new Error('MISSING_FLEET_VEHICLE_ID');
+  const current = await findFleetRecordByAnyId(targetId);
+  if (!current) throw new Error('FLEET_VEHICLE_NOT_FOUND');
+
+  const next = {
+    ...current,
+    plate: txt(patch.plate ?? current.plate),
+    model: txt(patch.model ?? current.model),
+    categoryCode: txt(patch.categoryCode ?? current.categoryCode),
+    categoryId: txt(patch.categoryId ?? current.categoryId),
+    categoryLabel: txt(patch.categoryLabel ?? current.categoryLabel),
+    vehicleLabel: txt(patch.vehicleLabel ?? current.vehicleLabel),
+    active: patch.active == null ? current.active : !!patch.active,
+    status: txt(patch.status ?? current.status),
+    operationalStatus: txt(patch.operationalStatus ?? current.operationalStatus),
+    currentStationCode: txt(patch.currentStationCode ?? current.currentStationCode),
+    currentStationLabel: txt(patch.currentStationLabel ?? current.currentStationLabel),
+    mileage: patch.mileage == null || patch.mileage === '' ? current.mileage : Number(patch.mileage),
+    fuelLevel: patch.fuelLevel == null || patch.fuelLevel === '' ? current.fuelLevel : Number(patch.fuelLevel),
+    fuelType: txt(patch.fuelType ?? current.fuelType),
+    excess: patch.excess == null || patch.excess === '' ? current.excess : Number(patch.excess),
+    ownershipState: txt(patch.ownershipState ?? current.ownershipState),
+    poolType: txt(patch.poolType ?? current.poolType),
+    readyToGo: patch.readyToGo == null ? current.readyToGo : !!patch.readyToGo,
+    hardHold: patch.hardHold == null ? current.hardHold : !!patch.hardHold,
+    notes: txt(patch.notes ?? current.notes),
+    mediaGallery: txt(patch.mediaGallery ?? current.mediaGallery),
+    needsReview: txt(patch.needsReview ?? current.needsReview),
+    legacyUpdatedAt: new Date().toISOString()
+  };
+
+  const updated = await wixData.update(COLLECTIONS.fleet, next, { suppressAuth: true });
+  return { success: true, fleet: normalizeFleet(updated) };
+}

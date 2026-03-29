@@ -1,0 +1,1532 @@
+<!doctype html>
+<html lang="el">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    :root{
+      --bg:#f3f6fb; --card:#fff; --text:#0f172a; --sub:#64748b; --line:rgba(15,23,42,.10);
+      --shadow:0 12px 30px rgba(15,23,42,.06); --ring:rgba(180,138,79,.18);
+      --pri1:#a8844a; --pri2:#8e6d3d; --hero1:#4f3a22; --hero2:#7a5b33; --hero3:#9f7845;
+      --ok:#059669; --warn:#dc2626; --info:#2563eb; --muted:#94a3b8;
+      --workspace-h:clamp(600px,72vh,920px); --desk-col-h:clamp(500px,62vh,780px); --full-shell-h:clamp(540px,66vh,820px);
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;-webkit-text-size-adjust:100%}
+    body{min-height:100vh}
+    .wrap{padding:6px;display:grid;gap:8px;background:linear-gradient(180deg,#f4f6fa 0%,#eff3f8 100%)}
+
+    .backroom-header{display:grid;grid-template-columns:minmax(300px,340px) minmax(420px,1fr) auto;gap:0;align-items:stretch;width:100%;background:linear-gradient(135deg,#4b3923 0%,#6c522e 55%,#8e6d3d 100%);border:1px solid rgba(255,255,255,.05);border-radius:0 0 24px 24px;box-shadow:0 22px 48px rgba(15,23,42,.16);padding:0;margin:0;overflow:visible;position:relative}
+    .backroom-header::after{content:"";position:absolute;left:24px;right:24px;bottom:-10px;height:22px;background:radial-gradient(ellipse at center, rgba(15,23,42,.14), rgba(15,23,42,0) 72%);pointer-events:none;filter:blur(10px)}
+    .backroom-brand{display:flex;flex-direction:column;justify-content:center;gap:4px;min-height:82px;padding:14px 18px 14px 78px;position:relative;background:linear-gradient(135deg,#8e6d3d 0%,#a8844a 62%,#6c522e 100%);color:#fff}
+    .backroom-brand::before{content:"D";position:absolute;left:20px;top:50%;transform:translateY(-50%);width:42px;height:42px;border-radius:14px;background:rgba(255,255,255,.16);display:grid;place-items:center;font-size:20px;font-weight:900;letter-spacing:-.03em;box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 8px 18px rgba(0,0,0,.12)}
+    .backroom-brand::after{content:"";position:absolute;right:-28px;top:-24px;bottom:-24px;width:74px;background:linear-gradient(120deg,rgba(255,255,255,.18),rgba(255,255,255,0));transform:skewX(-18deg)}
+    .backroom-brand b{display:block;font-size:20px;letter-spacing:-.02em;color:#fff}
+    .backroom-brand span{display:block;color:rgba(255,255,255,.82);font-size:12px;margin-top:2px}
+    .backroom-nav{display:flex;flex-wrap:nowrap;align-items:center;justify-content:center;gap:4px;padding:0 18px;background:linear-gradient(180deg,rgba(255,255,255,.03) 0%,rgba(255,255,255,0) 100%);min-width:0;overflow:auto;scrollbar-width:none}.backroom-nav::-webkit-scrollbar{display:none}
+    .nav-btn{appearance:none;border:0;background:transparent;color:rgba(255,255,255,.82);padding:0 14px;height:82px;font-weight:800;font-size:14px;cursor:pointer;position:relative;transition:background .18s ease,color .18s ease,transform .18s ease;border-radius:16px;flex:0 0 auto;white-space:nowrap}
+    .nav-btn::after{content:"";position:absolute;left:16px;right:16px;bottom:10px;height:3px;border-radius:999px;background:transparent;transition:background .18s ease,transform .18s ease}
+    .nav-btn:hover{background:rgba(255,255,255,.06);color:#fff;transform:translateY(-1px)}
+    .nav-btn.active{background:linear-gradient(180deg,rgba(255,255,255,.08) 0%,rgba(255,255,255,.03) 100%);color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
+    .nav-btn.active::after{background:#d7b27a}
+    .backroom-user{display:flex;justify-content:flex-end;gap:10px;align-items:center;flex-wrap:nowrap;padding:12px 16px;background:linear-gradient(180deg,rgba(79,58,34,.92) 0%,rgba(58,42,24,.98) 100%);border-left:1px solid rgba(255,255,255,.06);position:relative;min-width:320px;overflow:visible}
+    .backroom-user::before{content:"";position:absolute;left:-1px;top:14px;bottom:14px;width:1px;background:rgba(255,255,255,.08)}
+    .top-chip{padding:8px 10px;border-radius:999px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.08);font-size:12px;color:rgba(255,255,255,.72);flex:0 0 auto;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .top-chip strong{color:#fff}
+    .header-action-btn{appearance:none;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.08);color:#fff;border-radius:12px;padding:10px 12px;font-weight:800;cursor:pointer;transition:background .18s ease,border-color .18s ease,transform .18s ease;flex:0 0 auto;white-space:nowrap}
+    .header-action-btn:hover{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.22);transform:translateY(-1px)}
+    .backroom-user .userMenuBtn{display:inline-flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.08);border-radius:14px;cursor:pointer;font:900 11px/1.1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#fff;box-shadow:none}
+    .backroom-user .userBadge{width:26px;height:26px;border-radius:999px;display:grid;place-items:center;background:rgba(255,255,255,.16);font-weight:1100;font-size:10px;border:1px solid rgba(255,255,255,.18)}
+    .backroom-user .userRole{font-size:9px;color:rgba(255,255,255,.72);font-weight:900}
+    .backroom-user .caret{font-size:10px;color:rgba(255,255,255,.72)}
+    .pageStack{display:grid;gap:8px}
+    .pageInfo{display:none}
+    .routeShell,.card,.surface{background:#fff;border:1px solid var(--line);border-radius:18px;box-shadow:0 8px 20px rgba(15,23,42,.05)}
+    .routeShell{padding:0;overflow:visible;background:linear-gradient(135deg,var(--hero1) 0%,var(--hero2) 46%,var(--hero3) 100%)}
+    .routeTop{display:grid;grid-template-columns:180px minmax(0,1fr);min-height:48px}
+    .brandPanel{display:flex;align-items:center;gap:8px;padding:8px 10px;background:linear-gradient(135deg,#8e6d3d 0%,#b48a4f 62%,#6c522e 100%);color:#fff;position:relative;overflow:hidden}
+    .brandPanel::after{content:'';position:absolute;right:-34px;top:-16px;bottom:-16px;width:86px;background:linear-gradient(120deg,rgba(255,255,255,.18),rgba(255,255,255,0));transform:skewX(-18deg)}
+    .routeLogo{width:30px;height:30px;border-radius:12px;display:grid;place-items:center;background:rgba(255,255,255,.16);font-weight:1100;font-size:16px;position:relative;z-index:1}
+    .brandText{position:relative;z-index:1;display:flex;flex-direction:column;gap:3px;line-height:1.04}
+    .brandTitle{font-weight:1100;font-size:13px;letter-spacing:-.02em}.brandSub{font-size:9.5px;color:rgba(255,255,255,.84);font-weight:900}
+    .headerZone{display:flex;flex-direction:column;min-width:0;overflow:visible}
+    .headerNavRow{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 10px 6px;border-bottom:1px solid rgba(255,255,255,.08);overflow:visible}
+    .routeTabs{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0}
+    .routeTab,.topAction,.modeBtn,.tabBtn,.btn{appearance:none;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.06);color:#fff;border-radius:12px;padding:7px 10px;font:800 10.5px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;cursor:pointer;transition:transform .14s ease, box-shadow .14s ease, background .14s ease}
+    .routeTab.isActive{background:linear-gradient(135deg,#b48a4f,#8e6d3d);border-color:transparent;box-shadow:0 12px 24px rgba(91,68,35,.24)}
+    .topAction{background:rgba(255,255,255,.06)}
+    .headerTools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;position:relative;z-index:6}
+    .routeMeta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end;padding:6px 10px 6px}
+    .routeChip{display:inline-flex;align-items:center;gap:6px;padding:6px 9px;border-radius:999px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);font:800 10.5px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:rgba(255,244,230,.88)}
+    .routeChip.primary{background:#fff;color:#6c522e;border-color:#fff;box-shadow:0 10px 18px rgba(255,255,255,.12)}
+    .userMenuWrap{position:relative;display:inline-flex;align-items:center;z-index:40}
+    .userMenuBtn{display:inline-flex;align-items:center;gap:8px;padding:7px 11px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);border-radius:999px;cursor:pointer;font:900 11px/1.1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#fff;box-shadow:0 8px 18px rgba(2,6,23,.14)}
+    .userBadge{width:24px;height:24px;border-radius:999px;display:grid;place-items:center;background:rgba(255,255,255,.16);font-weight:1100;font-size:10px;border:1px solid rgba(255,255,255,.18)}
+    .userText{display:flex;flex-direction:column;align-items:flex-start}.userName{font-weight:1000;font-size:11px}.userRole{font-size:9px;color:rgba(255,255,255,.72);font-weight:900}.caret{font-size:10px;color:rgba(255,255,255,.72)}
+    .userMenu{position:absolute;right:0;top:calc(100% + 8px);min-width:230px;background:#fff;border:1px solid rgba(0,0,0,.10);border-radius:16px;box-shadow:0 18px 45px rgba(0,0,0,.16);display:none;z-index:99999;overflow:hidden}.userMenu.open{display:block}
+    .userMenuHead{padding:12px 14px;background:linear-gradient(135deg,rgba(180,138,79,.16),rgba(108,82,46,.10));border-bottom:1px solid rgba(0,0,0,.06)}
+    .userMenuItem{padding:12px 14px;font:900 13px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#0f172a;background:#fff;border:0;border-bottom:1px solid rgba(0,0,0,.06);text-align:left;cursor:pointer;width:100%}.userMenuItem:last-child{border-bottom:none}.userMenuItem:hover{background:rgba(180,138,79,.08)}.userMenuItem.danger{color:#b91c1c}
+
+    .dailyHeader{padding:8px 10px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:center;background:linear-gradient(180deg,#fff 0%,#fbfdff 100%)}
+    .headerEyebrow{display:inline-flex;align-items:center;gap:8px;padding:7px 11px;border-radius:999px;background:#8e6d3d;color:#fff;font:900 10.5px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;box-shadow:0 10px 18px rgba(91,68,35,.14)}
+    .headerTitle{margin:6px 0 2px;font:1100 15px/1.04 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#3b2a18;letter-spacing:-.03em}
+    .headerSub{font:800 10px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#64748b;max-width:980px}
+    .headerChips{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+    .heroChip{display:inline-flex;align-items:center;gap:6px;padding:6px 9px;border-radius:999px;border:1px solid rgba(108,82,46,.10);background:#fff;font:900 10.5px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#334155}
+    .heroChip.primary{background:#8e6d3d;color:#fff;border-color:#8e6d3d}
+
+    .controls{padding:8px 10px;display:grid;gap:8px;background:linear-gradient(180deg,#ffffff 0%,#f8fbff 100%)}
+    .controlsRow{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+    .controlGroup{display:flex;gap:5px;align-items:center;flex-wrap:wrap;padding:4px 6px;border:1px solid rgba(15,23,42,.08);border-radius:12px;background:#f8fafc}
+    .controlLabel{font:900 10px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#64748b;text-transform:uppercase;letter-spacing:.05em}
+    .input,.select{appearance:none;border:1px solid rgba(15,23,42,.12);background:#fff;border-radius:10px;padding:7px 9px;font:800 11px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#0f172a;outline:none}
+    .input:focus,.select:focus{border-color:rgba(180,138,79,.35);box-shadow:0 0 0 4px var(--ring)}
+    .input.search{min-width:220px;flex:1 1 240px}
+    .btn{border:1px solid rgba(15,23,42,.10);background:#fff;color:#334155;box-shadow:0 8px 18px rgba(0,0,0,.04)}
+    .btnPrimary{background:linear-gradient(135deg,var(--pri1),var(--pri2));color:#fff;border-color:transparent}
+    .btn:hover,.tabBtn:hover,.modeBtn:hover,.routeTab:hover,.topAction:hover{transform:translateY(-1px);box-shadow:0 12px 24px rgba(15,23,42,.08)}
+    .modeBtn,.tabBtn{color:#334155;background:#fff;border:1px solid rgba(15,23,42,.10)}
+    .modeBtn.active,.tabBtn.active{background:linear-gradient(180deg,#8e6d3d 0%,#6c522e 100%);color:#fff;border-color:#6c522e;box-shadow:0 14px 26px rgba(108,82,46,.18)}
+    .tabBtn{display:inline-flex;align-items:center;gap:8px;border-radius:10px;padding:8px 10px;font-size:10.5px;box-shadow:none;background:#fff}
+    .tabBtn .countPill{margin-left:auto}
+    .togglePill{display:inline-flex;align-items:center;gap:8px;padding:7px 11px;border-radius:999px;border:1px solid rgba(15,23,42,.10);background:#fff;font:900 11px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#334155}
+    .togglePill input{accent-color:#8e6d3d}
+    .statusLine{padding:7px 10px;border:1px dashed rgba(15,23,42,.14);border-radius:12px;background:rgba(180,138,79,.07);font:900 10px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#4b3a22;min-width:220px;white-space:pre-wrap}
+    .tabBar{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+    .tabBtn{border-radius:10px;padding:8px 10px;font-size:10.5px;box-shadow:none;background:#fff}
+    .modeBtn{border-radius:10px;padding:8px 10px;font-size:10.5px;box-shadow:none}
+    .controlGroup.slim{padding:0;border:none;background:transparent}
+
+
+    .summaryGrid{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px}
+    .summaryCard{padding:7px 8px;border-radius:10px;border:1px solid rgba(15,23,42,.08);background:linear-gradient(180deg,#ffffff 0%,#fbfdff 100%);box-shadow:none;display:grid;gap:2px;align-content:start;text-align:left}
+    .summaryCard.clickable{cursor:pointer;transition:transform .14s ease, box-shadow .14s ease, border-color .14s ease}
+    .summaryCard.clickable:hover{transform:translateY(-1px);box-shadow:0 14px 28px rgba(15,23,42,.08);border-color:rgba(168,132,74,.28)}
+    .summaryCard.isActive{background:linear-gradient(180deg,#f7efe4 0%,#fffaf2 100%);border-color:rgba(168,132,74,.28);box-shadow:0 12px 22px rgba(168,132,74,.10)}
+    .summaryCard .k{font-size:10px;font-weight:1000;letter-spacing:.08em;text-transform:uppercase;color:#8e6d3d}
+    .summaryCard .v{margin-top:2px;font-size:16px;font-weight:1100;color:#0f172a;line-height:1}
+    .summaryCard .m{margin-top:4px;font-size:10px;line-height:1.4;font-weight:800;color:#64748b}
+
+    .toolTableShell{position:relative;display:grid;grid-template-rows:auto auto minmax(280px,1fr);gap:0;border:1px solid rgba(15,23,42,.08);border-radius:14px;background:#fff;overflow:hidden;box-shadow:0 12px 26px rgba(15,23,42,.06);min-height:0;height:100%}
+    .toolTableShell.is-requests{box-shadow:0 14px 34px rgba(168,132,74,.10)}
+    .toolToolbar{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:8px 10px;border-bottom:1px solid rgba(15,23,42,.06);background:linear-gradient(180deg,#fcfdff 0%,#f3f6fb 100%)}
+    .toolToolbarLeft{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}.toolToolbarRight{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}.toolToolbarRows{display:grid;gap:8px;min-width:0}
+    .toolTitle{font:1000 11.5px/1.1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#0f172a}
+    .toolSub{font:800 9.25px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#64748b}
+    .toolPill{display:inline-flex;align-items:center;gap:6px;padding:5px 8px;border-radius:999px;border:1px solid rgba(15,23,42,.08);background:#fff;font:900 10px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#475569;white-space:nowrap}
+    .toolTableViewport{min-width:0;min-height:0;padding:8px;background:linear-gradient(180deg,#f8fafc 0%,#f1f5f9 100%);display:block;overflow:hidden}.toolTableWrap{overflow:auto;background:#fff;min-width:0;border-radius:12px;border:1px solid rgba(15,23,42,.08);max-height:none;height:100%;min-height:100%;display:block;box-shadow:inset 0 1px 0 rgba(255,255,255,.7)}
+    .toolTable{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed;min-width:980px}
+    .toolTable thead th{position:sticky;top:0;z-index:3;padding:0;border-bottom:1px solid rgba(15,23,42,.08);background:linear-gradient(180deg,#fafbfd 0%,#f2f5f9 100%);text-align:left;vertical-align:middle;height:30px;box-shadow:inset 0 -1px 0 rgba(15,23,42,.04)}
+    .toolTable tbody td{padding:0;border-bottom:1px solid rgba(15,23,42,.06);vertical-align:top;background:#fff}
+    .toolTable tbody tr:hover td{background:#fcfcfd}
+    .toolTable tbody tr.selected td{background:#faf3e8}
+    .toolThInner{display:flex;align-items:center;justify-content:space-between;gap:6px;padding:7px 16px 7px 8px;min-height:34px}
+    .toolThLabel{font:1000 9px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:#64748b}
+    .toolThTools{display:inline-flex;align-items:center;gap:6px}
+    .toolThSort,.toolThDrag{appearance:none;border:1px solid rgba(15,23,42,.08);background:#fff;border-radius:999px;padding:2px 6px;font:900 8.5px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#64748b;cursor:pointer}
+    .toolThSort.active{background:#8e6d3d;color:#fff;border-color:#8e6d3d}
+    .toolThDrag{cursor:grab}
+    .toolThDrag:active{cursor:grabbing}
+    .thResizer{position:absolute;top:0;right:0;width:8px;height:100%;cursor:col-resize}
+    .toolCell{display:grid;gap:3px;padding:8px 9px;min-height:48px;align-content:start}
+    .toolMain{font:900 10.75px/1.3 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#0f172a;word-break:break-word}
+    .toolSub{font:800 9.25px/1.32 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#64748b;word-break:break-word}
+    .toolFlags,.toolActions{display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+    .toolColMenu{position:static;display:flex;align-items:center}
+    .toolColBtn{appearance:none;border:1px solid rgba(15,23,42,.08);background:#f8fafc;border-radius:999px;padding:6px 10px;font:900 10px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#64748b;cursor:default;box-shadow:none}
+    .toolColBtn.active{background:#8e6d3d;color:#fff;border-color:#8e6d3d}
+    .toolBodyShell{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:stretch;min-height:0;border-top:1px solid rgba(15,23,42,.06)}
+    .toolTableViewport{min-width:0;max-width:100%}
+    .toolTableWrap{min-width:0;overflow:auto;max-width:100%}
+    .toolSidePanel{display:flex;position:relative;top:auto;right:auto;bottom:auto;width:340px;min-width:340px;height:100%;align-self:stretch;border-left:1px solid rgba(15,23,42,.08);border-radius:0;box-shadow:none;z-index:2;overflow:hidden;background:linear-gradient(180deg,#ffffff 0%,#f8fafc 100%)}
+    .toolTableShell.has-col-panel .toolSidePanel{display:flex;flex-direction:column;position:relative;top:auto;align-self:stretch;max-height:none;height:100%}
+    .toolSidePanel.is-collapsed{display:none;width:0;min-width:0;border-left:0}
+    .toolRailMini,.toolRailLabel,.toolRailCount,.toolRailBtn{display:none !important}
+    .toolColToggle{appearance:none;border:1px solid rgba(15,23,42,.08);background:#fff;border-radius:10px;padding:7px 10px;font:1000 10px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#475569;cursor:pointer;box-shadow:none}
+    .toolColToggle:hover{background:#f8fafc}
+    .toolColPanel{display:flex;flex-direction:column;gap:10px;min-height:0;height:100%;padding:12px;background:linear-gradient(180deg,#ffffff 0%,#f8fafc 100%);overflow:auto}
+    .toolColHead{display:grid;gap:8px;padding-bottom:8px;border-bottom:1px solid rgba(15,23,42,.06)}
+    .toolColHead strong{font:1000 13px/1.1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#0f172a}
+    .toolColHeadTop{display:flex;align-items:center;justify-content:space-between;gap:8px}
+    .toolColHeadActions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+    .toolColBtnGhost,.toolColClose{appearance:none;border:1px solid rgba(15,23,42,.08);background:#fff;border-radius:999px;padding:6px 10px;font:1000 10px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#475569;cursor:pointer}
+    .toolColBtnGhost:hover,.toolColClose:hover{background:#f8fafc}
+    .toolColClose{display:none}
+    .toolFocusRow{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.toolFocusRow.compact{padding:2px 0;border:none;background:transparent}.toolFocusRow.compact .toolQueueMini{margin-left:auto}
+    .toolFocusLabel{font:900 9px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8}
+    .toolFocusBtn{appearance:none;border:1px solid rgba(15,23,42,.08);background:#fff;border-radius:999px;padding:6px 9px;font:1000 10px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#475569;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+    .toolFocusBtn.ghost{background:#f8fafc;color:#64748b}
+    .toolFocusBtn.active{background:#8e6d3d;color:#fff;border-color:#8e6d3d}
+    .toolFocusBtn:hover{background:#f8fafc}
+    .toolFocusBtn.active:hover{background:#8e6d3d}
+    .toolQueueSummary{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:8px 10px;border:1px solid rgba(168,132,74,.14);border-radius:12px;background:linear-gradient(180deg,#fffaf2 0%,#fff 100%)}
+    .toolQueueMeta{display:grid;gap:3px;min-width:0}
+    .toolQueueBadge{display:inline-flex;align-items:center;gap:6px;padding:5px 8px;border-radius:999px;background:#8e6d3d;color:#fff;font:1000 10px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;width:max-content}
+    .toolQueueHint{font:900 10px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#6b7280}
+    .toolQueueActions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+    .toolQueueMini{font:900 10px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#64748b}
+    .toolContextBar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;padding:8px 10px;border-top:1px solid rgba(15,23,42,.06);border-bottom:1px solid rgba(15,23,42,.06);background:linear-gradient(180deg,#fff 0%,#f8fafc 100%);position:relative;z-index:1}
+    .toolContextMeta{display:flex;align-items:center;gap:6px;flex-wrap:wrap;min-width:0}
+    .toolContextChip{display:inline-flex;align-items:center;gap:6px;padding:6px 9px;border-radius:999px;border:1px solid rgba(15,23,42,.08);background:#fff;font:900 10px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#475569;white-space:nowrap}
+    .toolContextChip strong{color:#0f172a}
+    .toolContextChip.active{background:#f7efe4;border-color:rgba(168,132,74,.26);color:#6c522e}
+    .toolContextChip.warn{background:#fff7ed;border-color:rgba(234,88,12,.16);color:#9a3412}
+    .toolContextActions{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+    .toolContextBtn{appearance:none;border:1px solid rgba(15,23,42,.08);background:#fff;border-radius:999px;padding:6px 10px;font:900 10px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#475569;cursor:pointer}
+    .toolContextBtn:hover{background:#f8fafc}
+    .toolContextBtn.active{background:#8e6d3d;color:#fff;border-color:#8e6d3d}
+    .toolContextBtn.ghost{background:#f8fafc;color:#64748b}
+    .toolTableShell.is-compact .toolToolbar{padding:6px 7px}
+    .toolTableShell.is-compact .toolTitle{font-size:10px}
+    .toolTableShell.is-compact .toolSub{font-size:8.5px}
+    .toolTableShell.is-compact .toolPill{padding:4px 6px;font-size:9px}
+    .toolTableShell.is-compact .toolTable th{padding:7px 7px;font-size:9px}
+    .toolTableShell.is-compact .toolTable td{padding:0}
+    .toolTableShell.is-compact .toolCell{padding:6px 7px;gap:2px}
+    .toolTableShell.is-compact .toolMain{font-size:10px}
+    .toolTableShell.is-compact .toolSub{font-size:8.5px}
+    .toolTableShell.is-compact .toolActions .bookActionBtn{padding:5px 7px;font-size:9px}
+    .toolTableShell.is-compact .toolContextBar{padding:7px 8px}
+    .toolTable tbody tr.request-critical td{background:linear-gradient(180deg,#fff7ed 0%,#fff 100%)}
+    .toolTable tbody tr.request-warning td{background:linear-gradient(180deg,#fffaf2 0%,#fff 100%)}
+    .toolTable tbody tr.request-pending td{background:linear-gradient(180deg,#f8fafc 0%,#fff 100%)}
+    .toolTable tbody tr.request-critical td:first-child,.toolTable tbody tr.request-warning td:first-child,.toolTable tbody tr.request-pending td:first-child{box-shadow:inset 4px 0 0 #a8844a}
+    .toolTable tbody tr.selected.request-critical td,.toolTable tbody tr.selected.request-warning td,.toolTable tbody tr.selected.request-pending td{background:#f4ecdf}
+    .toolTable tbody tr.checkout-critical td{background:linear-gradient(180deg,#fff6eb 0%,#fff 100%)}
+    .toolTable tbody tr.checkout-warning td{background:linear-gradient(180deg,#fffbf4 0%,#fff 100%)}
+    .toolTable tbody tr.checkout-airport td{background:linear-gradient(180deg,#f8fbff 0%,#fff 100%)}
+    .toolTable tbody tr.checkout-critical td:first-child,.toolTable tbody tr.checkout-warning td:first-child,.toolTable tbody tr.checkout-airport td:first-child{box-shadow:inset 4px 0 0 #8e6d3d}
+    .toolTable tbody tr.selected.checkout-critical td,.toolTable tbody tr.selected.checkout-warning td,.toolTable tbody tr.selected.checkout-airport td{background:#f4ecdf}
+
+    .toolColSearchWrap{display:grid;gap:5px}
+    .toolColSearchWrap span{font:900 9px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8}
+    .toolColSearch{width:100%;border:1px solid rgba(15,23,42,.08);border-radius:10px;padding:9px 10px;font:900 11px/1.1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#334155;background:#fff;outline:none}
+    .toolColSearch:focus{border-color:#a8844a;box-shadow:0 0 0 3px rgba(168,132,74,.12)}.toolColPresetWrap{display:grid;gap:6px}
+    .toolColPresetWrap span{font:900 9px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8}
+    .toolColPresetRow{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+    .toolColPresetBtn{appearance:none;border:1px solid rgba(15,23,42,.08);background:#fff;border-radius:999px;padding:6px 10px;font:1000 10px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#475569;cursor:pointer}
+    .toolColPresetBtn:hover{background:#f8fafc}
+    .toolColPresetBtn.primary{background:#8e6d3d;color:#fff;border-color:#8e6d3d}
+
+    .toolColEmpty{padding:12px;border:1px dashed rgba(15,23,42,.10);border-radius:12px;background:#fff;font:900 11px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#64748b;text-align:center}
+    .toolColHead span,.toolColNote{font:800 10px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#64748b}
+    .toolColList{flex:1 1 auto;display:grid;gap:7px;min-height:160px;overflow:auto;padding-right:4px}
+    .toolColItem{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 10px;border:1px solid rgba(15,23,42,.08);border-radius:12px;background:#fff;box-shadow:0 4px 10px rgba(15,23,42,.04)}
+    .toolColItem.drag-over{border-color:#a8844a;background:#f8f3ea}
+    .toolColItem.dragging{opacity:.65}
+    .toolColCheck{display:flex;align-items:center;gap:8px;min-width:0;font:900 10.5px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#334155}
+    .toolColCheck input{accent-color:#8e6d3d}
+    .toolColHandle{display:inline-flex;align-items:center;justify-content:center;min-width:18px;color:#94a3b8;cursor:grab;font-weight:1000}
+    .toolColHandle:active{cursor:grabbing}
+    .toolColName{display:grid;gap:2px;min-width:0}
+    .toolColName strong{font:900 10.5px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#334155}
+    .toolColName span{font:800 9px/1.25 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#94a3b8}
+    .toolColOrder{font:900 10px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#94a3b8;white-space:nowrap}
+    .toolColNote{padding-top:8px;border-top:1px solid rgba(15,23,42,.06)}
+    .toolColPanel{scrollbar-width:thin;scrollbar-color:#a8844a #eef2f7}
+    .toolColPanel ::-webkit-scrollbar,.toolTableWrap::-webkit-scrollbar{width:10px;height:10px}
+    .toolColPanel ::-webkit-scrollbar-thumb,.toolTableWrap::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:999px;border:2px solid #f8fafc}
+    .toolColPanel ::-webkit-scrollbar-track,.toolTableWrap::-webkit-scrollbar-track{background:#f8fafc;border-radius:999px}
+    .deskCol .toolToolbarLeft{gap:8px}
+    .deskCol .toolToolbarLeft > div{display:grid;gap:2px}
+    .deskCol .toolToolbarRight{position:relative;z-index:302}
+    .deskCol .toolSub{max-width:430px}
+
+    .board{display:grid;grid-template-columns:1fr;gap:10px;align-items:start}
+    .panel{background:#fff;border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);overflow:visible;min-width:0}
+    #mainPanel{display:grid;grid-template-rows:auto minmax(0,1fr)}
+    #deskView,#fullView{min-height:0}
+    #mainPanel.is-desk-mode{min-height:var(--workspace-h)}
+    #mainPanel.is-full-mode{min-height:var(--full-shell-h)}
+    .panelHead{display:none}
+    .panelTitle{font:1000 14px/1.1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#0f172a}.panelSub{font:800 10.5px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#64748b}
+    .deskGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:10px;align-items:stretch;min-height:var(--workspace-h);height:100%;grid-auto-rows:minmax(0,1fr)}
+    .deskCol{border:1px solid rgba(15,23,42,.08);border-radius:16px;background:linear-gradient(180deg,#fff 0%,#fbfdff 100%);overflow:visible;min-width:0;display:grid;grid-template-rows:auto minmax(0,1fr);height:100%;min-height:var(--desk-col-h);position:relative}
+    .deskCompactHead{display:none}
+    .deskCompactRows{display:grid;gap:0;min-height:0;height:100%;overflow:hidden;padding:10px}
+    .deskCompactRows > .toolTableShell{height:100%;min-height:0}
+    .deskCompactRows > .toolTableShell .toolBodyShell{min-height:0}
+    .deskCompactRows > .toolTableShell .toolTableViewport{height:100%;min-height:0}.deskCompactRows > .toolTableShell .toolTableWrap{height:100%;min-height:100%}
+    .deskCompactRow{display:grid;grid-template-columns:96px minmax(0,1.25fr) minmax(0,.95fr) auto;gap:10px;padding:11px 12px;border-bottom:1px solid rgba(15,23,42,.06);align-items:start;cursor:pointer;background:#fff}
+    .deskCompactRow:hover{background:#fbf8f3}
+    .deskCompactRow.selected{background:rgba(180,138,79,.08)}
+    .deskTimeBox{display:grid;gap:6px;justify-items:start}
+    .deskTimeMain{display:inline-flex;align-items:center;justify-content:center;min-width:56px;padding:7px 10px;border-radius:12px;background:linear-gradient(135deg,#8e6d3d,#6c522e);color:#fff;font:1000 12px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;box-shadow:0 10px 18px rgba(108,82,46,.18)}
+    .deskTimeSub{font:900 10px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#64748b}
+    .deskMainCell{display:grid;gap:4px;min-width:0}
+    .deskMainTop{font:1000 12.5px/1.25 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .deskMainSub{font:800 10.5px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .deskFlagRow{display:flex;gap:6px;flex-wrap:wrap;margin-top:2px}
+    .deskFlag{display:inline-flex;align-items:center;gap:5px;padding:4px 8px;border-radius:999px;font:900 10px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;border:1px solid rgba(15,23,42,.08);background:#fff;color:#334155}
+    .deskFlag.warn{background:#fff7ed;border-color:rgba(234,88,12,.18);color:#9a3412}
+    .deskFlag.info{background:#eff6ff;border-color:rgba(37,99,235,.16);color:#1d4ed8}
+    .deskFlag.ok{background:#ecfdf5;border-color:rgba(5,150,105,.16);color:#047857}
+    .deskActionBar{display:flex;gap:5px;flex-wrap:wrap;justify-content:flex-end}
+    .deskHead{padding:10px 12px;border-bottom:1px solid rgba(15,23,42,.06);display:flex;align-items:center;justify-content:space-between;gap:8px;background:#fff}
+    .deskHead strong{font-size:13px;color:#0f172a}.countPill{display:inline-flex;align-items:center;gap:6px;padding:5px 8px;border-radius:999px;border:1px solid rgba(15,23,42,.08);background:#fff;font:900 10.5px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#334155}
+    .deskCol .toolTableShell{height:100%;display:grid;grid-template-rows:auto auto minmax(0,1fr)}
+    .deskCol .toolTableWrap{height:100%;overflow:auto;min-height:100%}
+    .deskCol .toolTable{min-width:980px}
+    .deskCol .toolToolbar{padding:7px 8px}
+    .deskCol .toolTitle{font-size:10px}
+    .deskCol .toolSub{font-size:8.75px}
+    .deskCol .toolPill{padding:4px 7px;font-size:9px}
+    .deskCol .toolTableHeadNote{display:none}
+    .deskCol .toolToolbar{align-items:center}
+    .deskCol .toolToolbarRight{margin-left:auto}
+    .deskCol .toolTable{min-width:760px}
+    .rows{display:grid;gap:0;padding:0;max-height:66vh;overflow:auto}
+    .rowCard{display:grid;grid-template-columns:110px 1.2fr 1fr 1fr 1fr;gap:8px;padding:12px;border-bottom:1px solid rgba(15,23,42,.06);cursor:pointer;background:#fff}
+    .rowCard:hover{background:#fbf8f3}
+    .rowCard.selected{background:rgba(180,138,79,.08)}
+    .rowTop{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+    .rowTitle{font:950 13px/1.25 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#0f172a}
+    .rowTime{font:1000 12px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#8e6d3d}
+    .rowMeta{font:800 11px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#64748b}
+    .chips{display:flex;gap:6px;flex-wrap:wrap}
+    .chip{display:inline-flex;align-items:center;gap:6px;padding:5px 8px;border-radius:999px;border:1px solid rgba(15,23,42,.08);background:#fff;font:900 10px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#334155}
+    .chip.warn{background:rgba(220,38,38,.08);border-color:rgba(220,38,38,.18);color:#991b1b}.chip.ok{background:rgba(5,150,105,.08);border-color:rgba(5,150,105,.18);color:#065f46}.chip.info{background:rgba(37,99,235,.08);border-color:rgba(37,99,235,.18);color:#1d4ed8}
+
+    .fullWrap{padding:8px 10px 10px;display:block}
+    .tabBar{display:flex;gap:8px;flex-wrap:wrap}
+    #fullRows{display:grid;gap:0;min-height:var(--full-shell-h)}
+    #fullRows > .toolTableShell{min-height:var(--full-shell-h);height:100%;display:grid;grid-template-rows:auto minmax(0,1fr)}
+    #fullRows > .toolTableShell .toolBodyShell{height:100%;min-height:0}
+    #fullRows > .toolTableShell .toolTableWrap{height:100%;min-height:0}
+    .toolTableTopbar{display:flex;align-items:center;justify-content:flex-end;gap:8px;padding:6px 8px;min-height:38px;border-bottom:1px solid rgba(15,23,42,.06);background:#fff}
+    .toolTableShell.table-clean .toolToolbar,.toolTableShell.table-clean .toolContextBar{display:none}
+    .tableRow{display:grid;grid-template-columns:110px 1.25fr 1fr 1fr 1.1fr;gap:10px;padding:12px 12px;border-bottom:1px solid rgba(15,23,42,.06);cursor:pointer;background:#fff;align-items:start}
+        .tableShell{display:grid;gap:0;border:1px solid rgba(15,23,42,.08);border-radius:18px;overflow:hidden;background:#fff;box-shadow:0 8px 20px rgba(15,23,42,.04)}
+    .tableShellTop{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:10px 12px;border-bottom:1px solid rgba(15,23,42,.08);background:linear-gradient(180deg,#fff 0%,#fbfdff 100%)}
+    .tableShellTitle{font:1000 12px/1.1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#0f172a}
+    .tableShellSub{margin-top:3px;font:800 10.5px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#64748b}
+    .tableShellMeta{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+    .dataTable{display:grid;gap:0}
+    .dataTableHead,.dataTableRow{display:grid;grid-template-columns:var(--ops-cols,86px 1.08fr 1fr 1fr .86fr .92fr);align-items:start}
+    .dataTableHead{background:#f6f8fb;border-bottom:1px solid rgba(15,23,42,.08);position:sticky;top:0;z-index:2}
+    .dataHeadBtn{appearance:none;border:0;background:transparent;padding:9px 10px;text-align:left;display:flex;align-items:center;gap:8px;font:1000 10px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#64748b;cursor:pointer;border-right:1px solid rgba(15,23,42,.05)}
+    .dataHeadBtn:last-child{border-right:none}
+    .dataHeadBtn.active{color:#8e6d3d;background:rgba(168,132,74,.06)}
+    .dataTableRow{border-bottom:1px solid rgba(15,23,42,.06);background:#fff;cursor:pointer}
+    .dataTableRow:hover{background:#fcfaf6}
+    .dataTableRow.selected{background:linear-gradient(180deg,rgba(180,138,79,.06),rgba(180,138,79,.03))}
+    .dataCell{padding:10px 10px;border-right:1px solid rgba(15,23,42,.04);min-width:0}
+    .dataCell:last-child{border-right:none}
+    .dataMain{font:900 11.5px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .dataSub{display:block;margin-top:4px;font:800 10.5px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .dataFlagRow,.dataActionRow{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
+    .rowBtn,.bookActionBtn{appearance:none;border:1px solid rgba(15,23,42,.10);background:#fff;border-radius:10px;padding:6px 9px;font:900 9.5px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#334155;cursor:pointer;box-shadow:none;transition:transform .14s ease, box-shadow .14s ease, background .14s ease,border-color .14s ease}
+    .rowBtn.primary,.bookActionBtn.primary{background:linear-gradient(135deg,#8e6d3d,#6c522e);color:#fff;border-color:transparent}
+    .rowBtn.warn,.bookActionBtn.warn{background:#fff7ed;color:#b45309;border-color:#fdba74}
+    .rowBtn:hover,.bookActionBtn:hover{transform:translateY(-1px);box-shadow:0 8px 14px rgba(15,23,42,.08)}
+    .tableShell .flagPill{padding:4px 7px;border-radius:999px;font:900 9px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;border:1px solid rgba(15,23,42,.08);background:#fff;color:#334155}
+    .flagPill.warn{background:#fff7ed;color:#b45309;border-color:#fdba74}
+    .flagPill.info{background:#eff6ff;color:#1d4ed8;border-color:#bfdbfe}
+    .flagPill.ok{background:#ecfdf5;color:#047857;border-color:#a7f3d0}
+    .flagPill.neutral{background:#f8fafc;color:#475569;border-color:#e2e8f0}
+    .densePill{display:inline-flex;align-items:center;gap:6px;padding:6px 9px;border-radius:999px;background:#fff;border:1px solid rgba(15,23,42,.08);font:900 10px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#334155}
+.bookingsTable{display:grid;gap:0}
+    .bookingsTableHead,.bookingsTableRow{display:grid;grid-template-columns:var(--bookings-cols,116px 1fr 1.15fr 1.2fr .95fr .95fr 1.05fr);gap:8px;align-items:start}
+    .bookingsTableHead{padding:8px 10px;border-bottom:1px solid rgba(15,23,42,.08);background:#f6f8fb;position:sticky;top:0;z-index:2}
+    .bookingsHeadCell{display:flex;align-items:center;gap:8px;min-width:0;padding:8px 10px;border-radius:12px;border:1px solid rgba(15,23,42,.06);background:#fff;cursor:pointer;user-select:none;font:1000 10px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;letter-spacing:.07em;text-transform:uppercase;color:#64748b}
+    .bookingsHeadCell.dragging{opacity:.55}
+    .bookingsHeadCell.active{border-color:rgba(168,132,74,.35);box-shadow:0 8px 18px rgba(168,132,74,.12);color:#6c522e}
+    .headGrip{font-size:12px;color:#cbd5e1;line-height:1}
+    .sortMark{margin-left:auto;font-size:11px;color:#8e6d3d}
+    .bookingsTableRow{padding:12px;border-bottom:1px solid rgba(15,23,42,.06);background:#fff}
+    .bookingsTableRow.selected{background:linear-gradient(180deg,rgba(180,138,79,.06),rgba(180,138,79,.03))}
+    .bookCell{min-width:0;display:grid;gap:4px;align-content:start}
+    .bookMain{font:900 12.5px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#0f172a;word-break:break-word}
+    .bookSub{font:800 11px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#64748b;word-break:break-word}
+    .bookStatus{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap}
+    .bookStatusPill,.flagPill{display:inline-flex;align-items:center;gap:4px;padding:4px 6px;border-radius:999px;font:900 9px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;border:1px solid rgba(15,23,42,.08);background:#fff;color:#334155}
+    .bookStatusPill.pending{background:#fff7ed;border-color:rgba(234,88,12,.18);color:#9a3412}
+    .bookStatusPill.confirmed{background:#ecfdf5;border-color:rgba(5,150,105,.18);color:#065f46}
+    .bookStatusPill.overdue{background:#fef2f2;border-color:rgba(220,38,38,.18);color:#991b1b}
+    .flagPill.warn{background:#fff7ed;border-color:rgba(234,88,12,.18);color:#9a3412}
+    .flagPill.info{background:#eff6ff;border-color:rgba(37,99,235,.16);color:#1d4ed8}
+    .flagPill.ok{background:#ecfdf5;border-color:rgba(5,150,105,.16);color:#047857}
+    .flagPill.neutral{background:#f8fafc;border-color:rgba(15,23,42,.08);color:#475569}
+    .bookActionBar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-start}
+    .bookActionBtn{appearance:none;border:1px solid rgba(15,23,42,.10);background:#fff;border-radius:999px;padding:6px 8px;font:900 9.5px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#334155;cursor:pointer;box-shadow:0 6px 12px rgba(15,23,42,.04)}
+    .bookActionBtn.primary{background:linear-gradient(135deg,#8e6d3d,#a8844a);border-color:transparent;color:#fff}
+    .bookActionBtn:hover{transform:translateY(-1px);box-shadow:0 10px 18px rgba(15,23,42,.08)}
+    .bookingsTableNote{padding:10px 12px;border-bottom:1px solid rgba(15,23,42,.06);background:#fffaf3;font:800 11px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#6c522e;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+    .bookingsCountPill{display:inline-flex;align-items:center;gap:6px;padding:6px 9px;border-radius:999px;background:#fff;border:1px solid rgba(15,23,42,.08);font:900 10px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#334155}
+
+    .tableRow:hover{background:#fbf8f3}.tableRow.selected{background:rgba(180,138,79,.08)}
+    .cellMain{font:900 11.5px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#0f172a}.cellSub{display:block;margin-top:3px;font:800 10.5px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#64748b}
+.opsWrap{display:grid;gap:4px;align-content:start}.rowActions{display:flex;gap:5px;flex-wrap:wrap;margin-top:2px}.rowBtn{appearance:none;border:1px solid rgba(15,23,42,.10);background:#fff;border-radius:999px;padding:5px 8px;font:900 9.5px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#334155;cursor:pointer;box-shadow:none;transition:transform .14s ease, box-shadow .14s ease, background .14s ease, border-color .14s ease}.rowBtn:hover{transform:translateY(-1px);box-shadow:0 8px 14px rgba(15,23,42,.08)}.rowBtn.primary{background:linear-gradient(135deg,#8e6d3d,#6c522e);color:#fff;border-color:transparent}.rowBtn.warn{background:#fff7ed;color:#b45309;border-color:#fdba74}
+    .empty{padding:16px 12px;font:800 11px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#64748b}
+
+    .inspector{display:none!important}
+    .inspector .panelHead{border-bottom:1px solid rgba(15,23,42,.06)}
+    .inspectorBody{padding:14px;display:grid;gap:12px}
+    .fieldGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.fieldBox{padding:10px 11px;border-radius:16px;border:1px solid rgba(15,23,42,.08);background:linear-gradient(180deg,#fff 0%,#fbfdff 100%)}
+    .fieldBox.full{grid-column:1 / -1}.fk{font:900 10px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:#8e6d3d}.fv{margin-top:5px;font:900 12px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#0f172a;white-space:pre-wrap}
+    .inspectorActions{display:flex;gap:8px;flex-wrap:wrap}.inspectorBtn{appearance:none;border:1px solid rgba(15,23,42,.10);background:#fff;border-radius:13px;padding:9px 10px;font:900 11.5px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;cursor:pointer;color:#334155}.inspectorBtn.primary{background:linear-gradient(135deg,var(--pri1),var(--pri2));color:#fff;border-color:transparent}
+
+    .modalOverlay{position:fixed;inset:0;background:rgba(15,23,42,.58);display:none;align-items:flex-start;justify-content:center;padding:18px 12px;z-index:999999}
+    .modal{width:min(780px,calc(100vw - 24px));max-height:calc(100vh - 36px);overflow:auto;background:#fff;border-radius:20px;border:1px solid rgba(15,23,42,.12);box-shadow:0 26px 60px rgba(0,0,0,.28)}
+    .modalHead{padding:12px 14px;border-bottom:1px solid rgba(15,23,42,.08);background:linear-gradient(135deg,rgba(180,138,79,.16),rgba(108,82,46,.10));display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.modalTitle{font:1000 16px/1.15 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#0f172a}.modalSub{margin-top:4px;font:800 11px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#475569}.closeBtn{appearance:none;border:1px solid rgba(15,23,42,.10);background:#fff;border-radius:12px;padding:8px 10px;font:900 11px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;cursor:pointer}
+    .modalBody{padding:14px;display:grid;gap:12px}.modalActions{padding:0 14px 14px;display:flex;gap:8px;flex-wrap:wrap}
+
+    .hidden{display:none!important}
+    @media (max-width:1200px){.board{grid-template-columns:1fr}.inspector{position:static}.summaryGrid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+    @media (max-width:1280px){.backroom-header{grid-template-columns:290px minmax(0,1fr) auto}.backroom-brand b{font-size:18px}.nav-btn{height:74px;font-size:13px;padding:0 12px}.backroom-user{min-width:280px;padding:10px 12px}.modeBtn,.tabBtn,.btn{padding:6px 8px;font-size:10px}.summaryGrid{grid-template-columns:repeat(3,minmax(0,1fr))}.toolTable{min-width:820px}.toolCell{padding:5px 6px}.toolMain{font-size:10px}.toolSub{font-size:8.5px}.toolPill{padding:4px 7px}.toolToolbar{padding:5px 6px}.toolSidePanel{width:290px;min-width:290px}}
+@media (max-width:1280px){.toolToolbar{padding:5px 7px}.toolPill{padding:4px 7px;font-size:9px}.toolThInner{padding:4px 14px 4px 6px}.toolThLabel{font-size:8px}.toolThSort,.toolThDrag{padding:2px 4px;font-size:8px}.toolCell{padding:6px 7px;min-height:40px}.toolMain{font-size:9.75px}.toolSub{font-size:8.25px}.deskGrid{gap:8px;padding:8px;min-height:clamp(560px,68vh,860px)}.deskCol{min-height:clamp(480px,58vh,720px)}.summaryCard .v{font-size:15px}.summaryCard .m{font-size:9.5px}.fullWrap{padding:8px}}
+@media (max-width:980px){.backroom-header{grid-template-columns:1fr}.backroom-brand{min-height:74px}.backroom-nav{justify-content:flex-start;padding:0 10px}.nav-btn{height:58px;font-size:12px}.backroom-user{min-width:0;justify-content:flex-start;flex-wrap:wrap;border-left:0;border-top:1px solid rgba(255,255,255,.06)}.deskGrid{grid-template-columns:1fr;min-height:clamp(620px,72vh,900px)}.deskCol{min-height:clamp(420px,48vh,620px)}.deskCompactHead,.deskCompactRow{grid-template-columns:74px 1.2fr 1fr auto}.summaryGrid{grid-template-columns:repeat(2,minmax(0,1fr))}.toolToolbar{align-items:flex-start}.toolTable{min-width:720px}.toolSidePanel{width:260px;min-width:260px}.toolSidePanel.is-collapsed{width:54px;min-width:54px}.fullWrap{padding:8px}}
+    @media (max-width:640px){.wrap{padding:8px}.panel,.surface,.card{border-radius:18px}.summaryGrid{grid-template-columns:1fr}.controlsRow{align-items:stretch}.controlGroup{width:100%}.input.search{min-width:0;width:100%}.tabBar{gap:6px}.deskCompactHead{display:none}.deskCompactRow,.tableRow{grid-template-columns:1fr;gap:8px}.deskActionBar,.rowActions{margin-top:6px;justify-content:flex-start}.rowBtn{padding:7px 10px}.toolTable{min-width:620px}.toolSidePanel{width:220px;min-width:220px}.toolSidePanel.is-collapsed{width:50px;min-width:50px}.toolContextBar{align-items:flex-start}.toolContextActions{justify-content:flex-start;width:100%}.backroom-user{padding:10px}.top-chip{max-width:none}.fullWrap{padding:6px}}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="backroom-header">
+    <div class="backroom-brand">
+      <b>DIAMOND Backroom</b>
+      <span>Daily operations · confirmed & live workspace</span>
+    </div>
+    <div class="backroom-nav">
+      <button class="nav-btn" data-route="home" type="button">Myroom</button>
+      <button class="nav-btn active" data-route="daily" type="button">Daily</button>
+      <button class="nav-btn" data-route="fleet" type="button">Fleet</button>
+      <button class="nav-btn" data-route="bookings" type="button">Bookings</button>
+      <button class="nav-btn" data-route="settings" type="button">Settings</button>
+    </div>
+    <div class="backroom-user">
+      <span class="top-chip"><strong>Daily</strong></span>
+      <span class="top-chip" id="todayMeta">—</span>
+      <button class="header-action-btn" id="refreshPageBtn" type="button">Refresh</button>
+      <div class="userMenuWrap">
+        <button class="userMenuBtn" id="userMenuBtn" type="button">
+          <span class="userBadge" id="userBadge">OP</span>
+          <span class="userText"><span class="userName" id="menuUserName">Operator</span><span class="userRole" id="menuUserRole">Backroom</span></span>
+          <span class="caret">▾</span>
+        </button>
+        <div class="userMenu" id="userMenu">
+          <div class="userMenuHead"><div class="userName" id="menuUserName2">Operator</div><div class="userRole" id="menuUserRole2">Backroom</div></div>
+          <button class="userMenuItem" data-menu-action="reload" type="button">Ανανέωση σελίδας</button>
+          <button class="userMenuItem danger" data-menu-action="logout" type="button">Αποσύνδεση</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section class="summaryGrid" id="summaryGrid"></section>
+
+  <section class="surface controls">
+    <div class="controlsRow">
+      <div class="controlGroup">
+        <span class="controlLabel">Date</span>
+        <button class="btn" id="btnPrev" type="button">←</button>
+        <input class="input" id="datePick" type="date" />
+        <button class="btn" id="btnNext" type="button">→</button>
+        <button class="btn" id="btnToday" type="button">Σήμερα</button>
+        <button class="btn btnPrimary" id="btnRefresh" type="button">Ανανέωση</button>
+      </div>
+      <div class="controlGroup" style="flex:1 1 280px;min-width:0;">
+        <span class="controlLabel">Search</span>
+        <input class="input search" id="globalSearch" placeholder="RES, πελάτης, όχημα, σημείο, flight…" />
+      </div>
+      <div class="controlGroup">
+        <span class="controlLabel">Station</span>
+        <select class="select" id="stationFilter"><option value="all">Όλες</option></select>
+      </div>
+    </div>
+    <div class="controlsRow">
+      <div class="controlGroup">
+        <span class="controlLabel">View</span>
+        <button class="modeBtn active" data-view-mode="desk" type="button">Desk</button>
+        <button class="modeBtn" data-view-mode="full" type="button">Full</button>
+      </div>
+      <div class="controlGroup slim" id="fullOnlyTabsWrap">
+        <span class="controlLabel">Tabs</span>
+        <div class="tabBar" id="tabBar"></div>
+      </div>
+      
+      <label class="togglePill"><input id="autoRefresh" type="checkbox" /> Auto refresh</label>
+      <button class="btn" id="exportBtn" type="button">Export CSV</button>
+      <button class="btn" id="printBtn" type="button">Print</button>
+      <div class="statusLine" id="status">BOOT…</div>
+    </div>
+  </section>
+
+  <section class="board">
+    <div class="panel" id="mainPanel">
+      <div class="panelHead">
+        <div>
+          <div class="panelTitle" id="panelTitle">Daily desk</div>
+          <div class="panelSub" id="panelSub">Προκαθορισμένο daily desk με check-outs και check-ins.</div>
+        </div>
+        <div class="countPill" id="visiblePill">0 visible</div>
+      </div>
+
+      <div id="deskView">
+        <div class="deskGrid">
+          <section class="deskCol">
+            <div class="deskHead"><strong>Check-outs</strong><span class="countPill" id="deskOutCount">0</span></div>
+            <div class="deskCompactHead"><span>Time</span><span>Booking / Customer</span><span>Route / Vehicle</span><span>Actions</span></div><div class="deskCompactRows" id="deskOutRows"></div>
+          </section>
+          <section class="deskCol">
+            <div class="deskHead"><strong>Check-ins</strong><span class="countPill" id="deskInCount">0</span></div>
+            <div class="deskCompactHead"><span>Time</span><span>Booking / Customer</span><span>Route / Vehicle</span><span>Actions</span></div><div class="deskCompactRows" id="deskInRows"></div>
+          </section>
+        </div>
+      </div>
+
+      <div id="fullView" class="hidden">
+        <div class="fullWrap">
+          <div id="fullRows"></div>
+        </div>
+      </div>
+    </div>
+
+    
+  </section>
+</div>
+
+<div class="modalOverlay" id="requestModalOverlay">
+  <div class="modal">
+    <div class="modalHead">
+      <div>
+        <div class="modalTitle" id="requestModalTitle">Booking action details</div>
+        <div class="modalSub" id="requestModalSub">Daily booking action workspace</div>
+      </div>
+      <button class="closeBtn" id="requestModalClose" type="button">Close</button>
+    </div>
+    <div class="modalBody" id="requestModalBody"></div>
+    <div class="modalActions">
+      <button class="inspectorBtn primary" id="requestAcceptBtn" type="button">Confirm booking</button>
+      <button class="inspectorBtn" id="requestDeclineBtn" type="button">Decline booking</button>
+      <button class="inspectorBtn" id="requestOpenContractBtn" type="button">Open contract</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const TAB_CONFIG = {
+    checkout:{ label:'Check-outs', kind:'booking', desk:true, summaryLabel:'Check-outs', sub:'Ημερήσιες παραδόσεις / pickups.' },
+    checkin:{ label:'Check-ins', kind:'booking', desk:true, summaryLabel:'Check-ins', sub:'Ημερήσιες επιστροφές με γρήγορο operational handling για επιστροφή, όχημα και σημειώσεις.' },
+    bookings:{ label:'Bookings', kind:'booking', summaryLabel:'Bookings', sub:'Confirmed bookings της επιλεγμένης ημέρας, καθαρά για operational αναφορά μέσα στο Daily.' },
+    precheckins:{ label:'Pre-checkins', kind:'booking', summaryLabel:'Pre-checkins', sub:'Ερχόμενα check-ins / προετοιμασία.' },
+    requests:{ label:'Bookings action', kind:'request', summaryLabel:'Bookings action', sub:'Bookings που θέλουν ενέργεια σήμερα: confirm, vehicle, airport / urgent handling.' },
+    cancellations:{ label:'Cancellations', kind:'booking', summaryLabel:'Cancellations', sub:'Ακυρώσεις γύρω από την επιλεγμένη ημέρα.' },
+    activeUnder:{ label:'Active <30d', kind:'booking', summaryLabel:'Active <30d', sub:'Ενεργά rentals κάτω από 30 ημέρες.' },
+    activeOver:{ label:'Active >30d', kind:'booking', summaryLabel:'Active >30d', sub:'Ενεργά rentals άνω των 30 ημερών.' },
+    nonRevenue:{ label:'Non-revenue', kind:'booking', summaryLabel:'Non-revenue', sub:'Μη εμπορικές κινήσεις / service / internal use.' },
+    overdue:{ label:'Overdue', kind:'booking', summaryLabel:'Overdue', sub:'Καθυστερημένες επιστροφές και ανοικτά rentals που χρειάζονται άμεση παρακολούθηση.' },
+    available:{ label:'Available', kind:'fleet', summaryLabel:'Available', sub:'Διαθέσιμα οχήματα της ημέρας με καθαρή fleet εικόνα.' },
+    grounded:{ label:'Grounded', kind:'fleet', summaryLabel:'Grounded', sub:'Οχήματα σε service, hold ή maintenance με καθαρή fleet εικόνα.' },
+    equipment:{ label:'Equipment', kind:'booking', summaryLabel:'Equipment', sub:'Κρατήσεις με extras / equipment / seats / GPS.' }
+  };
+
+  const state = {
+    siteBase:'',
+    can:{home:true,daily:true,fleet:true,bookings:true,settings:true},
+    user:{name:'Operator',role:'Backroom'},
+    data:{ tabs:{}, summary:{}, stations:[], debug:{} },
+    viewMode:'desk',
+    activeTab:'checkout',
+    selected:{ tab:'', id:'' },
+    search:'',
+    station:'all',
+    pendingOnly:false,
+    autoRefresh:false,
+    timer:null,
+    requestFocus:null,
+    requestQueue:'all',
+    tableFocus:{},
+    fullFocus:{},
+    rowDensity:'comfortable',
+    bookingCols:['status','booking','customer','pickup','dropoff','vehicle','agent','flags','actions'],
+    bookingSort:{ key:'pickup', dir:'asc' },
+    bookingHidden:[],
+    bookingWidths:{},
+    deskOutCols:['status','time','booking','customer','pickup','vehicle','flags','actions'],
+    deskOutSort:{ key:'time', dir:'asc' },
+    deskOutHidden:[],
+    deskOutWidths:{},
+    deskInCols:['status','time','booking','customer','dropoff','vehicle','flags','actions'],
+    deskInSort:{ key:'time', dir:'asc' },
+    deskInHidden:[],
+    deskInWidths:{},
+    opsCols:['status','time','booking','customer','pickup','dropoff','vehicle','agent','flags','actions'],
+    opsSort:{ key:'time', dir:'asc' },
+    opsHidden:[],
+    opsWidths:{},
+    dragCol:'',
+    dragScope:'',
+    colMenu:'',
+    colDrag:null,
+    headDrag:null
+  };
+
+
+  const $ = (id)=>document.getElementById(id);
+  const els = {
+    status:$('status'), datePick:$('datePick'), station:$('stationFilter'), search:$('globalSearch'), summary:$('summaryGrid'),
+    tabBar:$('tabBar'), fullRows:$('fullRows'), deskOut:$('deskOutRows'), deskIn:$('deskInRows'), deskOutCount:$('deskOutCount'), deskInCount:$('deskInCount'),
+    panelTitle:$('panelTitle'), panelSub:$('panelSub'), visiblePill:$('visiblePill'), deskView:$('deskView'), fullView:$('fullView'),
+    inspector:$('inspectorBody'), modeChip:$('modeChip'), activeTabChip:$('activeTabChip'), autoChip:$('autoChip'),
+    requestOverlay:$('requestModalOverlay'), requestBody:$('requestModalBody'), requestTitle:$('requestModalTitle'), requestSub:$('requestModalSub')
+  };
+
+  function safe(v){ return String(v ?? '').trim(); }
+  function esc(v){ return safe(v).replace(/[&<>"']/g, (m)=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
+  function asDate(v){ const d = new Date(v); return Number.isNaN(d.getTime()) ? null : d; }
+  function ymd(v){ const d = asDate(v) || new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+  function addDays(dateStr, days){ const d = asDate(dateStr) || new Date(); d.setDate(d.getDate()+Number(days||0)); return ymd(d); }
+  function hhmm(v){ const d = asDate(v); return d ? `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}` : '—'; }
+  function fmtDT(v){ const d = asDate(v); return d ? d.toLocaleString('el-GR',{ day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '—'; }
+  function shortDate(v){ const d = asDate(v); return d ? d.toLocaleDateString('el-GR',{ day:'2-digit', month:'2-digit' }) : '—'; }
+  function money(v){ const n = Number(v); return Number.isFinite(n) ? `${n.toFixed(2)} €` : '—'; }
+  function postToWix(payload){ try { window.parent.postMessage(payload, '*'); } catch(_){} }
+  let resizeRaf = 0;
+  function reportHeight(extra=0){ cancelAnimationFrame(resizeRaf); resizeRaf = requestAnimationFrame(()=>{ const h = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight) + Number(extra||0); postToWix({ type:'resizeShell', height:h }); }); }
+  function setStatus(text){ els.status.textContent = text || ''; reportHeight(); }
+  function positionOpenColumnMenus(){ return; }
+
+  function norm(v){ return safe(v).toLowerCase(); }
+  function isPending(item){ return ['pending','request','requested','new','quote','unconfirmed','hold','waiting'].includes(norm(item.status)) || norm(item.status).includes('request'); }
+  function stationOf(item){ return safe(item.station || item.pickupStation || item.dropoffStation || item.pickuppoint || item.dropoffpoint || ''); }
+  function searchBlob(item){ return [item.bookingNumber,item.customerName,item.phone,item.email,item.pickuppoint,item.dropoffpoint,item.assignedVehicleLabel,item.assignedVehiclePlate,item.assignedVehicleModel,item.flightNumber,item.station,item.group,item.vehicleLabel,item.notes,item.state,item.category,item.categoryCode,item.source,item.agent,item.selectedPackage,item.extras].map(safe).join(' ').toLowerCase(); }
+  function routeText(item){ return [safe(item.pickuppoint || item.station || item.vehicleLabel || '—'), safe(item.dropoffpoint || item.state || '')].filter(Boolean).join(' → '); }
+  function itemTime(item, key){
+    if (key === 'checkin') return hhmm(item.dropoffDateTime || item.end);
+    if (key === 'requests' || key === 'bookings' || key === 'cancellations') return hhmm(item.confirmedAt || item.canceledAt || item.pickupDateTime);
+    if (key === 'available' || key === 'grounded') return '—';
+    return hhmm(item.pickupDateTime || item.start);
+  }
+  function requestNeedsVehicle(item){ return !safe(item.assignedVehicleLabel || item.assignedVehiclePlate || item.assignedVehicle || item.vehicleLabel || ''); }
+  function requestNeedsFlight(item){ return !safe(item.flightNumber || item.flight || ''); }
+  function requestNeedsVoucher(item){ return !safe(item.voucherNumber || item.voucher || item.confirmationNumber || item.confirmation || ''); }
+  function matchesRequestQueue(item){
+    switch (state.requestQueue) {
+      case 'pending': return isPending(item);
+      case 'noflight': return requestNeedsFlight(item);
+      case 'novoucher': return requestNeedsVoucher(item);
+      case 'novehicle': return requestNeedsVehicle(item);
+      default: return true;
+    }
+  }
+  function requestQueueCounts(){
+    const list = currentTabItems('requests', { ignoreRequestQueue:true });
+    return {
+      all:list.length,
+      pending:list.filter((item)=> isPending(item)).length,
+      noflight:list.filter((item)=> requestNeedsFlight(item)).length,
+      novoucher:list.filter((item)=> requestNeedsVoucher(item)).length,
+      novehicle:list.filter((item)=> requestNeedsVehicle(item)).length
+    };
+  }
+  function requestQueueMeta(){
+    const counts = requestQueueCounts();
+    const map = {
+      all:{ label:'All requests', hint:'Όλα τα request rows με τα τρέχοντα global filters.', count:counts.all },
+      pending:{ label:'Pending queue', hint:'Request rows που παραμένουν pending / unconfirmed και θέλουν χειρισμό.', count:counts.pending },
+      noflight:{ label:'Missing flight', hint:'Rows χωρίς flight number ή arrival πληροφορία, άρα θέλουν travel follow-up.', count:counts.noflight },
+      novoucher:{ label:'Missing voucher', hint:'Rows χωρίς voucher / confirmation, άρα θέλουν εμπορικό ή partner check.', count:counts.novoucher },
+      novehicle:{ label:'Missing vehicle', hint:'Rows χωρίς assigned vehicle, άρα θέλουν άμεσο operational assignment.', count:counts.novehicle }
+    };
+    return map[state.requestQueue] || map.all;
+  }
+  function ensureFullFocus(scope){
+    const id = ensureScope(scope);
+    if (!state.fullFocus || typeof state.fullFocus !== 'object') state.fullFocus = {};
+    if (!state.fullFocus[id]) state.fullFocus[id] = 'all';
+    return id;
+  }
+  function fullFocusKey(scope){
+    const id = ensureFullFocus(scope);
+    return state.fullFocus[id] || 'all';
+  }
+  function itemIsAirport(item){
+    const route = `${safe(item.pickuppoint)} ${safe(item.dropoffpoint)} ${safe(item.station)}`.toLowerCase();
+    return route.includes('airport') || route.includes('αεροδ') || !!safe(item.flightNumber || item.flight || '');
+  }
+  function itemIsOverdue(item){
+    const s = norm(statusLabel(item));
+    return s.includes('overdue') || s.includes('late') || s.includes('delay') || s.includes('καθυ');
+  }
+  function fullFocusDefs(key, rows){
+    const list = Array.isArray(rows) ? rows : [];
+    if (key === 'checkout') {
+      return [
+        { key:'all', label:'All', count:list.length, hint:'Όλα τα confirmed daily check-outs.' },
+        { key:'airport', label:'Airport', count:list.filter((item)=> itemIsAirport(item)).length, hint:'Airport / travel related departures.' },
+        { key:'noflight', label:'No flight', count:list.filter((item)=> requestNeedsFlight(item)).length, hint:'Departures χωρίς flight / arrival info.' },
+        { key:'novehicle', label:'No vehicle', count:list.filter((item)=> requestNeedsVehicle(item)).length, hint:'Departures χωρίς assigned vehicle.' },
+        { key:'notes', label:'Notes', count:list.filter((item)=> itemHasNotes(item)).length, hint:'Rows με operational notes.' }
+      ];
+    }
+    if (key === 'checkin') {
+      return [
+        { key:'all', label:'All', count:list.length, hint:'Όλα τα confirmed daily check-ins.' },
+        { key:'airport', label:'Airport', count:list.filter((item)=> itemIsAirport(item)).length, hint:'Airport related returns / transfers.' },
+        { key:'overdue', label:'Overdue', count:list.filter((item)=> itemIsOverdue(item)).length, hint:'Late / overdue returns.' },
+        { key:'novehicle', label:'No vehicle', count:list.filter((item)=> requestNeedsVehicle(item)).length, hint:'Returns χωρίς σωστό linked vehicle.' },
+        { key:'notes', label:'Notes', count:list.filter((item)=> itemHasNotes(item)).length, hint:'Rows με notes / remarks.' }
+      ];
+    }
+    if (key === 'bookings') {
+      return [
+        { key:'all', label:'All', count:list.length, hint:'Όλα τα confirmed bookings της ημέρας.' },
+        { key:'airport', label:'Airport', count:list.filter((item)=> itemIsAirport(item)).length, hint:'Confirmed bookings με airport / travel ανάγκη.' },
+        { key:'traveldocs', label:'Travel docs', count:list.filter((item)=> requestNeedsFlight(item) || requestNeedsVoucher(item)).length, hint:'Confirmed bookings με ελλιπές flight / voucher / confirmation info.' },
+        { key:'novehicle', label:'No vehicle', count:list.filter((item)=> requestNeedsVehicle(item)).length, hint:'Confirmed bookings χωρίς assigned vehicle.' },
+        { key:'notes', label:'Notes', count:list.filter((item)=> itemHasNotes(item)).length, hint:'Rows με notes / remarks.' }
+      ];
+    }
+    if (key === 'overdue') {
+      return [
+        { key:'all', label:'All', count:list.length, hint:'Όλα τα overdue rows.' },
+        { key:'airport', label:'Airport', count:list.filter((item)=> itemIsAirport(item)).length, hint:'Overdue rows με airport handling.' },
+        { key:'novehicle', label:'No vehicle', count:list.filter((item)=> requestNeedsVehicle(item)).length, hint:'Overdue rows χωρίς σωστό vehicle mapping.' },
+        { key:'notes', label:'Notes', count:list.filter((item)=> itemHasNotes(item)).length, hint:'Overdue rows με notes / remarks.' }
+      ];
+    }
+    return [ { key:'all', label:'All', count:list.length, hint:'Όλα τα visible rows του tab.' } ];
+  }
+  function fullFocusMeta(scope, key, rows){
+    const defs = fullFocusDefs(key, rows);
+    const current = fullFocusKey(scope);
+    return defs.find((def)=> def.key === current) || defs[0];
+  }
+  function matchesFullFocus(item, scope, key){
+    switch (fullFocusKey(scope)) {
+      case 'airport': return itemIsAirport(item);
+      case 'noflight': return requestNeedsFlight(item);
+      case 'novehicle': return requestNeedsVehicle(item);
+      case 'notes': return itemHasNotes(item);
+      case 'traveldocs': return requestNeedsFlight(item) || requestNeedsVoucher(item);
+      case 'overdue': return itemIsOverdue(item);
+      default: return true;
+    }
+  }
+  function ensureTableFocus(scope){
+    const id = ensureScope(scope);
+    if (!state.tableFocus || typeof state.tableFocus !== 'object') state.tableFocus = {};
+    if (!state.tableFocus[id]) state.tableFocus[id] = 'all';
+    return id;
+  }
+  function deskFocusKey(scope){
+    const id = ensureTableFocus(scope);
+    return state.tableFocus[id] || 'all';
+  }
+  function itemHasNotes(item){ return !!safe(notesText(item)); }
+  function matchesDeskFocus(item, scope){
+    switch (deskFocusKey(scope)) {
+      case 'issues': return requestNeedsVehicle(item) || requestNeedsFlight(item) || itemHasNotes(item) || isPending(item);
+      case 'noflight': return requestNeedsFlight(item);
+      case 'novehicle': return requestNeedsVehicle(item);
+      case 'notes': return itemHasNotes(item);
+      case 'pending': return isPending(item);
+      default: return true;
+    }
+  }
+  function deskFocusDefs(rows){
+    const list = Array.isArray(rows) ? rows : [];
+    return [
+      { key:'all', label:'All', count:list.length, hint:'Όλα τα rows του current desk queue.' },
+      { key:'issues', label:'Issues', count:list.filter((item)=> requestNeedsVehicle(item) || requestNeedsFlight(item) || itemHasNotes(item) || isPending(item)).length, hint:'Rows με operational κενά, pending status ή notes.' },
+      { key:'noflight', label:'No flight', count:list.filter((item)=> requestNeedsFlight(item)).length, hint:'Rows χωρίς flight number ή arrival info.' },
+      { key:'novehicle', label:'No vehicle', count:list.filter((item)=> requestNeedsVehicle(item)).length, hint:'Rows χωρίς assigned vehicle.' },
+      { key:'notes', label:'Notes', count:list.filter((item)=> itemHasNotes(item)).length, hint:'Rows με σχόλια / remarks / memo.' }
+    ];
+  }
+  function deskFocusMeta(scope, rows){
+    const defs = deskFocusDefs(rows);
+    const current = deskFocusKey(scope);
+    return defs.find((def)=> def.key === current) || defs[0];
+  }
+  function requestRowClass(item,key){
+    if (key !== 'requests') return '';
+    const needsVehicle = requestNeedsVehicle(item);
+    const needsFlight = requestNeedsFlight(item);
+    const needsVoucher = requestNeedsVoucher(item);
+    if (needsVehicle && (needsFlight || needsVoucher)) return 'request-critical';
+    if (needsVehicle || needsFlight || needsVoucher) return 'request-warning';
+    if (isPending(item)) return 'request-pending';
+    return '';
+  }
+  function checkoutRowClass(item,key){
+    if (key !== 'checkout') return '';
+    const needsVehicle = requestNeedsVehicle(item);
+    const needsFlight = requestNeedsFlight(item);
+    const hasNotes = itemHasNotes(item);
+    if (needsVehicle && (needsFlight || hasNotes)) return 'checkout-critical';
+    if (needsVehicle || needsFlight || hasNotes) return 'checkout-warning';
+    if (itemIsAirport(item)) return 'checkout-airport';
+    return '';
+  }
+  function checkoutStats(rows){
+    const list = Array.isArray(rows) ? rows : [];
+    const airport = list.filter((item)=> itemIsAirport(item)).length;
+    const noflight = list.filter((item)=> requestNeedsFlight(item)).length;
+    const novehicle = list.filter((item)=> requestNeedsVehicle(item)).length;
+    const notes = list.filter((item)=> itemHasNotes(item)).length;
+    const nextTime = list
+      .map((item)=> asDate(item.pickupDateTime || item.start))
+      .filter(Boolean)
+      .sort((a,b)=> a - b)[0] || null;
+    return { all:list.length, airport, noflight, novehicle, notes, nextTime };
+  }
+  function renderCheckoutSummaryBar(rows){
+    const stats = checkoutStats(rows);
+    const nextLabel = stats.nextTime ? `${String(stats.nextTime.getHours()).padStart(2,'0')}:${String(stats.nextTime.getMinutes()).padStart(2,'0')}` : '—';
+    const chips = [
+      ['Airport', stats.airport],
+      ['No flight', stats.noflight],
+      ['No vehicle', stats.novehicle],
+      ['Notes', stats.notes]
+    ].map(([label,count])=> `<span class="toolContextChip"><strong>${esc(String(count))}</strong> ${esc(label)}</span>`).join('');
+    return `<div class="toolFocusRow compact"><span class="toolFocusLabel">Check-out ops</span><span class="toolContextChip active">Next departure <strong>${esc(nextLabel)}</strong></span>${chips}</div>`;
+  }
+  function applyRequestFocusPreset(queueKey){
+    const scope = 'requests';
+    const cfg = scopeState(scope);
+    const forceVisibleMap = {
+      pending:['status','time','booking','customer','phone','pickup','dropoff','category','notes','actions'],
+      noflight:['status','time','booking','customer','phone','pickup','dropoff','flight','originCity','station','notes','actions'],
+      novoucher:['status','time','booking','customer','phone','source','agent','voucher','confirmation','notes','actions'],
+      novehicle:['status','time','booking','customer','phone','pickup','dropoff','vehicle','category','station','notes','actions']
+    };
+    if (!forceVisibleMap[queueKey]) return;
+    const ordered = forceVisibleMap[queueKey].filter((c)=> c in OPS_COL_META);
+    const remainder = cfg.cols.filter((c)=> !ordered.includes(c));
+    state.scopeCols[cfg.id] = [...ordered, ...remainder];
+    state.scopeHidden[cfg.id] = cfg.cols.filter((c)=> !ordered.includes(c));
+    state.scopeCollapsed[cfg.id] = true;
+    saveTablePrefs();
+  }
+  function currentTabItems(key, opts={}){ const list = Array.isArray(state.data.tabs[key]) ? state.data.tabs[key] : []; return list.filter((item)=>{ const kind = TAB_CONFIG[key]?.kind || 'booking'; if (kind !== 'fleet' && key !== 'requests' && isPending(item)) return false; const st = state.station; if (st && st !== 'all') { const itemStation = stationOf(item); if (itemStation && itemStation !== st) return false; if (!itemStation) return false; } const q = norm(state.search); if (q && !searchBlob(item).includes(q)) return false; if (key === 'requests' && !opts.ignoreRequestQueue && !matchesRequestQueue(item)) return false; const scope = scopeForTab(key, 'full'); if (!opts.ignoreFullFocus && kind !== 'fleet' && key !== 'requests' && variantAllowsFullFocus(key) && !matchesFullFocus(item, scope, key)) return false; return true; }); }
+  function variantAllowsFullFocus(key){ return ['checkout','checkin','bookings','overdue'].includes(key); }
+  function deskItems(key){ return currentTabItems(key === 'out' ? 'checkout' : 'checkin'); }
+  function selectedItem(){ const key = state.selected.tab || (state.viewMode === 'desk' ? 'checkout' : state.activeTab); const rows = currentTabItems(key); return rows.find((item)=> String(item._id || item.id || '') === String(state.selected.id || '')) || rows[0] || null; }
+  function itemByTabId(tab,id){ const rows = currentTabItems(tab); return rows.find((item)=> String(item._id || item.id || '') === String(id || '')) || null; }
+  function summaryTarget(key){ if (key === 'checkout' || key === 'checkin') return { mode:'desk', tab:key }; return { mode:'full', tab:key }; }
+
+  const OPS_COL_META = {
+    status:{ label:'Status', help:'Operational state', width:86 },
+    time:{ label:'Time', help:'Movement time', width:78 },
+    booking:{ label:'Booking', help:'Reservation / rental id', width:120 },
+    customer:{ label:'Customer', help:'Customer name', width:160 },
+    phone:{ label:'Phone', help:'Main phone', width:118 },
+    email:{ label:'Email', help:'Email', width:180 },
+    pickup:{ label:'Pick-up', help:'Pick-up point', width:170 },
+    dropoff:{ label:'Drop-off', help:'Drop-off point', width:170 },
+    flight:{ label:'Flight', help:'Flight no / arrival', width:106 },
+    originCity:{ label:'Origin city', help:'Arrival city', width:128 },
+    vehicle:{ label:'Vehicle', help:'Assigned vehicle', width:132 },
+    category:{ label:'Category', help:'Group / category', width:118 },
+    station:{ label:'Station', help:'Operational station', width:110 },
+    package:{ label:'Package', help:'Package / plan', width:118 },
+    source:{ label:'Source', help:'Source / channel', width:116 },
+    agent:{ label:'Agent', help:'Agent / partner', width:116 },
+    voucher:{ label:'Voucher', help:'Voucher number', width:120 },
+    confirmation:{ label:'Confirmation', help:'Confirmation number', width:132 },
+    flags:{ label:'Flags', help:'Operational flags', width:128 },
+    notes:{ label:'Notes', help:'Comments / remarks', width:220 },
+    actions:{ label:'Actions', help:'Quick actions', width:126 }
+  };
+
+  const DAILY_TABLE_PREFS_KEY = 'diamond.daily.tableprefs.v46';
+  const DAILY_DENSITY_KEY = 'diamond.daily.rowdensity.v1';
+  const ALL_SCOPES = ['deskout','deskin','checkout','checkin','bookings','precheckins','cancellations','activeunder','activeover','nonrevenue','overdue','available','grounded','equipment'];
+
+  function loadUiPrefs(){
+    try {
+      const density = localStorage.getItem(DAILY_DENSITY_KEY);
+      if (density === 'compact' || density === 'comfortable') state.rowDensity = density;
+    } catch(_){}
+  }
+  function saveUiPrefs(){
+    try { localStorage.setItem(DAILY_DENSITY_KEY, state.rowDensity || 'comfortable'); } catch(_){}
+  }
+
+  function normalizeScope(scope){ return safe(scope || 'checkout').toLowerCase(); }
+  function defaultSortForScope(scope){
+    switch (scope) {
+      case 'bookings': return { key:'pickup', dir:'asc' };
+      case 'overdue': return { key:'dropoff', dir:'asc' };
+      case 'available':
+      case 'grounded': return { key:'vehicle', dir:'asc' };
+      default: return { key:'time', dir:'asc' };
+    }
+  }
+  function defaultColsForScope(scope){
+    switch (scope) {
+      case 'deskout': return ['status','time','booking','customer','phone','pickup','flight','originCity','category','actions'];
+      case 'deskin': return ['status','time','booking','customer','phone','dropoff','vehicle','station','notes','actions'];
+      case 'checkin': return ['status','time','booking','customer','phone','dropoff','vehicle','station','notes','actions'];
+      case 'bookings': return ['status','booking','customer','phone','pickup','flight','originCity','category','package','voucher','confirmation','notes','actions'];
+      case 'precheckins':
+      case 'requests':
+      case 'cancellations':
+      case 'activeunder':
+      case 'activeover':
+      case 'nonrevenue':
+      case 'overdue':
+        return ['status','time','booking','customer','phone','dropoff','vehicle','station','notes','actions'];
+      case 'available':
+      case 'grounded':
+        return ['status','vehicle','category','station','notes','actions'];
+      case 'equipment':
+        return ['status','booking','customer','phone','pickup','vehicle','category','package','notes','actions'];
+      case 'checkout':
+      default:
+        return ['status','time','booking','customer','phone','pickup','flight','originCity','vehicle','category','station','package','voucher','confirmation','notes','actions'];
+    }
+  }
+  function presetDefsForScope(scope){
+    const id = normalizeScope(scope);
+    const wide = ['status','time','booking','customer','phone','pickup','dropoff','flight','originCity','vehicle','category','station','package','source','voucher','confirmation','notes','actions'];
+    const contact = ['status','booking','customer','phone','email','pickup','dropoff','flight','originCity','notes','actions'];
+    const travel = ['status','time','booking','customer','pickup','dropoff','flight','originCity','vehicle','station','actions'];
+    const ops = ['status','time','booking','customer','vehicle','category','station','notes','actions'];
+    if (['available','grounded'].includes(id)) {
+      return [
+        { key:'ops', label:'Ops', cols:['status','vehicle','category','station','source','notes','actions'] },
+        { key:'compact', label:'Compact', cols:['status','vehicle','category','actions'] },
+        { key:'full', label:'Full', cols:['status','vehicle','category','station','source','notes','actions'] }
+      ];
+    }
+    return [
+      { key:'ops', label:'Ops', cols:ops },
+      { key:'travel', label:'Travel', cols:travel },
+      { key:'contact', label:'Contact', cols:contact },
+      { key:'full', label:'Full', cols:wide }
+    ];
+  }
+  function applyPreset(scope, presetKey){
+    const cfg = scopeState(scope);
+    const preset = presetDefsForScope(scope).find((it)=> it.key === presetKey) || presetDefsForScope(scope)[0];
+    const ordered = (preset?.cols || []).filter((c)=> c in OPS_COL_META);
+    const remainder = cfg.cols.filter((c)=> !ordered.includes(c));
+    state.scopeCols[cfg.id] = [...ordered, ...remainder];
+    state.scopeHidden[cfg.id] = cfg.cols.filter((c)=> !ordered.includes(c));
+    saveTablePrefs();
+  }
+  function showAllCols(scope){
+    const cfg = scopeState(scope);
+    state.scopeHidden[cfg.id] = [];
+    saveTablePrefs();
+  }
+  function compactOptionalCols(scope){
+    const cfg = scopeState(scope);
+    const keep = new Set((presetDefsForScope(scope).find((it)=> it.key === 'ops') || { cols:defaultColsForScope(scope) }).cols);
+    state.scopeHidden[cfg.id] = cfg.cols.filter((c)=> !keep.has(c));
+    saveTablePrefs();
+  }
+
+  function ensurePrefsStore(){
+    if (!state.scopeCols) state.scopeCols = {};
+    if (!state.scopeHidden) state.scopeHidden = {};
+    if (!state.scopeWidths) state.scopeWidths = {};
+    if (!state.scopeSort) state.scopeSort = {};
+    if (!state.scopeCollapsed) state.scopeCollapsed = {};
+  }
+  function ensureScope(scope){
+    ensurePrefsStore();
+    const id = normalizeScope(scope);
+    if (!Array.isArray(state.scopeCols[id])) state.scopeCols[id] = defaultColsForScope(id).filter((c)=> c in OPS_COL_META);
+    if (!Array.isArray(state.scopeHidden[id])) state.scopeHidden[id] = [];
+    if (!state.scopeWidths[id] || typeof state.scopeWidths[id] !== 'object') state.scopeWidths[id] = {};
+    if (typeof state.scopeCollapsed[id] !== 'boolean') state.scopeCollapsed[id] = true;
+    if (!state.scopeSort[id] || !state.scopeSort[id].key || !(state.scopeSort[id].key in OPS_COL_META)) state.scopeSort[id] = defaultSortForScope(id);
+    Object.keys(OPS_COL_META).forEach((key)=>{
+      if (!state.scopeCols[id].includes(key) && !state.scopeHidden[id].includes(key)) state.scopeCols[id].push(key);
+    });
+    state.scopeCols[id] = state.scopeCols[id].filter((key, idx, arr)=> key in OPS_COL_META && arr.indexOf(key) === idx);
+    state.scopeHidden[id] = state.scopeHidden[id].filter((key, idx, arr)=> key in OPS_COL_META && arr.indexOf(key) === idx);
+    return id;
+  }
+  function scopeState(scope){
+    const id = ensureScope(scope);
+    return { id, meta:OPS_COL_META, cols:state.scopeCols[id], hidden:state.scopeHidden[id], widths:state.scopeWidths[id], sort:state.scopeSort[id], collapsed:state.scopeCollapsed[id] };
+  }
+  function isPanelCollapsed(scope){ return !!scopeState(scope).collapsed; }
+  function togglePanelCollapsed(scope){ const cfg = scopeState(scope); state.scopeCollapsed[cfg.id] = !state.scopeCollapsed[cfg.id]; saveTablePrefs(); }
+  function loadTablePrefs(){
+    ensurePrefsStore();
+    try {
+      const raw = JSON.parse(localStorage.getItem(DAILY_TABLE_PREFS_KEY) || '{}');
+      ALL_SCOPES.forEach((scope)=>{
+        const id = normalizeScope(scope);
+        if (Array.isArray(raw.cols?.[id])) state.scopeCols[id] = raw.cols[id];
+        if (Array.isArray(raw.hidden?.[id])) state.scopeHidden[id] = raw.hidden[id];
+        if (raw.widths?.[id] && typeof raw.widths[id] === 'object') state.scopeWidths[id] = raw.widths[id];
+        if (raw.sort?.[id] && raw.sort[id].key && raw.sort[id].key in OPS_COL_META) state.scopeSort[id] = raw.sort[id];
+        if (typeof raw.collapsed?.[id] === 'boolean') state.scopeCollapsed[id] = raw.collapsed[id];
+        ensureScope(id);
+      });
+    } catch(_) {
+      ALL_SCOPES.forEach((scope)=> ensureScope(scope));
+    }
+  }
+  function saveTablePrefs(){
+    ensurePrefsStore();
+    try {
+      localStorage.setItem(DAILY_TABLE_PREFS_KEY, JSON.stringify({ cols:state.scopeCols, hidden:state.scopeHidden, widths:state.scopeWidths, sort:state.scopeSort, collapsed:state.scopeCollapsed }));
+    } catch(_){}
+  }
+  function moveCol(scope, source, target){ const cfg = scopeState(scope); const cols = [...cfg.cols]; const from = cols.indexOf(source), to = cols.indexOf(target); if (from < 0 || to < 0 || from === to) return; cols.splice(to, 0, cols.splice(from,1)[0]); state.scopeCols[cfg.id] = cols; saveTablePrefs(); }
+  function visibleCols(scope){ const cfg = scopeState(scope); const hidden = new Set(cfg.hidden); const shown = cfg.cols.filter((c)=> !hidden.has(c)); return shown.length ? shown : [cfg.cols[0]]; }
+  function toggleCol(scope,col,visible){ const cfg = scopeState(scope); const all = cfg.cols; const list = [...cfg.hidden]; const has = list.includes(col); if (visible && has) state.scopeHidden[cfg.id] = list.filter((c)=> c!==col); else if (!visible && !has) { const visibleCount = all.filter((c)=> !list.includes(c) && c !== col).length; if (visibleCount < 1) return; state.scopeHidden[cfg.id] = list.concat(col); } saveTablePrefs(); }
+  function colWidth(scope,col){ const cfg = scopeState(scope); return Number(cfg.widths[col] || cfg.meta[col]?.width || 160); }
+  function setColWidth(scope,col,width){ const cfg = scopeState(scope); const w = Math.max(76, Math.min(360, Number(width||0))); state.scopeWidths[cfg.id][col] = w; saveTablePrefs(); }
+  function resetCols(scope){ const id = ensureScope(scope); state.scopeCols[id] = defaultColsForScope(id).filter((c)=> c in OPS_COL_META); state.scopeHidden[id] = []; state.scopeWidths[id] = {}; state.scopeSort[id] = defaultSortForScope(id); saveTablePrefs(); }
+  function scopeForTab(tab, variant='full'){ if (variant === 'desk') return tab === 'checkin' ? 'deskin' : 'deskout'; return normalizeScope(tab); }
+
+  function notesText(item){ return [safe(item.pickupComment), safe(item.dropoffComment), safe(item.checkOutNote), safe(item.checkInNote), safe(item.remarks), safe(item.internalMemo), safe(item.notes)].filter(Boolean).join(' • '); }
+  function vehicleText(item){ return safe(item.assignedVehicleLabel || item.assignedVehiclePlate || item.vehicleLabel || item.plate || ''); }
+  function categoryText(item){ return safe(item.category || item.categoryCode || item.group || ''); }
+  function packageText(item){ return safe(item.selectedPackage || item.packageName || item.plan || ''); }
+  function sourceText(item){ return safe(item.source || item.channel || item.agent || ''); }
+  function originCityText(item){ return safe(item.originCity || item.origin || item.cityFrom || item.arrivalCity || ''); }
+  function voucherText(item){ return safe(item.voucherNumber || item.voucher || item.irn || ''); }
+  function confirmationText(item){ return safe(item.confirmationNumber || item.confirmationno || item.confirmation || ''); }
+  function itemDateTimeRaw(item,key){
+    if (key === 'checkin') return item.dropoffDateTime || item.end;
+    if (key === 'available' || key === 'grounded') return item.updatedAt || item.modifiedDate || item.pickupDateTime || item.start || item.dropoffDateTime || item.end;
+    return item.pickupDateTime || item.start || item.dropoffDateTime || item.end;
+  }
+  function opsCellText(item,key,tab){
+    if (key === 'status') return statusLabel(item);
+    if (key === 'time') return String(asDate(itemDateTimeRaw(item,tab))?.getTime() || 0);
+    if (key === 'booking') return safe(item.bookingNumber || item.resdocno || item._id || item.id);
+    if (key === 'customer') return safe(item.customerName || item.station || item.vehicleLabel || '');
+    if (key === 'phone') return safe(item.phone || item.mobile || item.telephone || '');
+    if (key === 'email') return safe(item.email || '');
+    if (key === 'pickup') return safe(item.pickuppoint || item.pickupPoint || item.station || '');
+    if (key === 'dropoff') return safe(item.dropoffpoint || item.dropoffPoint || item.state || '');
+    if (key === 'flight') return safe(item.flightNumber || item.flight || '');
+    if (key === 'originCity') return originCityText(item);
+    if (key === 'vehicle') return vehicleText(item);
+    if (key === 'category') return categoryText(item);
+    if (key === 'station') return stationOf(item);
+    if (key === 'package') return packageText(item);
+    if (key === 'source') return sourceText(item);
+    if (key === 'agent') return safe(item.agent || item.partner || item.company || '');
+    if (key === 'voucher') return voucherText(item);
+    if (key === 'confirmation') return confirmationText(item);
+    if (key === 'flags') return bookingFlags(item).map(([label])=>label).join(' ');
+    if (key === 'notes') return notesText(item);
+    return '';
+  }
+  function compareOpsRows(a,b,key,dir,tab){
+    const mul = dir === 'desc' ? -1 : 1;
+    const av = opsCellText(a,key,tab);
+    const bv = opsCellText(b,key,tab);
+    if (key === 'time') return (Number(av) - Number(bv)) * mul;
+    return String(av).localeCompare(String(bv), 'el', { sensitivity:'base', numeric:true }) * mul;
+  }
+  function sortedOpsRows(rows,tab,scope='checkout'){
+    const list = [...rows];
+    const cfg = scopeState(scope);
+    const sort = cfg.sort || { key:'time', dir:'asc' };
+    return list.sort((a,b)=> compareOpsRows(a,b,sort.key,sort.dir,tab));
+  }
+  function toolColButton(scope){ const collapsed = isPanelCollapsed(scope); return `<div class="toolColMenu"><button class="toolColBtn ${collapsed?'':'active'}" type="button" data-col-panel-toggle="${esc(scope)}">${collapsed?'Open columns':'Close columns'}</button></div>`; }
+  function toolColPanel(scope, metaMap){
+    const cfg = scopeState(scope);
+    const hidden = new Set(cfg.hidden);
+    const visibleCount = cfg.cols.filter((col)=> !hidden.has(col)).length;
+    const collapsed = !!cfg.collapsed;
+    const presets = presetDefsForScope(scope).map((preset, idx)=> `<button class="toolColPresetBtn ${idx===0?'primary':''}" type="button" data-col-preset="${esc(preset.key)}" data-col-scope="${esc(scope)}">${esc(preset.label)}</button>`).join('');
+    const rows = cfg.cols.map((col, idx)=> {
+      const meta = metaMap[col] || { label:col, help:'' };
+      return `<div class="toolColItem" data-col-item="${esc(col)}" data-col-scope="${esc(scope)}" data-col-label="${esc((meta.label || col).toLowerCase())}"><label class="toolColCheck"><input type="checkbox" data-col-visible="${esc(col)}" data-col-scope="${esc(scope)}" ${hidden.has(col)?'':'checked'}><span class="toolColHandle" data-col-handle="${esc(col)}" data-col-scope="${esc(scope)}">⋮⋮</span><span class="toolColName"><strong>${esc(meta.label || col)}</strong><span>${esc(meta.help || '')}</span></span></label><span class="toolColOrder">#${idx+1}</span></div>`;
+    }).join('');
+    return `<aside class="toolSidePanel ${collapsed?'is-collapsed':''}" data-col-panel-scope="${esc(scope)}"><div class="toolColPanel"><div class="toolColHead"><div class="toolColHeadTop"><strong>Columns</strong><div class="toolColHeadActions"><span class="toolPill">${esc(String(visibleCount))}/${esc(String(cfg.cols.length))} visible</span><button class="toolColToggle" type="button" data-col-panel-toggle="${esc(scope)}">Close</button><button class="toolColBtnGhost" type="button" data-col-showall="${esc(scope)}">Show all</button><button class="toolColBtnGhost" type="button" data-col-compact="${esc(scope)}">Ops view</button><button class="toolColBtnGhost" type="button" data-col-reset="${esc(scope)}">Reset</button></div></div><span>Column settings για το scope <strong>${esc(scope)}</strong>: show / hide, reorder και resize ανά table. Το panel ανοίγει και κλείνει μόνο από το κουμπί <strong>Open columns</strong>.</span></div><div class="toolColPresetWrap"><span>Quick presets</span><div class="toolColPresetRow">${presets}</div></div><label class="toolColSearchWrap"><span>Search columns</span><input class="toolColSearch" type="text" data-col-search="${esc(scope)}" placeholder="Search columns..."></label><div class="toolColList">${rows || '<div class="toolColEmpty">No columns</div>'}</div><div class="toolColNote">Καθαρό right-side panel χωρίς μόνιμο κάθετο rail πάνω στο table. Άνοιγμα/κλείσιμο μόνο από το toolbar button.</div></div></aside>`;
+  }
+  function renderRequestQueueBar(){
+    const counts = requestQueueCounts();
+    const meta = requestQueueMeta();
+    const defs = [
+      { key:'all', label:'All', count:counts.all },
+      { key:'pending', label:'Pending', count:counts.pending },
+      { key:'noflight', label:'No flight', count:counts.noflight },
+      { key:'novoucher', label:'No voucher', count:counts.novoucher },
+      { key:'novehicle', label:'No vehicle', count:counts.novehicle }
+    ];
+    return `<div class="toolToolbarRows"><div class="toolFocusRow"><span class="toolFocusLabel">Request queue</span>${defs.map((def)=> `<button class="toolFocusBtn ${state.requestQueue===def.key?'active':''}" type="button" data-request-focus="${esc(def.key)}">${esc(def.label)} <span class="countPill">${esc(String(def.count))}</span></button>`).join('')}<button class="toolFocusBtn ghost" type="button" data-request-focus="all">Clear queue</button></div><div class="toolQueueSummary"><div class="toolQueueMeta"><span class="toolQueueBadge">${esc(meta.label)}</span><span class="toolQueueHint">${esc(meta.hint)}</span></div><div class="toolQueueActions"><span class="toolQueueMini">${esc(String(meta.count))} rows in current queue</span></div></div></div>`;
+  }
+  function renderFullFocusBar(rows,key,scope){
+    const defs = fullFocusDefs(key, rows);
+    const meta = fullFocusMeta(scope, key, rows);
+    if (!defs || defs.length <= 1) return '';
+    if (key === 'checkout') {
+      return `<div class="toolFocusRow compact"><span class="toolFocusLabel">Operational focus</span>${defs.map((def)=> `<button class="toolFocusBtn ${fullFocusKey(scope)===def.key?'active':''}" type="button" data-full-focus="${esc(def.key)}" data-full-scope="${esc(scope)}" data-full-tab="${esc(key)}">${esc(def.label)} <span class="countPill">${esc(String(def.count))}</span></button>`).join('')}<span class="toolQueueMini">${esc(meta.hint)}</span></div>`;
+    }
+    return `<div class="toolToolbarRows"><div class="toolFocusRow"><span class="toolFocusLabel">Operational focus</span>${defs.map((def)=> `<button class="toolFocusBtn ${fullFocusKey(scope)===def.key?'active':''}" type="button" data-full-focus="${esc(def.key)}" data-full-scope="${esc(scope)}" data-full-tab="${esc(key)}">${esc(def.label)} <span class="countPill">${esc(String(def.count))}</span></button>`).join('')}</div><div class="toolQueueSummary"><div class="toolQueueMeta"><span class="toolQueueBadge">${esc(meta.label)}</span><span class="toolQueueHint">${esc(meta.hint)}</span></div><div class="toolQueueActions"><span class="toolQueueMini">${esc(String(meta.count))} rows in current focus</span></div></div></div>`;
+  }
+
+  function renderDeskFocusBar(rows,key,scope){
+    const defs = deskFocusDefs(rows);
+    const meta = deskFocusMeta(scope, rows);
+    return `<div class="toolToolbarRows"><div class="toolFocusRow"><span class="toolFocusLabel">Desk focus</span>${defs.map((def)=> `<button class="toolFocusBtn ${deskFocusKey(scope)===def.key?'active':''}" type="button" data-desk-focus="${esc(def.key)}" data-desk-scope="${esc(scope)}">${esc(def.label)} <span class="countPill">${esc(String(def.count))}</span></button>`).join('')}</div><div class="toolQueueSummary"><div class="toolQueueMeta"><span class="toolQueueBadge">${esc(meta.label)}</span><span class="toolQueueHint">${esc(meta.hint)}</span></div><div class="toolQueueActions"><span class="toolQueueMini">${esc(String(meta.count))} rows in current desk focus</span></div></div></div>`;
+  }
+  function renderDensityControls(){
+    const defs = [
+      { key:'comfortable', label:'Comfort' },
+      { key:'compact', label:'Compact' }
+    ];
+    return defs.map((def)=> `<button class="toolContextBtn ${state.rowDensity===def.key?'active':'ghost'}" type="button" data-density="${esc(def.key)}">${esc(def.label)}</button>`).join('');
+  }
+  function selectedRowLabel(tab, rows){
+    const visibleRows = Array.isArray(rows) ? rows : null;
+    let item = null;
+    if (visibleRows) {
+      item = visibleRows.find((row)=> String(row._id || row.id || '') === String(state.selected.id || '')) || null;
+      if (!item && visibleRows.length === 1) item = visibleRows[0];
+    }
+    if (!item) item = selectedItem();
+    if (!item) return 'No selected row';
+    const itemTab = state.selected.tab || tab || state.activeTab;
+    const label = TAB_CONFIG[itemTab]?.label || itemTab || 'Row';
+    const title = safe(item.bookingNumber || item.vehicleLabel || item.assignedVehicleLabel || item.customerName || item._id || item.id || '—');
+    return `${label}: ${title}`;
+  }
+  function renderWorkspaceContextBar(rows,key,scope,variant,allRows){
+    if (variant === 'full' && key === 'checkout') return '';
+    const chips = [];
+    chips.push(`<span class="toolContextChip active"><strong>${esc(TAB_CONFIG[key]?.label || key)}</strong></span>`);
+    chips.push(`<span class="toolContextChip"><strong>${esc(String(rows.length))}</strong> visible rows</span>`);
+    if (variant === 'desk' && Array.isArray(allRows) && allRows.length !== rows.length) chips.push(`<span class="toolContextChip warn">Desk focus <strong>${esc(String(rows.length))}/${esc(String(allRows.length))}</strong></span>`);
+    chips.push(`<span class="toolContextChip"><strong>${esc(String(visibleCols(scope).length))}</strong> visible cols</span>`);
+    if (state.station && state.station !== 'all') chips.push(`<span class="toolContextChip active">Station <strong>${esc(state.station)}</strong></span>`);
+    if (state.search) chips.push(`<span class="toolContextChip warn">Search <strong>${esc(state.search)}</strong></span>`);
+    if (variant === 'desk' && deskFocusKey(scope) !== 'all') chips.push(`<span class="toolContextChip active">Focus <strong>${esc(deskFocusMeta(scope, allRows || rows).label)}</strong></span>`);
+    if (variant === 'full' && variantAllowsFullFocus(key) && fullFocusKey(scope) !== 'all') chips.push(`<span class="toolContextChip active">Focus <strong>${esc(fullFocusMeta(scope, key, allRows || rows).label)}</strong></span>`);
+    chips.push(`<span class="toolContextChip">${esc(selectedRowLabel(key, rows))}</span>`);
+    const actions = [];
+    actions.push(renderDensityControls());
+    if (state.search) actions.push(`<button class="toolContextBtn" type="button" data-clear-search="1">Clear search</button>`);
+    if (state.station && state.station !== 'all') actions.push(`<button class="toolContextBtn" type="button" data-clear-station="1">All stations</button>`);
+    if (variant === 'desk' && deskFocusKey(scope) !== 'all') actions.push(`<button class="toolContextBtn" type="button" data-desk-focus="all" data-desk-scope="${esc(scope)}">Clear focus</button>`);
+    if (variant === 'full' && variantAllowsFullFocus(key) && fullFocusKey(scope) !== 'all') actions.push(`<button class="toolContextBtn" type="button" data-full-focus="all" data-full-scope="${esc(scope)}" data-full-tab="${esc(key)}">Clear focus</button>`);
+    return `<div class="toolContextBar"><div class="toolContextMeta">${chips.join('')}</div><div class="toolContextActions">${actions.join('')}</div></div>`;
+  }
+  function opsHeadCell(col,scope='checkout'){
+    const meta = OPS_COL_META[col] || { label:col };
+    const cfg = scopeState(scope);
+    const sort = cfg.sort || { key:'time', dir:'asc' };
+    const active = sort && sort.key === col;
+    const sortable = col !== 'actions';
+    const mark = !sortable ? '' : (active ? (sort.dir === 'asc' ? '↑' : '↓') : '↕');
+    return `<th data-th-col="${esc(col)}" data-th-scope="${esc(scope)}"><div class="toolThInner"><span class="toolThLabel">${esc(meta.label)}</span><span class="toolThTools"><button class="toolThSort ${active?'active':''}" type="button" data-op-sort="${sortable ? esc(col) : ''}" data-op-sort-scope="${esc(scope)}">${esc(mark || '•')}</button><span class="toolThDrag" data-th-drag="${esc(col)}" data-th-scope="${esc(scope)}">⋮⋮</span></span></div><span class="thResizer" data-resize-col="${esc(col)}" data-resize-scope="${esc(scope)}"></span></th>`;
+  }
+  function simpleCell(main, sub='—'){ return `<div class="toolCell"><div class="toolMain">${esc(main || '—')}</div><div class="toolSub">${esc(sub || '—')}</div></div>`; }
+  function opsColContent(item,col,key){
+    if (col === 'status') {
+      const pillClass = item.itemType === 'fleet' ? 'neutral' : bookingStatusClass(item);
+      const sub = item.itemType === 'fleet'
+        ? [safe(item.state || item.status), safe(item.location || item.branch || item.station)].filter(Boolean).join(' • ') || 'Fleet'
+        : safe(item.itemType || key || 'Daily');
+      return `<div class="toolCell"><div class="toolFlags"><span class="flagPill ${esc(pillClass)}">${esc(statusLabel(item))}</span></div><div class="toolSub">${esc(sub)}</div></div>`;
+    }
+    if (col === 'time') return simpleCell(itemTime(item,key), fmtDT(itemDateTimeRaw(item,key)));
+    if (col === 'booking') return simpleCell(safe(item.bookingNumber || item.resdocno || item._id || item.id || '—'), categoryText(item) || '—');
+    if (col === 'customer') return simpleCell(safe(item.customerName || item.station || vehicleText(item) || '—'), [safe(item.email), safe(item.phone)].filter(Boolean).join(' · ') || '—');
+    if (col === 'phone') return simpleCell(safe(item.phone || item.mobile || '—'), safe(item.email || '—'));
+    if (col === 'email') return simpleCell(safe(item.email || '—'), safe(item.customerName || '—'));
+    if (col === 'pickup') return simpleCell(safe(item.pickuppoint || item.pickupPoint || stationOf(item) || '—'), fmtDT(item.pickupDateTime || item.start));
+    if (col === 'dropoff') return simpleCell(safe(item.dropoffpoint || item.dropoffPoint || item.state || '—'), fmtDT(item.dropoffDateTime || item.end));
+    if (col === 'flight') return simpleCell(safe(item.flightNumber || item.flight || '—'), safe(item.arrivalDetails || item.flightStatus || '—'));
+    if (col === 'originCity') return simpleCell(originCityText(item) || '—', safe(item.country || '—'));
+    if (col === 'vehicle') return simpleCell(vehicleText(item) || 'Χωρίς όχημα', safe(item.vehicleModel || item.model || item.plate || '—'));
+    if (col === 'category') return simpleCell(categoryText(item) || '—', safe(item.group || item.vehicleClass || safe(item.type || '—')));
+    if (col === 'station') return simpleCell(stationOf(item) || safe(item.location || item.branch || '—'), safe(item.pickupStation || item.dropoffStation || item.state || '—'));
+    if (col === 'package') return simpleCell(packageText(item) || '—', Array.isArray(item.selectedExtrasList)&&item.selectedExtrasList.length ? item.selectedExtrasList.join(', ') : (safe(item.extras) || '—'));
+    if (col === 'source') return simpleCell(sourceText(item) || safe(item.location || item.branch || '—'), safe(item.agent || item.company || item.state || '—'));
+    if (col === 'agent') return simpleCell(safe(item.agent || item.partner || item.company || '—'), sourceText(item) || '—');
+    if (col === 'voucher') return simpleCell(voucherText(item) || '—', confirmationText(item) || '—');
+    if (col === 'confirmation') return simpleCell(confirmationText(item) || '—', voucherText(item) || '—');
+    if (col === 'flags') return `<div class="toolCell"><div class="toolFlags">${bookingFlags(item).map(([label,cls])=> `<span class="flagPill ${esc(cls)}">${esc(label)}</span>`).join('') || '<span class="flagPill neutral">Clean</span>'}</div><div class="toolSub">${esc([packageText(item), stationOf(item)].filter(Boolean).join(' • ') || '—')}</div></div>`;
+    if (col === 'notes') return simpleCell(notesText(item) || safe(item.reason || item.comment || item.description || '—'), safe(item.internalMemo || item.remarks || item.reason || '—'));
+    if (col === 'actions') return `<div class="toolCell"><div class="toolActions">${rowActionButtons(item,key,true)}</div><div class="toolSub">${esc(safe(item.bookingNumber || item._id || item.id || '—'))}</div></div>`;
+    return simpleCell('—');
+  }
+  function renderOpsTable(rows,key,variant,scope){
+    const tableScope = scope || scopeForTab(key, variant);
+    const sourceRows = Array.isArray(rows) ? rows : [];
+    const focusedRows = variant === 'desk' ? sourceRows.filter((item)=> matchesDeskFocus(item, tableScope)) : sourceRows;
+    const ordered = sortedOpsRows(focusedRows,key,tableScope);
+    const cols = visibleCols(tableScope);
+    const cfg = scopeState(tableScope);
+    const sort = cfg.sort || { key:'time', dir:'asc' };
+    const colgroup = cols.map((col)=> `<col data-col-key="${esc(col)}" style="width:${colWidth(tableScope,col)}px">`).join('');
+    const heads = cols.map((col)=> opsHeadCell(col,tableScope)).join('');
+    const body = ordered.map((item)=> {
+      const id = safe(item._id || item.id);
+      const selected = String(state.selected.id) === id && String(state.selected.tab) === String(key);
+      const rowCls = [selected?'selected':'', requestRowClass(item,key), checkoutRowClass(item,key)].filter(Boolean).join(' ');
+      return `<tr class="${esc(rowCls)}" data-select-id="${esc(id)}" data-select-tab="${esc(key)}">${cols.map((col)=> `<td>${opsColContent(item,col,key)}</td>`).join('')}</tr>`;
+    }).join('');
+    const title = variant==='desk' ? TAB_CONFIG[key].label : (key==='checkout' ? TAB_CONFIG[key].label : `${TAB_CONFIG[key].label} workspace`);
+    const sub = variant==='desk' ? 'Wheels-inspired desk table: καθαρές operational στήλες ανά desk queue με quick focus στα κρίσιμα rows.' : (key==='checkout' ? 'Confirmed departures της ημέρας με καθαρό operational table.' : 'Wheels-inspired workspace table με ξεχωριστό column setup ανά full tab.');
+    const rowPill = variant === 'desk' && sourceRows.length !== ordered.length
+      ? `${ordered.length}/${sourceRows.length} rows`
+      : `${ordered.length} rows`;
+    const leftMeta = `<div class="toolToolbarLeft"><div><div class="toolTitle">${esc(title)}</div><div class="toolSub">${esc(sub)}</div></div><span class="toolPill">${esc(String(rowPill))}</span><span class="toolPill">${esc(String(cols.length))} cols</span><span class="toolPill">Sort ${esc((OPS_COL_META[sort.key]||{}).label || sort.key)}</span></div>`;
+    const shellCls = ['toolTableShell','has-col-panel', state.rowDensity==='compact' ? 'is-compact' : '', variant === 'full' ? 'table-clean' : ''].filter(Boolean).join(' ');
+    if (variant === 'full') {
+      return `<div class="${shellCls}"><div class="toolTableTopbar"><div class="toolToolbarRight">${toolColButton(tableScope)}</div></div><div class="toolBodyShell"><div class="toolTableViewport"><div class="toolTableWrap"><table class="toolTable" data-table-scope="${esc(tableScope)}"><colgroup>${colgroup}</colgroup><thead><tr>${heads}</tr></thead><tbody>${body || `<tr><td colspan="${cols.length}"><div class="empty">${esc(tabEmptyMessage(key))}</div></td></tr>`}</tbody></table></div></div>${toolColPanel(tableScope, OPS_COL_META)}</div></div>`;
+    }
+    const topRows = `${leftMeta}${renderDeskFocusBar(sourceRows, key, tableScope)}`;
+    const contextBar = renderWorkspaceContextBar(ordered, key, tableScope, variant, sourceRows);
+    return `<div class="${shellCls} table-clean"><div class="toolTableTopbar"><div class="toolToolbarRight">${toolColButton(tableScope)}</div></div><div class="toolBodyShell"><div class="toolTableViewport"><div class="toolTableWrap"><table class="toolTable" data-table-scope="${esc(tableScope)}"><colgroup>${colgroup}</colgroup><thead><tr>${heads}</tr></thead><tbody>${body || `<tr><td colspan="${cols.length}"><div class="empty">${esc(tabEmptyMessage(key))}</div></td></tr>`}</tbody></table></div></div>${toolColPanel(tableScope, OPS_COL_META)}</div></div>`;
+  }
+  function renderBookingsTable(rows,key){ return renderOpsTable(rows,key,'full','bookings'); }
+
+  function tabEmptyMessage(key){
+    switch (key) {
+      case 'checkin': return 'Δεν υπάρχουν confirmed check-ins για την επιλεγμένη ημέρα.';
+      case 'bookings': return 'Δεν υπάρχουν confirmed bookings για την επιλεγμένη ημέρα.';
+      case 'overdue': return 'Δεν υπάρχουν overdue / open rentals με τα τρέχοντα φίλτρα.';
+      case 'available': return 'Δεν υπάρχουν διαθέσιμα οχήματα με τα τρέχοντα φίλτρα.';
+      case 'grounded': return 'Δεν υπάρχουν grounded οχήματα με τα τρέχοντα φίλτρα.';
+      default: return `Δεν υπάρχουν rows για το tab ${TAB_CONFIG[key]?.label || key} με τα τρέχοντα φίλτρα.`;
+    }
+  }
+
+  loadTablePrefs();
+  loadUiPrefs();
+
+  function bookingStatusClass(item){
+    if (norm(statusLabel(item)).includes('pending')) return 'pending';
+    if (norm(TAB_CONFIG[state.activeTab]?.label).includes('overdue') || norm(statusLabel(item)).includes('overdue')) return 'overdue';
+    return 'confirmed';
+  }
+  function bookingFlags(item){
+    const out=[];
+    if (!safe(item.assignedVehicleLabel || item.assignedVehiclePlate || item.assignedVehicle)) out.push(['No vehicle','warn']);
+    if (safe(item.flightNumber)) out.push(['Flight','info']);
+    const route = `${safe(item.pickuppoint)} ${safe(item.dropoffpoint)}`.toLowerCase();
+    if (route.includes('airport')) out.push(['Airport','info']);
+    if (isPending(item)) out.push(['Pending','warn']);
+    if (safe(item.selectedExtrasList && item.selectedExtrasList.length ? item.selectedExtrasList.length : item.extras)) out.push(['Extras','ok']);
+    if (!out.length) out.push(['Clean','neutral']);
+    return out;
+  }
+  function bookingCellText(item,key){
+    if (key === 'status') return statusLabel(item);
+    if (key === 'booking') return safe(item.bookingNumber || item._id || item.id);
+    if (key === 'customer') return safe(item.customerName || '—');
+    if (key === 'pickup') return safe(item.pickupDateTime || item.start);
+    if (key === 'dropoff') return safe(item.dropoffDateTime || item.end);
+    if (key === 'vehicle') return safe(item.assignedVehicleLabel || item.assignedVehiclePlate || item.vehicleLabel || '');
+    if (key === 'agent') return safe(item.source || item.agent || '');
+    if (key === 'flags') return bookingFlags(item).map(([label])=>label).join(' ');
+    return '';
+  }
+  function compareBookingRows(a,b,key,dir){
+    const mul = dir === 'desc' ? -1 : 1;
+    const av = bookingCellText(a,key);
+    const bv = bookingCellText(b,key);
+    if (key === 'pickup' || key === 'dropoff') {
+      const aRaw = key === 'pickup' ? (a.pickupDateTime || a.start) : (a.dropoffDateTime || a.end);
+      const bRaw = key === 'pickup' ? (b.pickupDateTime || b.start) : (b.dropoffDateTime || b.end);
+      const ad = asDate(aRaw); const bd = asDate(bRaw);
+      return (((ad && ad.getTime()) || 0) - ((bd && bd.getTime()) || 0)) * mul;
+    }
+    return av.localeCompare(bv, 'el', { sensitivity:'base', numeric:true }) * mul;
+  }
+  function sortedBookingRows(rows){
+    const list = [...rows];
+    const { key, dir } = state.bookingSort || { key:'movement', dir:'asc' };
+    return list.sort((a,b)=> compareBookingRows(a,b,key,dir));
+  }
+  function bookingHeadCell(col){ const meta = OPS_COL_META[col] || { label:col }; const active = state.bookingSort && state.bookingSort.key === col; const sortable = col !== 'actions'; const mark = !sortable ? '' : (active ? (state.bookingSort.dir === 'asc' ? '↑' : '↓') : '↕'); return `<th data-th-col="${esc(col)}" data-th-scope="bookings"><div class="toolThInner"><span class="toolThLabel">${esc(meta.label)}</span><span class="toolThTools"><button class="toolThSort ${active?'active':''}" type="button" data-book-sort="${sortable ? esc(col) : ''}">${esc(mark || '•')}</button><span class="toolThDrag" data-th-drag="${esc(col)}" data-th-scope="bookings">⋮⋮</span></span></div><span class="thResizer" data-resize-col="${esc(col)}" data-resize-scope="bookings"></span></th>`; }
+  function bookingColContent(item,col,key){
+    if (col === 'status') return `<div class="toolCell"><div class="toolFlags"><span class="bookStatusPill ${esc(bookingStatusClass(item))}">${esc(statusLabel(item))}</span></div><div class="toolSub">${esc(safe(item.source || item.agent || item.selectedPackage || 'Booking'))}</div></div>`;
+    if (col === 'booking') return `<div class="toolCell"><div class="toolMain">${esc(safe(item.bookingNumber || item._id || item.id || '—'))}</div><div class="toolSub">${esc(safe(item.category || item.categoryCode || '—'))}</div></div>`;
+    if (col === 'customer') return `<div class="toolCell"><div class="toolMain">${esc(safe(item.customerName || '—'))}</div><div class="toolSub">${esc([safe(item.phone), safe(item.email)].filter(Boolean).join(' · ') || '—')}</div></div>`;
+    if (col === 'pickup') return `<div class="toolCell"><div class="toolMain">${esc(fmtDT(item.pickupDateTime || item.start))}</div><div class="toolSub">${esc(safe(item.pickuppoint || item.station || '—'))}</div></div>`;
+    if (col === 'dropoff') return `<div class="toolCell"><div class="toolMain">${esc(fmtDT(item.dropoffDateTime || item.end))}</div><div class="toolSub">${esc(safe(item.dropoffpoint || item.state || '—'))}</div></div>`;
+    if (col === 'vehicle') return `<div class="toolCell"><div class="toolMain">${esc(safe(item.assignedVehicleLabel || item.assignedVehiclePlate || 'Χωρίς όχημα'))}</div><div class="toolSub">${esc(safe(item.vehicleModel || item.model || item.selectedPackage || '—'))}</div></div>`;
+    if (col === 'agent') return `<div class="toolCell"><div class="toolMain">${esc(safe(item.source || item.agent || '—'))}</div><div class="toolSub">${esc(safe(item.corporate || item.company || '—'))}</div></div>`;
+    if (col === 'flags') return `<div class="toolCell"><div class="toolFlags">${bookingFlags(item).map(([label,cls])=> `<span class="flagPill ${esc(cls)}">${esc(label)}</span>`).join('')}</div><div class="toolSub">${esc(safe(item.flightNumber || item.station || '—'))}</div></div>`;
+    if (col === 'actions') return `<div class="toolCell"><div class="toolActions">${rowActionButtons(item,key,true)}</div><div class="toolSub">${esc(safe(item.rentalState || ''))}</div></div>`;
+    return `<div class="toolCell"><div class="toolMain">—</div></div>`;
+  }
+  function renderBookingsTable(rows,key){ const ordered = sortedBookingRows(rows); const cols = visibleCols('bookings'); const colgroup = cols.map((col)=> `<col data-col-key="${esc(col)}" style="width:${colWidth('bookings',col)}px">`).join(''); const heads = cols.map((col)=> bookingHeadCell(col)).join(''); const body = ordered.map((item)=> { const id = safe(item._id || item.id); const selected = String(state.selected.id) === id && String(state.selected.tab) === String(key); return `<tr class="${selected?'selected':''}" data-select-id="${esc(id)}" data-select-tab="${esc(key)}">${cols.map((col)=> `<td>${bookingColContent(item,col,key)}</td>`).join('')}</tr>`; }).join(''); const shellCls = ['toolTableShell','bookingsTable','has-col-panel','table-clean', state.rowDensity==='compact' ? 'is-compact' : ''].filter(Boolean).join(' '); return `<div class="${shellCls}"><div class="toolTableTopbar"><div class="toolToolbarRight">${toolColButton('bookings')}</div></div><div class="toolBodyShell"><div class="toolTableViewport"><div class="toolTableWrap"><table class="toolTable" data-table-scope="bookings"><colgroup>${colgroup}</colgroup><thead><tr>${heads}</tr></thead><tbody>${body || `<tr><td colspan="${cols.length}"><div class="empty">${esc(tabEmptyMessage('bookings'))}</div></td></tr>`}</tbody></table></div></div>${toolColPanel('bookings', OPS_COL_META)}</div></div>`; }
+  function rowActionButtons(item,key,compact){ const id = safe(item._id || item.id); const btns=[]; const cls = compact ? 'bookActionBtn' : 'rowBtn'; const contractLabel = key === 'checkout' ? 'Check out' : (key === 'checkin' ? 'Check in' : 'Contract'); if (item.itemType !== 'fleet') btns.push(`<button class="${cls} primary" type="button" data-row-action="contract" data-row-id="${esc(id)}" data-row-tab="${esc(key)}">${esc(contractLabel)}</button>`); if (item.itemType !== 'fleet') btns.push(`<button class="${cls}" type="button" data-row-action="fleet" data-row-id="${esc(id)}" data-row-tab="${esc(key)}">Fleet</button>`); if (item.itemType !== 'fleet' && (key === 'bookings' || key === 'checkout' || key === 'checkin' || key === 'overdue')) btns.push(`<button class="${cls}" type="button" data-row-action="bookings" data-row-id="${esc(id)}" data-row-tab="${esc(key)}">Bookings</button>`); return compact ? btns.join('') : `<div class="rowActions">${btns.join('')}</div>`; }
+  function deskFlags(item){ return bookingFlags(item).filter(([label])=> label !== 'Clean').slice(0,3); }
+  function renderDeskRow(item,key){ const id = safe(item._id || item.id); const selected = String(state.selected.id) === id && String(state.selected.tab) === String(key); const title = safe(item.bookingNumber || item._id || item.id || '—'); const customer = safe(item.customerName || '—'); const contact = [safe(item.phone), safe(item.email)].filter(Boolean).join(' · ') || '—'; const vehicle = safe(item.assignedVehicleLabel || item.assignedVehiclePlate || item.vehicleLabel || 'Χωρίς όχημα'); const route = safe(routeText(item) || stationOf(item) || '—'); const flags = deskFlags(item); return `<div class="deskCompactRow ${selected ? 'selected' : ''}" data-select-id="${esc(id)}" data-select-tab="${esc(key)}"><div class="deskTimeBox"><span class="deskTimeMain">${esc(itemTime(item,key))}</span><span class="deskTimeSub">${esc(shortDate(item.pickupDateTime || item.start || item.dropoffDateTime || item.end))}</span></div><div class="deskMainCell"><div class="deskMainTop">${esc(title)} · ${esc(customer)}</div><div class="deskMainSub">${esc(contact)}</div><div class="deskFlagRow">${flags.length ? flags.map(([label,cls])=>`<span class=\"deskFlag ${esc(cls)}\">${esc(label)}</span>`).join('') : `<span class=\"deskFlag\">${esc(statusLabel(item))}</span>`}</div></div><div class="deskMainCell"><div class="deskMainTop">${esc(route)}</div><div class="deskMainSub">${esc(vehicle)}</div><div class="deskMainSub">${esc(safe(item.source || item.agent || item.selectedPackage || '—'))}</div></div><div class="deskActionBar">${rowActionButtons(item,key)}</div></div>`; }
+  function statusLabel(item){ const s = norm(item.status); if (['confirmed','active rental','pre check-in','closed rental'].includes(s)) return 'Confirmed'; if (['canceled','cancelled'].includes(s)) return 'Canceled'; if (isPending(item)) return 'Pending / Request'; return safe(item.status || item.state || '—'); }
+
+  function bookingActionFlags(item){
+    const out=[];
+    if (!safe(item.assignedVehicleLabel || item.vehicleLabel)) out.push('No vehicle');
+    if (safe(item.flightNumber)) out.push('Flight');
+    const route = `${safe(item.pickuppoint)} ${safe(item.dropoffpoint)}`.toLowerCase();
+    if (route.includes('airport')) out.push('Airport');
+    if (isPending(item)) out.push('Pending');
+    return out.filter(Boolean);
+  }
+
+  function chips(item){ const out=[]; if (safe(item.assignedVehicleLabel || item.vehicleLabel)) out.push(`<span class="chip">${esc(safe(item.assignedVehicleLabel || item.vehicleLabel))}</span>`); else out.push(`<span class="chip warn">No vehicle</span>`); if (safe(item.flightNumber)) out.push(`<span class="chip info">Flight ${esc(item.flightNumber)}</span>`); if (safe(item.selectedPackage)) out.push(`<span class="chip">${esc(item.selectedPackage)}</span>`); if (Array.isArray(item.selectedExtrasList) && item.selectedExtrasList.length) out.push(`<span class="chip ok">Extras ${item.selectedExtrasList.length}</span>`); if (safe(item.state) && item.itemType === 'fleet') out.push(`<span class="chip">${esc(item.state)}</span>`); if (safe(item.rentalState) && item.itemType !== 'fleet') out.push(`<span class="chip">${esc(item.rentalState)}</span>`); return out.join(''); }
+  function rowCard(item, key){ const id = safe(item._id || item.id); const selected = String(state.selected.id) === id && String(state.selected.tab) === String(key); const title = safe(item.bookingNumber || item.vehicleLabel || item.assignedVehicleLabel || item._id || item.id || '—'); const subtitle = safe(item.customerName || item.station || item.state || item.category || '—'); return `<div class="rowCard ${selected ? 'selected' : ''}" data-select-id="${esc(id)}" data-select-tab="${esc(key)}"><div class="rowTop"><div class="rowTitle">${esc(title)}<div class="rowMeta">${esc(subtitle)}</div></div><div class="rowTime">${esc(itemTime(item,key))}</div></div><div class="rowMeta">${esc(routeText(item) || '—')}</div><div class="chips">${chips(item)}</div></div>`; }
+  function tableRow(item, key){ const id = safe(item._id || item.id); const selected = String(state.selected.id) === id && String(state.selected.tab) === String(key); const title = safe(item.bookingNumber || item.vehicleLabel || item.assignedVehicleLabel || item._id || item.id || '—'); const secondary = safe(item.assignedVehicleLabel || item.vehicleLabel || item.category || item.group || '—'); const customer = safe(item.customerName || item.station || '—'); const route = safe(routeText(item) || item.station || '—'); const ops = [statusLabel(item), safe(item.rentalState || item.state || '')].filter(Boolean).join(' • '); return `<div class="tableRow ${selected ? 'selected' : ''}" data-select-id="${esc(id)}" data-select-tab="${esc(key)}"><div class="cellMain">${esc(itemTime(item,key))}<span class="cellSub">${esc(shortDate(item.pickupDateTime || item.start || item.dropoffDateTime || item.end))}</span></div><div class="cellMain">${esc(title)}<span class="cellSub">${esc(secondary)}</span></div><div class="cellMain">${esc(customer)}<span class="cellSub">${esc([safe(item.phone),safe(item.email)].filter(Boolean).join(' · ') || '—')}</span></div><div class="cellMain">${esc(route)}<span class="cellSub">${chips(item).replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim() || esc(safe(item.flightNumber || item.station || '—'))}</span></div><div class="cellMain opsWrap"><span>${esc(ops)}</span><span class="cellSub">${esc(safe(item.source || item.agent || item.notes || '—'))}</span>${rowActionButtons(item,key)}</div></div>`; }
+  function renderSummary(){ const cards = [
+    ['checkout','Check-outs', state.data.summary.checkout || 0, 'Ημερήσιες παραδόσεις'],
+    ['checkin','Check-ins', state.data.summary.checkin || 0, 'Ημερήσιες επιστροφές'],
+    ['bookings','Bookings', state.data.summary.bookings || 0, 'Confirmed κρατήσεις της ημέρας'],
+    ['overdue','Overdue', state.data.summary.overdue || 0, 'Ανοικτά / καθυστερημένα'],
+    ['available','Available', state.data.summary.available || 0, 'Διαθέσιμα οχήματα'],
+    ['grounded','Grounded', state.data.summary.grounded || 0, 'Service / hold / maintenance']
+  ];
+    els.summary.innerHTML = cards.map(([key,k,v,m])=>{ const active = summaryTarget(key).mode === state.viewMode && summaryTarget(key).tab === (state.viewMode === 'desk' ? (key === 'checkin' ? 'checkin' : 'checkout') : state.activeTab); return `<button class="summaryCard clickable ${active?'isActive':''}" type="button" data-summary-tab="${esc(key)}"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div><div class="m">${esc(m)}</div></button>`; }).join('');
+  }
+  function renderStations(){ const current = state.station || 'all'; els.station.innerHTML = `<option value="all">Όλες</option>` + (state.data.stations || []).map((s)=> `<option value="${esc(s)}" ${s===current?'selected':''}>${esc(s)}</option>`).join(''); }
+  function renderTabBar(){ const fullTabs = ['checkout','checkin','bookings','overdue','available','grounded']; if (!fullTabs.includes(state.activeTab)) state.activeTab = 'checkout'; els.tabBar.innerHTML = fullTabs.map((key)=>`<button class="tabBtn ${state.activeTab===key?'active':''}" data-tab-key="${key}" type="button">${esc(TAB_CONFIG[key].label)} <span class="countPill">${esc((state.data.summary[key] || 0))}</span></button>`).join(''); }
+  function renderDesk(){ const out = deskItems('out'); const inn = deskItems('in'); if (els.deskOutCount) els.deskOutCount.textContent = String(out.length); if (els.deskInCount) els.deskInCount.textContent = String(inn.length); if (els.deskOut) els.deskOut.innerHTML = renderOpsTable(out,'checkout','desk','deskout'); if (els.deskIn) els.deskIn.innerHTML = renderOpsTable(inn,'checkin','desk','deskin'); if (els.visiblePill) els.visiblePill.textContent = `${out.length + inn.length} visible`; }
+  function renderFull(){ const tab = ['checkout','checkin','bookings','overdue','available','grounded'].includes(state.activeTab) ? state.activeTab : 'checkout'; if (tab !== state.activeTab) state.activeTab = tab; const rows = currentTabItems(state.activeTab); if (els.fullRows) els.fullRows.innerHTML = state.activeTab === 'bookings' ? renderBookingsTable(rows, 'bookings') : renderOpsTable(rows, state.activeTab); if (els.visiblePill) els.visiblePill.textContent = `${rows.length} visible`; }
+  function field(k,v,full){ return `<div class="fieldBox ${full?'full':''}"><div class="fk">${esc(k)}</div><div class="fv">${esc(v || '—')}</div></div>`; }
+  function renderInspector(){ if (!els.inspector) return; const item = selectedItem(); if (!item) { els.inspector.innerHTML = `<div class="fieldBox full"><div class="fk">Selected record</div><div class="fv">Δεν υπάρχει visible row για το current mode / filters.</div></div>`; return; } const key = state.selected.tab || (state.viewMode === 'desk' ? 'checkout' : state.activeTab); const actions = []; if (item.itemType !== 'fleet') actions.push(`<button class="inspectorBtn primary" data-action="contract" type="button">Open contract</button>`); if (item.itemType !== 'fleet') actions.push(`<button class="inspectorBtn" data-action="fleet" type="button">Open fleet</button>`); actions.push(`<button class="inspectorBtn" data-action="bookings" type="button">Open bookings</button>`); els.inspector.innerHTML = `<div class="fieldGrid">${field('Record', safe(item.bookingNumber || item.vehicleLabel || item.assignedVehicleLabel || item._id || item.id))}${field('Queue / tab', TAB_CONFIG[key]?.label || key)}${field('Status', statusLabel(item))}${field('Vehicle', safe(item.assignedVehicleLabel || item.vehicleLabel || 'Χωρίς όχημα'))}${field('Customer / station', safe(item.customerName || item.station || '—'))}${field('Time', key==='checkin' ? fmtDT(item.dropoffDateTime || item.end) : fmtDT(item.pickupDateTime || item.start))}${field('Route', routeText(item), true)}${field('Contact', [safe(item.phone), safe(item.email)].filter(Boolean).join(' · ') || '—', true)}${field('Flight / extras', [safe(item.flightNumber), Array.isArray(item.selectedExtrasList)&&item.selectedExtrasList.length ? item.selectedExtrasList.join(', ') : safe(item.extras)].filter(Boolean).join(' • ') || '—', true)}${field('Notes', [safe(item.pickupComment), safe(item.dropoffComment), safe(item.remarks), safe(item.notes)].filter(Boolean).join(' • ') || '—', true)}</div><div class="inspectorActions">${actions.join('')}</div>`; }
+  function updateModeUi(){ document.querySelectorAll('[data-view-mode]').forEach((btn)=> btn.classList.toggle('active', btn.getAttribute('data-view-mode')===state.viewMode)); if (els.modeChip) els.modeChip.textContent = state.viewMode === 'desk' ? 'Desk mode' : 'Full mode'; if (els.activeTabChip) els.activeTabChip.textContent = TAB_CONFIG[state.activeTab]?.label || '—'; const tabsWrap = $('fullOnlyTabsWrap'); if (tabsWrap) tabsWrap.classList.toggle('hidden', state.viewMode !== 'full'); if (els.deskView) els.deskView.classList.toggle('hidden', state.viewMode !== 'desk'); if (els.fullView) els.fullView.classList.toggle('hidden', state.viewMode !== 'full'); const mainPanel = $('mainPanel'); if (mainPanel) { mainPanel.classList.toggle('is-desk-mode', state.viewMode === 'desk'); mainPanel.classList.toggle('is-full-mode', state.viewMode !== 'desk'); } if (els.panelTitle && els.panelSub) { if (state.viewMode === 'desk') { els.panelTitle.textContent = 'Daily desk'; els.panelSub.textContent = 'Καθημερινό front-desk workspace με σταθερά μεγάλο table area για check-outs και check-ins, ανεξάρτητα από το πόσα rows φαίνονται.'; } else { els.panelTitle.textContent = TAB_CONFIG[state.activeTab]?.label || 'Full workspace'; els.panelSub.textContent = (TAB_CONFIG[state.activeTab]?.sub || 'Πλήρες operational dataset για την επιλεγμένη ημέρα.') + ' Το Daily δείχνει μόνο confirmed / live operational records.'; } } }
+  function render(){ renderStations(); renderSummary(); renderTabBar(); updateModeUi(); renderDesk(); renderFull(); renderInspector(); reportHeight(); }
+
+  function openContract(bookingId){ if (!bookingId) return; postToWix({ type:'openContract', bookingId }); }
+  function itemDate(value){ const raw = safe(value); if (!raw) return ''; const d = new Date(raw); if (Number.isNaN(d.getTime())) return ''; return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
+  function itemStart(item){ return itemDate(item && (item.pickupDateTime || item.start)); }
+  function itemEnd(item){ return itemDate(item && (item.dropoffDateTime || item.end)) || itemStart(item); }
+  function openFleet(item){ const bookingId = safe(item && (item._id || item.id)); if (!bookingId) return; postToWix({ type:'openOnFleet', bookingId, startDate:itemStart(item), endDate:itemEnd(item) }); }
+  function openBookings(item){ const bookingId = safe(item && (item._id || item.id)); postToWix({ type:'openOnBookings', bookingId, startDate:itemStart(item), endDate:itemEnd(item) }); }
+  function openRequestModal(item){ if (!item) return; state.requestFocus = item; els.requestTitle.textContent = `${safe(item.bookingNumber || item._id || 'Request')} • ${safe(item.customerName || '—')}`; els.requestSub.textContent = `Κίνηση ${fmtDT(item.pickupDateTime)} → ${fmtDT(item.dropoffDateTime)}`; const rows = [
+    ['Status', statusLabel(item)], ['Route', routeText(item)], ['Contact', [safe(item.phone),safe(item.email)].filter(Boolean).join(' · ') || '—'], ['Flight', safe(item.flightNumber || '—')], ['Source / agent', [safe(item.source),safe(item.agent)].filter(Boolean).join(' · ') || '—'], ['Voucher / confirmation', [safe(item.voucherNumber),safe(item.confirmationNumber)].filter(Boolean).join(' · ') || '—'], ['Category / package', [safe(item.category || item.categoryCode),safe(item.selectedPackage)].filter(Boolean).join(' • ') || '—'], ['Extras', Array.isArray(item.selectedExtrasList)&&item.selectedExtrasList.length ? item.selectedExtrasList.join(', ') : (safe(item.extras) || '—')], ['Total', money(item.totalPrice)], ['Flags', bookingActionFlags(item).join(' • ') || '—'], ['Notes', [safe(item.pickupComment),safe(item.dropoffComment),safe(item.remarks),safe(item.internalMemo)].filter(Boolean).join(' • ') || '—']
+  ]; $('requestAcceptBtn').style.display = isPending(item) ? '' : 'none'; $('requestDeclineBtn').style.display = isPending(item) ? '' : 'none'; els.requestBody.innerHTML = rows.map(([k,v])=> field(k,v,true)).join(''); els.requestOverlay.style.display = 'flex'; reportHeight(260); }
+  function closeRequestModal(){ els.requestOverlay.style.display = 'none'; reportHeight(); }
+  function csvCell(v){ const s = safe(v); return '"' + s.replace(/"/g,'""') + '"'; }
+  function exportCurrent(){ const key = state.viewMode === 'desk' ? 'checkout' : state.activeTab; const rows = state.viewMode === 'desk' ? [...deskItems('out'), ...deskItems('in')] : currentTabItems(key); const header = ['Time','Booking','Customer','Vehicle','Route','Status','Contact']; const lines = [header.map(csvCell).join(';')].concat(rows.map((item)=> [itemTime(item,key), safe(item.bookingNumber || item.vehicleLabel || item._id || item.id), safe(item.customerName || item.station), safe(item.assignedVehicleLabel || item.vehicleLabel), routeText(item), statusLabel(item), [safe(item.phone), safe(item.email)].filter(Boolean).join(' · ')].map(csvCell).join(';'))); const blob = new Blob([lines.join('\n')], { type:'text/csv;charset=utf-8' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `daily-${state.viewMode === 'desk' ? 'desk' : key}-${els.datePick.value || 'date'}.csv`; a.click(); setTimeout(()=> URL.revokeObjectURL(url), 3000); setStatus(`Export CSV • ${rows.length} rows`); }
+  function printCurrent(){ const key = state.viewMode === 'desk' ? 'desk' : state.activeTab; const rows = state.viewMode === 'desk' ? [...deskItems('out'), ...deskItems('in')] : currentTabItems(state.activeTab); const html = `<!doctype html><html><head><meta charset="utf-8"><title>Daily print</title><style>body{font-family:Arial,sans-serif;padding:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:8px;font-size:12px;text-align:left}th{background:#f5f5f5}</style></head><body><h2>Daily ${key} • ${esc(els.datePick.value)}</h2><table><thead><tr><th>Time</th><th>Booking</th><th>Customer</th><th>Vehicle</th><th>Route</th><th>Status</th></tr></thead><tbody>${rows.map((item)=> `<tr><td>${esc(itemTime(item,key))}</td><td>${esc(safe(item.bookingNumber || item.vehicleLabel || item._id || item.id))}</td><td>${esc(safe(item.customerName || item.station))}</td><td>${esc(safe(item.assignedVehicleLabel || item.vehicleLabel))}</td><td>${esc(routeText(item))}</td><td>${esc(statusLabel(item))}</td></tr>`).join('')}</tbody></table></body></html>`; const w = window.open('', '_blank'); if (!w) return; w.document.write(html); w.document.close(); w.focus(); w.print(); }
+  function reloadData(){ const d = els.datePick.value || ymd(new Date()); const start = new Date(d + 'T00:00:00'); const end = new Date(start); end.setDate(end.getDate()+1); postToWix({ type:'requestDailyData', date:d, startISO:start.toISOString(), endISO:end.toISOString() }); }
+  function refreshAuto(){ clearInterval(state.timer); if (!state.autoRefresh) { state.timer = null; els.autoChip.textContent = 'Auto refresh off'; return; } els.autoChip.textContent = 'Auto refresh on'; state.timer = setInterval(()=> reloadData(), 60000); }
+
+  document.addEventListener('click', (e)=>{
+    const routeBtn = e.target.closest('[data-route]');
+    if (routeBtn) { postToWix({ type:'navigate', route: routeBtn.getAttribute('data-route') }); return; }
+    const modeBtn = e.target.closest('[data-view-mode]');
+    if (modeBtn) { state.viewMode = modeBtn.getAttribute('data-view-mode'); render(); return; }
+    const tabBtn = e.target.closest('[data-tab-key]');
+    if (tabBtn) { state.activeTab = tabBtn.getAttribute('data-tab-key'); if (!currentTabItems(state.activeTab).some((it)=> String(it._id || it.id) === String(state.selected.id))) state.selected = { tab: state.activeTab, id:'' }; render(); return; }
+    const bookingSortBtn = e.target.closest('[data-book-sort]');
+    if (bookingSortBtn && state.activeTab === 'bookings') { const key = bookingSortBtn.getAttribute('data-book-sort') || ''; if (key) { if (state.bookingSort.key === key) state.bookingSort.dir = state.bookingSort.dir === 'asc' ? 'desc' : 'asc'; else state.bookingSort = { key, dir:'asc' }; render(); } return; }
+    const opsSortBtn = e.target.closest('[data-op-sort]');
+    if (opsSortBtn && state.activeTab !== 'bookings') { const key = opsSortBtn.getAttribute('data-op-sort') || ''; const scope = opsSortBtn.getAttribute('data-op-sort-scope') || 'ops'; if (key) { const cfg = scopeState(scope); const sort = state.scopeSort[cfg.id] || defaultSortForScope(scope); if (sort.key === key) sort.dir = sort.dir === 'asc' ? 'desc' : 'asc'; else state.scopeSort[cfg.id] = { key, dir:'asc' }; saveTablePrefs(); render(); } return; }
+    const panelToggleBtn = e.target.closest('[data-col-panel-toggle]');
+    if (panelToggleBtn) { togglePanelCollapsed(panelToggleBtn.getAttribute('data-col-panel-toggle') || 'checkout'); render(); return; }
+    const requestFocusBtn = e.target.closest('[data-request-focus]');
+    if (requestFocusBtn) { return; }
+    const fullFocusBtn = e.target.closest('[data-full-focus]');
+    if (fullFocusBtn) { const scope = ensureFullFocus(fullFocusBtn.getAttribute('data-full-scope') || scopeForTab(state.activeTab,'full')); state.fullFocus[scope] = fullFocusBtn.getAttribute('data-full-focus') || 'all'; render(); return; }
+    const deskFocusBtn = e.target.closest('[data-desk-focus]');
+    if (deskFocusBtn) { const scope = ensureTableFocus(deskFocusBtn.getAttribute('data-desk-scope') || 'deskout'); state.tableFocus[scope] = deskFocusBtn.getAttribute('data-desk-focus') || 'all'; render(); return; }
+    const colResetBtn = e.target.closest('[data-col-reset]');
+    if (colResetBtn) { resetCols(colResetBtn.getAttribute('data-col-reset') || 'checkout'); render(); return; }
+    const colShowAllBtn = e.target.closest('[data-col-showall]');
+    if (colShowAllBtn) { showAllCols(colShowAllBtn.getAttribute('data-col-showall') || 'checkout'); render(); return; }
+    const colCompactBtn = e.target.closest('[data-col-compact]');
+    if (colCompactBtn) { compactOptionalCols(colCompactBtn.getAttribute('data-col-compact') || 'checkout'); render(); return; }
+    const colPresetBtn = e.target.closest('[data-col-preset]');
+    if (colPresetBtn) { applyPreset(colPresetBtn.getAttribute('data-col-scope') || 'checkout', colPresetBtn.getAttribute('data-col-preset') || 'ops'); render(); return; }
+    const summaryBtn = e.target.closest('[data-summary-tab]');
+    if (summaryBtn) { const target = summaryTarget(summaryBtn.getAttribute('data-summary-tab') || 'bookings'); state.viewMode = target.mode; state.activeTab = target.tab === 'checkin' ? 'checkin' : (target.tab === 'checkout' ? 'checkout' : target.tab); state.selected = { tab: state.activeTab, id:'' }; render(); return; }
+    const rowAct = e.target.closest('[data-row-action]');
+    if (rowAct) { const tab = rowAct.getAttribute('data-row-tab') || state.activeTab; const id = rowAct.getAttribute('data-row-id') || ''; const item = itemByTabId(tab, id); if (!item) return; state.selected = { tab, id }; const action = rowAct.getAttribute('data-row-action') || ''; if (action === 'contract') return openContract(safe(item._id || item.id)); if (action === 'fleet') return openFleet(item); if (action === 'bookings') return openBookings(item); return; }
+    const row = e.target.closest('[data-select-id]');
+    if (row) { state.selected = { tab: row.getAttribute('data-select-tab') || state.activeTab, id: row.getAttribute('data-select-id') || '' }; render(); return; }
+    const act = e.target.closest('[data-action]');
+    if (act) { const item = selectedItem(); const action = act.getAttribute('data-action'); if (!item) return; if (action === 'contract') return openContract(safe(item._id || item.id)); if (action === 'fleet') return openFleet(item); if (action === 'bookings') return openBookings(item); }
+    if (e.target.closest('#requestModalClose')) return closeRequestModal();
+    if (e.target === els.requestOverlay) return closeRequestModal();
+    if (e.target.closest('#requestAcceptBtn') && state.requestFocus) return postToWix({ type:'dailyRequestAction', bookingId:safe(state.requestFocus._id || state.requestFocus.id), action:'accept' });
+    if (e.target.closest('#requestDeclineBtn') && state.requestFocus) return postToWix({ type:'dailyRequestAction', bookingId:safe(state.requestFocus._id || state.requestFocus.id), action:'decline' });
+    if (e.target.closest('#requestOpenContractBtn') && state.requestFocus) return openContract(safe(state.requestFocus._id || state.requestFocus.id));
+  });
+
+  document.addEventListener('pointerdown', (e)=>{
+    const handle = e.target.closest('[data-col-handle]');
+    if (handle) {
+      e.preventDefault();
+      const scope = handle.getAttribute('data-col-scope') || 'ops';
+      const col = handle.getAttribute('data-col-handle') || '';
+      const item = handle.closest('[data-col-item]');
+      if (!col || !item) return;
+      state.colDrag = { scope, col, item, startX:e.clientX, startY:e.clientY, active:false, target:'' };
+      return;
+    }
+    const thHandle = e.target.closest('[data-th-drag]');
+    if (thHandle) {
+      e.preventDefault();
+      const scope = thHandle.getAttribute('data-th-scope') || 'ops';
+      const col = thHandle.getAttribute('data-th-drag') || '';
+      const th = thHandle.closest('th');
+      if (!col || !th) return;
+      state.headDrag = { scope, col, th, startX:e.clientX, startY:e.clientY, active:false, target:'' };
+      return;
+    }
+    const res = e.target.closest('[data-resize-col]');
+    if (res) {
+      e.preventDefault(); e.stopPropagation();
+      const scope = res.getAttribute('data-resize-scope') || 'ops';
+      const col = res.getAttribute('data-resize-col') || '';
+      const th = res.closest('th');
+      if (!col || !th) return;
+      const startWidth = th.getBoundingClientRect().width;
+      const table = th.closest('table');
+      const onMove = (mv)=>{
+        const next = Math.max(78, Math.min(420, startWidth + (mv.clientX - e.clientX)));
+        const colNode = table?.querySelector(`col[data-col-key="${col}"]`);
+        if (colNode) colNode.style.width = `${next}px`;
+      };
+      const onUp = (up)=>{
+        document.body.classList.remove('is-col-resizing');
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onUp);
+        const next = Math.max(78, Math.min(420, startWidth + (up.clientX - e.clientX)));
+        setColWidth(scope, col, next);
+      };
+      document.body.classList.add('is-col-resizing');
+      document.addEventListener('pointermove', onMove);
+      document.addEventListener('pointerup', onUp, { once:true });
+      return;
+    }
+  });
+  document.addEventListener('pointermove', (e)=>{
+    if (state.colDrag) {
+      const drag = state.colDrag;
+      const dist = Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY);
+      if (!drag.active && dist < 6) return;
+      drag.active = true;
+      document.querySelectorAll('[data-col-item]').forEach((node)=> node.classList.remove('dragging','drag-over'));
+      drag.item.classList.add('dragging');
+      const hit = document.elementFromPoint(e.clientX, e.clientY)?.closest('[data-col-item]');
+      if (hit && hit !== drag.item && hit.getAttribute('data-col-scope') === drag.scope) { hit.classList.add('drag-over'); drag.target = hit.getAttribute('data-col-item') || ''; }
+      return;
+    }
+    if (state.headDrag) {
+      const drag = state.headDrag;
+      const dist = Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY);
+      if (!drag.active && dist < 6) return;
+      drag.active = true;
+      document.querySelectorAll(`th[data-th-scope="${drag.scope}"]`).forEach((node)=> node.classList.remove('dragging','drag-over'));
+      drag.th.classList.add('dragging');
+      const hit = document.elementFromPoint(e.clientX, e.clientY)?.closest(`th[data-th-scope="${drag.scope}"]`);
+      if (hit && hit !== drag.th) { hit.classList.add('drag-over'); drag.target = hit.getAttribute('data-th-col') || ''; }
+      return;
+    }
+  });
+  document.addEventListener('pointerup', ()=>{
+    if (state.colDrag) {
+      document.querySelectorAll('[data-col-item]').forEach((node)=> node.classList.remove('dragging','drag-over'));
+      if (state.colDrag.active && state.colDrag.target && state.colDrag.target !== state.colDrag.col) moveCol(state.colDrag.scope, state.colDrag.col, state.colDrag.target);
+      state.colDrag = null; render(); return;
+    }
+    if (state.headDrag) {
+      document.querySelectorAll('th[data-th-col]').forEach((node)=> node.classList.remove('dragging','drag-over'));
+      if (state.headDrag.active && state.headDrag.target && state.headDrag.target !== state.headDrag.col) moveCol(state.headDrag.scope, state.headDrag.col, state.headDrag.target);
+      state.headDrag = null; render(); return;
+    }
+  });
+  document.addEventListener('dblclick', (e)=>{ const row = e.target.closest('[data-select-id]'); if (!row) return; const tab = row.getAttribute('data-select-tab') || state.activeTab; const list = currentTabItems(tab); const item = list.find((it)=> String(it._id || it.id) === String(row.getAttribute('data-select-id') || '')); if (!item) return; if (item.itemType !== 'fleet') openContract(safe(item._id || item.id)); });
+
+  $('btnPrev').onclick = ()=>{ els.datePick.value = addDays(els.datePick.value || ymd(new Date()), -1); reloadData(); };
+  $('btnNext').onclick = ()=>{ els.datePick.value = addDays(els.datePick.value || ymd(new Date()), 1); reloadData(); };
+  $('btnToday').onclick = ()=>{ els.datePick.value = ymd(new Date()); reloadData(); };
+  $('btnRefresh').onclick = reloadData;
+  $('refreshPageBtn').onclick = ()=> postToWix({ type:'menuAction', action:'reload' });
+  $('exportBtn').onclick = exportCurrent; $('printBtn').onclick = printCurrent;
+  document.addEventListener('change', (e)=>{ const cb = e.target.closest('[data-col-visible]'); if (!cb) return; const scope = cb.getAttribute('data-col-scope') || 'ops'; const col = cb.getAttribute('data-col-visible') || ''; toggleCol(scope, col, !!cb.checked); render(); });
+  document.addEventListener('input', (e)=>{ const input = e.target.closest('[data-col-search]'); if (!input) return; const scope = input.getAttribute('data-col-search') || ''; const panel = input.closest('.toolSidePanel'); if (!panel) return; const q = String(input.value || '').trim().toLowerCase(); panel.querySelectorAll('[data-col-item]').forEach((row)=>{ const txt = String(row.getAttribute('data-col-label') || '').toLowerCase(); row.style.display = (!q || txt.includes(q)) ? '' : 'none'; }); const visible = Array.from(panel.querySelectorAll('[data-col-item]')).some((row)=> row.style.display !== 'none'); let empty = panel.querySelector('.toolColEmpty'); if (!visible){ if (!empty){ empty = document.createElement('div'); empty.className='toolColEmpty'; empty.textContent='No columns match this search.'; panel.querySelector('.toolColList')?.appendChild(empty); } } else if (empty) { empty.remove(); } });
+  document.addEventListener('click', (e)=>{
+    const densityBtn = e.target.closest('[data-density]');
+    if (densityBtn) {
+      state.rowDensity = densityBtn.getAttribute('data-density') === 'compact' ? 'compact' : 'comfortable';
+      saveUiPrefs();
+      render();
+      return;
+    }
+    if (e.target.closest('[data-clear-search]')) { state.search=''; if (els.search) els.search.value=''; render(); return; }
+    if (e.target.closest('[data-clear-station]')) { state.station='all'; if (els.station) els.station.value='all'; render(); return; }
+    if (e.target.closest('[data-clear-pending]')) { state.pendingOnly=false; if ($('pendingOnly')) $('pendingOnly').checked=false; render(); return; }
+    if (e.target.closest('[data-queue-clear]')) { return; }
+  });
+  document.addEventListener('click', (e)=>{ if (e.target.closest('.toolSidePanel')) e.stopPropagation(); }, true);
+  window.addEventListener('resize', ()=>{ if (state.colMenu) positionOpenColumnMenus(); });
+  window.addEventListener('scroll', ()=>{ if (state.colMenu) positionOpenColumnMenus(); }, true);
+  els.search.addEventListener('input', ()=>{ state.search = els.search.value || ''; render(); });
+  els.station.addEventListener('change', ()=>{ state.station = els.station.value || 'all'; render(); });
+  if ($('pendingOnly')) $('pendingOnly').addEventListener('change', ()=>{ state.pendingOnly = !!$('pendingOnly').checked; render(); });
+  $('autoRefresh').addEventListener('change', ()=>{ state.autoRefresh = !!$('autoRefresh').checked; refreshAuto(); });
+  els.datePick.addEventListener('change', reloadData);
+
+  const menuBtn = $('userMenuBtn'), menu = $('userMenu');
+  if (menuBtn && menu) {
+    menuBtn.addEventListener('click', (e)=>{ e.stopPropagation(); menu.classList.toggle('open'); reportHeight(menu.classList.contains('open') ? 260 : 0); });
+    document.addEventListener('click', (e)=>{ if (!menu.contains(e.target) && !menuBtn.contains(e.target)) { menu.classList.remove('open'); reportHeight(); } });
+    menu.querySelectorAll('[data-menu-action]').forEach((node)=> node.addEventListener('click', ()=>{ postToWix({ type:'menuAction', action: node.getAttribute('data-menu-action') }); menu.classList.remove('open'); reportHeight(); }));
+  }
+
+  window.addEventListener('message', (event)=>{
+    const d = event.data || {};
+    if (!d || !d.type) return;
+    if (d.type === 'resume') { els.datePick.value = ymd(new Date()); reloadData(); return; }
+    if (d.type === 'loadDailyOps') {
+      state.data = { tabs: d.tabs || {}, summary: d.summary || {}, stations: Array.isArray(d.stations) ? d.stations : [], debug: d.debug || {} };
+      if (!Array.isArray(state.data.tabs.checkout) || (!state.data.tabs.checkout.length && Array.isArray(d.checkOut) && d.checkOut.length)) state.data.tabs.checkout = Array.isArray(d.checkOut) ? d.checkOut : [];
+      if (!Array.isArray(state.data.tabs.checkin) || (!state.data.tabs.checkin.length && Array.isArray(d.checkIn) && d.checkIn.length)) state.data.tabs.checkin = Array.isArray(d.checkIn) ? d.checkIn : [];
+      if (!Array.isArray(state.data.tabs.bookings) || (!state.data.tabs.bookings.length && Array.isArray(d.bookings) && d.bookings.length)) state.data.tabs.bookings = Array.isArray(d.bookings) ? d.bookings : [];
+      const wantedDefault = state.viewMode === 'desk' ? 'checkout' : state.activeTab;
+      if (state.activeTab === 'requests') state.activeTab = 'checkout';
+      if (!currentTabItems(wantedDefault).length && state.data.tabs.checkout?.length) state.selected = { tab:'checkout', id: safe(state.data.tabs.checkout[0]._id || state.data.tabs.checkout[0].id) };
+      if (!els.datePick.value) els.datePick.value = ymd(new Date());
+      setStatus(`OK • out=${state.data.summary.checkout || 0} in=${state.data.summary.checkin || 0} bookings=${state.data.summary.bookings || 0} overdue=${state.data.summary.overdue || 0}`);
+      render(); return;
+    }
+    if (d.type === 'focusBooking') {
+      const bookingId = safe(d.bookingId || '');
+      const preferredTab = safe(d.preferredTab || '');
+      const requestedMode = safe(d.viewMode || '');
+      if (bookingId) {
+        const fullTabs = ['checkout','checkin','bookings','precheckins','cancellations','activeUnder','activeOver','nonRevenue','overdue','available','grounded','equipment'];
+        const tabOrder = preferredTab ? [preferredTab, ...fullTabs.filter((key)=> key !== preferredTab)] : fullTabs;
+        let found = null;
+        for (const key of tabOrder) {
+          const hit = currentTabItems(key).find((item)=> String(item._id || item.id || '') === String(bookingId));
+          if (hit) { found = { key, hit }; break; }
+        }
+        if (found) {
+          state.activeTab = found.key;
+          state.selected = { tab: found.key, id: bookingId };
+          if (requestedMode === 'desk' && (found.key === 'checkout' || found.key === 'checkin')) state.viewMode = 'desk';
+          else state.viewMode = found.key === 'checkout' || found.key === 'checkin' ? 'desk' : 'full';
+          render();
+          setStatus(`Focused booking • ${bookingId} • ${TAB_CONFIG[found.key]?.label || found.key}`);
+        }
+      }
+      return;
+    }
+    if (d.type === 'dailyActionResult') { setStatus(d.message || (d.success ? 'ΟΚ' : 'Action failed')); if (d.success) closeRequestModal(); return; }
+    if (d.type === 'userContext' || d.type === 'backroomUserContext') {
+      const u = d.user || d.identity || d || {};
+      const role = d.role || d.currentRole || d || {};
+      state.siteBase = safe(d.siteBase || '');
+      state.can = d.canNavigate || state.can;
+      state.user.name = safe(u.displayName || u.fullName || u.name || u.email || d.fullName || d.name || d.email || 'Operator');
+      state.user.role = safe(role.label || role.roleLabel || role.name || d.roleLabel || d.role || 'Backroom');
+      $('menuUserName').textContent = state.user.name; $('menuUserRole').textContent = state.user.role; $('menuUserName2').textContent = state.user.name; $('menuUserRole2').textContent = state.user.role; $('userBadge').textContent = state.user.name.slice(0,2).toUpperCase();
+      document.querySelectorAll('[data-route]').forEach((btn)=>{ const route = btn.getAttribute('data-route'); if (state.can && Object.prototype.hasOwnProperty.call(state.can, route) && !state.can[route]) btn.style.display = 'none'; });
+      try { $('todayMeta').textContent = new Date().toLocaleDateString('el-GR',{ weekday:'short', day:'2-digit', month:'2-digit', year:'numeric' }); } catch(_) {}
+      reportHeight();
+    }
+  });
+
+  postToWix({ type:'requestUserContext' });
+})();
+</script>
+</body>
+</html>

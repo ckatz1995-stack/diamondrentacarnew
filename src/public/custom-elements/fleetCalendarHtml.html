@@ -1,0 +1,1439 @@
+<!DOCTYPE html>
+
+<html lang="el">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width,initial-scale=1" name="viewport"/>
+<link href="https://unpkg.com/vis-timeline@7.7.4/styles/vis-timeline-graph2d.min.css" rel="stylesheet"/>
+<script src="https://unpkg.com/vis-data@7.1.4/dist/vis-data.min.js"></script>
+<script src="https://unpkg.com/vis-timeline@7.7.4/standalone/umd/vis-timeline-graph2d.min.js"></script>
+<style>
+    :root{
+      --bg:#f3f6fb;
+      --card:#ffffff;
+      --border:rgba(15,23,42,0.10);
+      --shadow:0 12px 28px rgba(15,23,42,0.06);
+      --text:#0f172a;
+      --sub:#475569;
+      --ring: rgba(180,138,79,0.18);
+      --pri1:#a8844a;
+      --pri2:#8e6d3d;
+      --hero1:#8e6d3d;
+      --hero2:#a8844a;
+      --hero3:#6c522e;
+    }
+    html, body { height:100%; margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; background:var(--bg); color:var(--text); -webkit-text-size-adjust:100%; }
+    #wrap { min-height:100vh; display:flex; flex-direction:column; padding:12px; box-sizing:border-box; gap:10px; background:radial-gradient(circle at top left,rgba(255,255,255,.92) 0%,rgba(243,246,251,.96) 40%,rgba(240,244,250,1) 100%); }
+
+    #topbar{display:flex;flex-direction:column;gap:0;padding:0;background:linear-gradient(135deg,#4f3a22 0%,#7a5b33 46%,#9f7845 100%);border:1px solid var(--border);border-radius:22px;box-shadow:var(--shadow);position:relative;top:auto;z-index:12;overflow:visible}
+    .routeTop{display:grid;grid-template-columns:320px minmax(0,1fr);min-height:76px}
+    .brandPanel{position:relative;display:flex;align-items:center;gap:12px;padding:14px 16px;background:linear-gradient(135deg,var(--hero1) 0%,var(--hero2) 62%,var(--hero3) 100%);color:#fff;overflow:hidden}
+    .brandPanel::after{content:'';position:absolute;right:-34px;top:-16px;bottom:-16px;width:86px;background:linear-gradient(120deg,rgba(255,255,255,.18),rgba(255,255,255,0));transform:skewX(-18deg)}
+    .brandText{display:flex;flex-direction:column;gap:3px;line-height:1.04;position:relative;z-index:1}.brandTitle{font-weight:1100;font-size:16px;letter-spacing:-.02em}.brandSub{font-size:11px;color:rgba(255,255,255,.84);font-weight:900}
+    .headerZone{display:flex;flex-direction:column;min-width:0;overflow:visible}.headerNavRow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 16px 10px;border-bottom:1px solid rgba(255,255,255,.08);overflow:visible}
+    .headerTools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;overflow:visible;position:relative;z-index:6}
+    .routeRow{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px}
+    .routeLeft{min-width:0;overflow:auto;padding-bottom:2px}.routeLeft::-webkit-scrollbar{height:7px}.routeLeft::-webkit-scrollbar-thumb{background:rgba(148,163,184,.45);border-radius:999px}
+    .routeLine{min-width:760px;display:flex;align-items:center;gap:10px;white-space:nowrap}
+    .routeBrand{display:inline-flex;align-items:center;gap:12px;padding:11px 14px;border-radius:18px;background:linear-gradient(135deg,var(--hero1) 0%,var(--hero2) 62%,var(--hero3) 100%);color:#fff;border:1px solid rgba(255,255,255,.08);font-weight:950;flex:0 0 auto;box-shadow:0 16px 32px rgba(183,17,37,.18);position:relative;overflow:hidden}
+    .routeBrand::after{content:'';position:absolute;right:-18px;top:-10px;bottom:-10px;width:54px;background:linear-gradient(120deg,rgba(255,255,255,.18),rgba(255,255,255,0));transform:skewX(-18deg)}
+    .routeLogo{width:36px;height:36px;border-radius:12px;display:grid;place-items:center;background:rgba(255,255,255,.16);color:#fff;font-weight:1100;font-size:16px;box-shadow:inset 0 1px 0 rgba(255,255,255,.22)}
+    .routeBrandText{display:flex;flex-direction:column;line-height:1.06;position:relative;z-index:1}.routeBrandTitle{font-weight:1100;font-size:13px;letter-spacing:-.01em}.routeBrandSub{font-size:10px;color:rgba(255,255,255,.82);font-weight:900}
+    .routeTabs{ display:inline-flex; gap:6px; align-items:center; flex-wrap:wrap; }
+    .routeBtn{ border:1px solid rgba(255,255,255,.14); border-radius:14px; padding:9px 12px; background:rgba(255,255,255,.06); font-size:11.5px; cursor:pointer; font-weight:900; box-shadow:0 8px 18px rgba(2,6,23,.14); color:#fff; }
+    .routeBtn.active{ background:linear-gradient(135deg,#b48a4f,#8e6d3d); color:#fff; border-color:transparent; box-shadow:0 12px 24px rgba(91,68,35,.24); }
+    .routeMeta{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;padding:10px 16px 12px}
+    .routeChip{display:inline-flex;align-items:center;gap:6px;padding:7px 11px;border-radius:999px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);font:800 10.5px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:rgba(255,244,230,.88)}
+    .routeChip.primary{background:#fff;color:#6c522e;border-color:#fff;box-shadow:0 10px 18px rgba(255,255,255,.12)}
+    .routeChip.soft{background:rgba(255,255,255,.08);color:rgba(255,239,214,.9);border-color:rgba(255,255,255,.10)}
+    .userMenuWrap{position:relative;display:inline-flex;align-items:center;flex:0 0 auto;overflow:visible;z-index:40}
+    .userMenuBtn{display:inline-flex;align-items:center;gap:8px;padding:7px 11px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);border-radius:999px;cursor:pointer;font:900 11px/1.1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#fff;box-shadow:0 8px 18px rgba(2,6,23,.14)}
+    .userBadge{width:24px;height:24px;border-radius:999px;display:grid;place-items:center;background:rgba(255,255,255,.16);color:#fff;font-weight:1100;font-size:10px;border:1px solid rgba(255,255,255,.18)}
+    .userText{display:flex;flex-direction:column;align-items:flex-start}.userName{font-weight:1000;font-size:11px}.userRole{font-size:9px;color:rgba(255,255,255,.72);font-weight:900}.caret{font-size:10px;color:rgba(255,255,255,.72)}
+    .userMenu{position:absolute;right:0;top:calc(100% + 8px);min-width:230px;background:#fff;border:1px solid rgba(0,0,0,.10);border-radius:16px;box-shadow:0 18px 45px rgba(0,0,0,.16);display:none;z-index:99999;overflow:hidden}
+    .userMenu.open{display:block}.userMenuHead{padding:12px 14px;background:linear-gradient(135deg,rgba(180,138,79,.16),rgba(108,82,46,.10));border-bottom:1px solid rgba(0,0,0,.06)}
+    .userMenuItem{padding:12px 14px;font:900 13px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#0f172a;background:#fff;border:0;border-bottom:1px solid rgba(0,0,0,.06);text-align:left;cursor:pointer;width:100%}
+    .userMenuItem:last-child{border-bottom:none}.userMenuItem:hover{background:rgba(180,138,79,.08)}.userMenuItem.danger{color:#b91c1c}
+    .routeHelper{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+    .routeHelperText{font:800 11px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:rgba(255,242,225,.82)}
+    .routeHelperStats{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+
+    .controls{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    button{
+      border:1px solid rgba(0,0,0,0.12); border-radius:13px;
+      padding:8px 11px; background:#fff; font-size:12px; cursor:pointer;
+      box-shadow: 0 8px 18px rgba(0,0,0,0.04);
+      transition: transform .06s ease, box-shadow .12s ease;
+      font-weight: 850;
+      user-select:none;
+    }
+    button:hover{ box-shadow: 0 14px 30px rgba(0,0,0,0.08); }
+    button:active{ transform: scale(0.985); }
+
+    .btnPrimary{
+      background:linear-gradient(135deg,var(--pri1),var(--pri2));
+      color:#fff;
+      border-color:rgba(255,255,255,.18);
+    }
+
+    .rangeWrap{
+      display:flex; gap:8px; align-items:center; padding:7px 9px;
+      border-radius:15px; background: #f8fafc; border: 1px solid rgba(0,0,0,0.06);
+    }
+    .rangeWrap label{ font-size:12px; color: var(--sub); font-weight:900; }
+    .rangeWrap input[type="date"]{
+      border: 1px solid rgba(0,0,0,0.12); border-radius:12px; padding:7px 10px;
+      font-size:12px; background:#fff; outline:none;
+    }
+
+    .searchWrap{
+      display:flex; gap:8px; align-items:center; padding:7px 9px;
+      border-radius:15px; background: #f8fafc; border: 1px solid rgba(0,0,0,0.06);
+      min-width: 0; flex:1 1 300px;
+    }
+    .searchWrap input{
+      width: min(100%, 240px);
+      border: 1px solid rgba(0,0,0,0.12);
+      border-radius: 12px;
+      padding: 7px 10px;
+      font-size: 12px;
+      outline: none;
+      background:#fff;
+    }
+    .searchWrap input:focus{
+      border-color: rgba(180,138,79,0.35);
+      box-shadow: 0 0 0 4px var(--ring);
+    }
+
+    .statusLine{padding:9px 11px;border-radius:15px;border:1px dashed rgba(0,0,0,0.18);background: rgba(180,138,79,0.07);font-size:10.5px;font-weight:950;color:#4b3a22;white-space:pre-wrap;min-width: 240px;}
+     .toolbarBand{margin-top:0;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:start;background:linear-gradient(180deg,#ffffff 0%,#f8fbff 100%);padding-top:0}
+
+     .pageHero{margin-top:0;margin-top:0;padding:14px 16px 12px;background:linear-gradient(180deg,#ffffff 0%,#f8fbff 100%);border:1px solid var(--border);border-radius:22px;box-shadow:var(--shadow)}
+     .pageHeroRow{padding:14px 16px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:start}
+    .pageEyebrow{display:inline-flex;align-items:center;gap:8px;padding:7px 11px;border-radius:999px;background:#8e6d3d;color:#fff;font:900 10.5px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;box-shadow:0 10px 18px rgba(91,68,35,.14)}
+    .pageTitle{margin:10px 0 4px;font:1100 24px/1.04 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#3b2a18;letter-spacing:-.03em}
+    .pageSub{font:800 12.5px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#64748b;max-width:860px}
+    .pageHeroChips{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+    .heroChip{display:inline-flex;align-items:center;gap:6px;padding:8px 11px;border-radius:999px;border:1px solid rgba(108,82,46,.10);background:#fff;font:900 10.5px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#334155}.heroChip.primary{background:#8e6d3d;color:#fff;border-color:#8e6d3d;box-shadow:0 10px 18px rgba(91,68,35,.18)}
+
+    .opsRail{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+    .opsTile{padding:12px 14px;border-radius:18px;border:1px solid rgba(15,23,42,.08);background:linear-gradient(180deg,#ffffff 0%,#fbfdff 100%);box-shadow:0 10px 24px rgba(15,23,42,.05);display:grid;gap:6px}
+    .opsTileLabel{font:900 10.5px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#8e6d3d;text-transform:uppercase;letter-spacing:.06em}
+    .opsTileTitle{font:1000 15px/1.15 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#0f172a}
+    .opsTileText{font:800 11px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#475569}
+    .opsMiniList{display:flex;gap:6px;flex-wrap:wrap}
+    .opsMiniPill{display:inline-flex;align-items:center;gap:6px;padding:6px 9px;border-radius:999px;border:1px solid rgba(108,82,46,.10);background:#fff;font:900 10px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#5b4323}
+    .statsLine{
+      width:100%;
+      display:grid;
+      grid-template-columns:repeat(5,minmax(0,1fr));
+      gap:10px;
+      margin-top:10px;
+    }
+    .stat{
+      display:flex;
+      flex-direction:column;
+      gap:5px;
+      padding:11px 13px;
+      border-radius:18px;
+      border:1px solid rgba(15,23,42,.08);
+      background: linear-gradient(180deg,#ffffff 0%,#f8fbff 100%);
+      box-shadow:0 10px 24px rgba(15,23,42,.05);
+      color: rgba(15,23,42,0.86);
+    }
+    .statLabel{font-size:11px;font-weight:900;color:#64748b;text-transform:uppercase;letter-spacing:.04em}
+    .statValue{font-size:20px;font-weight:1100;line-height:1;color:#0f172a}
+    .statMeta{font-size:11px;font-weight:800;color:#475569;line-height:1.35}
+
+    .legendStrip{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:10px 12px;border:1px solid rgba(15,23,42,.08);border-radius:18px;background:linear-gradient(180deg,#ffffff 0%,#fbfdff 100%);box-shadow:0 10px 24px rgba(15,23,42,.05)}
+    .legendLabel{font:900 10.5px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#8e6d3d;text-transform:uppercase;letter-spacing:.06em;margin-right:2px}
+    .legendPill{display:inline-flex;align-items:center;gap:7px;padding:7px 10px;border-radius:999px;border:1px solid rgba(15,23,42,.08);background:#fff;font:900 10.5px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#334155}
+    .legendDot{width:9px;height:9px;border-radius:999px;display:inline-block}
+    .legendDot.bk{background:linear-gradient(135deg, rgba(168,85,247,0.92), rgba(139,92,246,0.86))}
+    .legendDot.run{background:linear-gradient(135deg, rgba(34,197,94,0.92), rgba(16,185,129,0.86))}
+    .legendDot.in{background:linear-gradient(135deg, rgba(59,130,246,0.95), rgba(37,99,235,0.88))}
+    .legendDot.cnc{background:linear-gradient(135deg, rgba(239,68,68,0.92), rgba(220,38,38,0.86))}
+    .legendDot.nr{background:linear-gradient(135deg, rgba(100,116,139,0.92), rgba(71,85,105,0.88))}
+
+     .workspacePanel{margin-top:0;display:grid;gap:8px}
+    .workspaceHead{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px 16px;border:1px solid rgba(15,23,42,.08);border-radius:18px;background:linear-gradient(180deg,#ffffff 0%,#fbfdff 100%);box-shadow:0 10px 24px rgba(15,23,42,.05)}
+    .workspaceTitle{font:1000 17px/1.14 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#0f172a}
+    .workspaceSub{margin-top:4px;font:800 11.5px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#64748b;max-width:760px}
+    .workspaceTools{display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end}
+    .workspaceBadge{display:inline-flex;align-items:center;gap:6px;padding:7px 10px;border-radius:999px;border:1px solid rgba(15,23,42,.08);background:#fff;font:900 10.5px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#334155}
+    .workspaceBadge.primary{background:rgba(180,138,79,.10);border-color:rgba(180,138,79,.22);color:#6c522e}
+    #timeline { flex:1; min-height:64vh; background:#fff; border:1px solid rgba(0,0,0,0.10); border-radius:18px; overflow:hidden; box-shadow:var(--shadow); }
+
+    .vis-panel.vis-left { border-right: 1px solid rgba(0,0,0,0.08); background:linear-gradient(180deg,#fbfdff 0%,#f7fafc 100%); }
+    .vis-labelset .vis-label { border-bottom: 1px solid rgba(0,0,0,0.05); cursor:pointer; }
+    .vis-label .vis-inner{ padding:0 !important; font-weight:650; color:#111827; }
+    .vis-label.vis-nested-group .vis-inner{ padding:0 !important; font-weight: 950; color:#0f172a; background:transparent; border-radius: 0; border:0; }
+    .vis-group.fleetRowOdd { background:rgba(148,163,184,.045); }
+    .vis-group.fleetRowEven { background:#fff; }
+    .vis-group.fleetCatGroup { background:linear-gradient(180deg,#f7f1e7 0%,#fdf8f2 100%); }
+
+    .vis-item{ border-radius: 6px; border-width:0 !important; color:#fff; font-size:11px; font-weight:950; padding:0 !important; box-shadow:0 8px 18px rgba(0,0,0,0.12); }
+    .vis-item, .vis-item *{ user-select:none !important; -webkit-user-select:none !important; -ms-user-select:none !important; }
+
+    .vis-item.bkItem.bk  { background: linear-gradient(135deg, rgba(168,85,247,0.92), rgba(139,92,246,0.86)); }
+    .vis-item.bkItem.pre { background: linear-gradient(135deg, rgba(168,85,247,0.92), rgba(139,92,246,0.86)); border: 2px dashed rgba(255,255,255,0.55) !important; }
+    .vis-item.bkItem.run { background: linear-gradient(135deg, rgba(34,197,94,0.92), rgba(16,185,129,0.86)); }
+    .vis-item.bkItem.in  { background: linear-gradient(135deg, rgba(59,130,246,0.95), rgba(37,99,235,0.88)); }
+    .vis-item.bkItem.cnc { background: linear-gradient(135deg, rgba(239,68,68,0.92), rgba(220,38,38,0.86)); text-decoration: line-through; opacity:0.9; }
+    .vis-item.bkItem.nr  { background: linear-gradient(135deg, rgba(100,116,139,0.92), rgba(71,85,105,0.88)); border: 2px dashed rgba(255,255,255,0.55) !important; }
+
+    .card{
+      display:flex; flex-direction:column;
+      border-radius: 6px;
+      padding: 3px 6px;
+      background: rgba(255,255,255,0.08);
+      pointer-events:none;
+      white-space:nowrap;
+      border:1px solid rgba(255,255,255,0.12);
+    }
+
+    .rowMain{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;}
+    .tL, .tR{font-size:10px;font-weight:1000;opacity:0.95;flex:0 0 auto;min-width:34px;text-align:center;}
+    .mid{
+      flex:1 1 auto;
+      min-width: 0;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      gap:4px;
+      line-height:1.1;
+    }
+    .cust{
+      font-weight: 1000;
+      font-size: 11px;
+      letter-spacing: 0.2px;
+      max-width:100%;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .loc{
+      font-size:10px;
+      font-weight: 900;
+      opacity: 0.95;
+      max-width:100%;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .vis-current-time{ background: rgba(180,138,79,0.72) !important; width:2px !important; }
+    .vis-item.vis-selected{box-shadow:0 0 0 2px rgba(180,138,79,.55), 0 10px 24px rgba(15,23,42,.16) !important;}
+    .vis-time-axis .vis-text{font:900 10px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#475569}
+    .vis-time-axis .vis-grid.vis-major{border-color:rgba(15,23,42,.08)}
+    .vis-time-axis .vis-grid.vis-minor{border-color:rgba(15,23,42,.04)}
+
+    /* Unassigned modal */
+    #uOverlay{ position:fixed; inset:0; background:rgba(15,23,42,.55); display:none; align-items:center; justify-content:center; z-index:1000001; }
+    #uModal{ width:min(980px, calc(100vw - 24px)); background:#fff; border-radius:18px; border:1px solid rgba(0,0,0,.10); box-shadow:0 30px 80px rgba(0,0,0,.35); overflow:hidden; }
+    #uHead{ padding:14px 16px; border-bottom:1px solid rgba(0,0,0,.08); background:linear-gradient(135deg,rgba(180,138,79,.16),rgba(108,82,46,.10)); font-weight:1000; display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    #uBody{ padding:14px 16px 18px; }
+    #uClose{ border: 1px solid rgba(0,0,0,0.14); background:#fff; border-radius: 12px; padding: 8px 10px; cursor:pointer; font-weight: 900; }
+    #uTable{ width:100%; border-collapse:collapse; }
+    #uTable th, #uTable td{ text-align:left; font-size:12px; padding:10px; border-bottom:1px solid rgba(0,0,0,0.06); vertical-align:top; }
+    #uTable th{ font-weight:950; color:rgba(15,23,42,.85); background:rgba(180,138,79,.08); }
+    .uActions{ display:flex; gap:8px; flex-wrap:wrap; }
+    .muted{ color:rgba(75,58,34,.76); font-weight:900; }
+    
+
+    .plannerSchema{display:grid;grid-template-columns:388px minmax(0,1fr);gap:0;border:1px solid rgba(15,23,42,.08);border-radius:16px;overflow:hidden;background:#fff;box-shadow:0 10px 24px rgba(15,23,42,.05)}
+    .plannerSchemaLeft{display:grid;grid-template-columns:42px 94px 108px 72px 72px;align-items:center;background:linear-gradient(180deg,#f8fafc 0%,#f3f7fb 100%);border-right:1px solid rgba(15,23,42,.08)}
+    .plannerSchemaLeft span,.plannerSchemaRight span{padding:9px 10px;font:1000 10px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;text-transform:uppercase;letter-spacing:.07em;color:#64748b;border-right:1px solid rgba(15,23,42,.06)}
+    .plannerSchemaLeft span:last-child,.plannerSchemaRight span:last-child{border-right:none}
+    .plannerSchemaRight{display:flex;align-items:center;justify-content:space-between;gap:8px;background:linear-gradient(180deg,#ffffff 0%,#fbfdff 100%)}
+    .plannerSchemaRight strong{padding:9px 12px;font:1000 10px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;text-transform:uppercase;letter-spacing:.07em;color:#8e6d3d}
+    .plannerSchemaRight span{flex:1;border-right:none;color:#94a3b8}
+    .fleetCatCell{display:flex;align-items:center;gap:10px;padding:8px 10px;background:linear-gradient(180deg,#f7f1e7 0%,#fdf8f2 100%);border-bottom:1px solid rgba(15,23,42,.05)}
+    .fleetCatCode{display:inline-flex;align-items:center;justify-content:center;min-width:26px;height:26px;padding:0 8px;border-radius:999px;background:linear-gradient(180deg,#b48a4f 0%,#8e6d3d 100%);color:#fff;font:1000 11px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+    .fleetCatMeta{font:900 11px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#6b7280}
+    .fleetGroupCell{display:grid;grid-template-columns:42px 94px 108px 72px 72px;align-items:center;min-height:36px;background:transparent}
+    .fleetCol{padding:8px 8px 8px 10px;font:900 11px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#111827;border-right:1px solid rgba(15,23,42,.05);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .fleetCol:last-child{border-right:none}
+    .fleetNo{color:#64748b;font:1000 10px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;text-align:center;padding-left:0;padding-right:0}
+    .fleetPlate{font-weight:1000;color:#0f172a}
+    .fleetModel,.fleetStation,.fleetCategory{color:#475569;font-weight:850}
+    .ctxMenu{position:fixed;min-width:210px;background:#fff;border:1px solid rgba(15,23,42,.10);border-radius:16px;box-shadow:0 20px 44px rgba(15,23,42,.18);display:none;z-index:1000002;overflow:hidden}
+    .ctxMenu.open{display:block}
+    .ctxHead{padding:11px 13px;background:linear-gradient(135deg,rgba(180,138,79,.14),rgba(108,82,46,.08));border-bottom:1px solid rgba(15,23,42,.08);font:1000 11px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#6c522e}
+    .ctxItem{width:100%;border:0;background:#fff;padding:11px 13px;text-align:left;font:900 12px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#0f172a;cursor:pointer;border-bottom:1px solid rgba(15,23,42,.06);box-shadow:none;border-radius:0}
+    .ctxItem:last-child{border-bottom:none}
+    .ctxItem:hover{background:rgba(180,138,79,.08)}
+    .ctxItem.danger{color:#b42318;background:#fff}
+    .ctxItem.danger:hover{background:#fff5f5}
+    .fleetHoverTip{position:fixed;max-width:320px;background:#0f172a;color:#fff;border-radius:14px;padding:10px 12px;box-shadow:0 18px 40px rgba(15,23,42,.28);display:none;z-index:1000001;font:800 11px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;pointer-events:none;white-space:pre-wrap}
+    .fleetHoverTip.open{display:block}
+@media (max-width: 1180px){
+      .routeRow,.toolbarBand,.statsLine,.opsRail{ grid-template-columns:1fr; }
+      .controls, .rangeWrap, .searchWrap, .statusLine{ width:100%; }
+      .searchWrap input{ width:100%; }
+      .routeMeta{justify-content:flex-start}
+      .routeLine{min-width:640px}
+    }
+    @media (max-width: 720px){
+      #wrap{ gap:8px; padding:8px; }
+      #topbar{ padding:10px; border-radius:18px; }
+      .routeBrand{padding:10px 12px}
+      .routeLine{min-width:560px}
+      button{ padding:8px 10px; font-size:12px; }
+      .rangeWrap{ flex-wrap:wrap; }
+      .rangeWrap input[type="date"]{ width:100%; }
+      .searchWrap{ padding:8px; }
+      #timeline{ min-height:72vh; }
+      .card{ padding:8px 10px; }
+      .cust{ font-size:12px; }
+      .loc,.tL,.tR{ font-size:10.5px; }
+      #uModal, #bModal{ width:calc(100vw - 14px); }
+    }
+
+    .actionDock{display:grid;grid-template-columns:1.08fr .96fr .96fr;gap:10px;margin:10px 0}
+    .dockCard{position:relative;overflow:hidden;padding:12px 14px;border-radius:18px;border:1px solid rgba(15,23,42,.08);background:linear-gradient(180deg,#ffffff 0%,#fbfdff 100%);box-shadow:0 10px 24px rgba(15,23,42,.05);display:grid;gap:6px}
+    .dockCard::after{content:"";position:absolute;right:-18px;top:-18px;width:82px;height:82px;border-radius:999px;background:radial-gradient(circle,rgba(180,138,79,.10),rgba(180,138,79,0));pointer-events:none}
+    .dockLabel{font:900 10.5px/1.15 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#8e6d3d;text-transform:uppercase;letter-spacing:.06em}
+    .dockTitle{font:1000 15px/1.12 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#0f172a}
+    .dockText{font:800 11px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#475569}
+    .dockMeta{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+    .dockPill{display:inline-flex;align-items:center;gap:6px;padding:6px 9px;border-radius:999px;border:1px solid rgba(15,23,42,.08);background:#fff;font:900 10px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#334155}
+    .dockPill.primary{background:rgba(180,138,79,.10);border-color:rgba(180,138,79,.20);color:#6c522e}
+    #timeline{position:relative}
+    #timeline::before{display:none;content:""}
+    #uOverlay,#bOverlay{backdrop-filter:blur(4px)}
+    #uModal,#bModal{border-radius:22px;border-color:rgba(15,23,42,.08);box-shadow:0 34px 80px rgba(15,23,42,.30)}
+    #uHead,#bHead{padding:14px 16px;background:linear-gradient(180deg,#fffaf2 0%,#f7f0e5 100%);border-bottom:1px solid rgba(15,23,42,.08)}
+    #uClose,#bClose{border-radius:999px;border:1px solid rgba(15,23,42,.12);background:#fff;color:#334155;font-weight:900;padding:8px 12px}
+    #uTable thead th{position:sticky;top:0;z-index:1;background:#f8fafc}
+    #uTable tbody tr:hover{background:rgba(180,138,79,.06)}
+    .bField{border-radius:16px;background:linear-gradient(180deg,#ffffff 0%,#fbfdff 100%);border:1px solid rgba(15,23,42,.08);padding:11px 12px}
+    
+    .patternStrip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:10px 0 2px}
+    .patternCard{position:relative;overflow:hidden;padding:12px 13px;border-radius:18px;border:1px solid rgba(15,23,42,.08);background:linear-gradient(180deg,#ffffff 0%,#fbf8f3 100%);box-shadow:0 10px 22px rgba(15,23,42,.04);display:grid;gap:5px}
+    .patternCard::after{content:"";position:absolute;right:-14px;top:-14px;width:72px;height:72px;border-radius:999px;background:radial-gradient(circle,rgba(180,138,79,.12),rgba(180,138,79,0));pointer-events:none}
+    .patternKick{font-size:10px;font-weight:1000;letter-spacing:.08em;text-transform:uppercase;color:#8e6d3d}
+    .patternValue{font-size:15px;font-weight:1050;letter-spacing:-.02em;color:#0f172a}
+    .patternMeta{font-size:12px;line-height:1.45;font-weight:800;color:#64748b}
+    @media (max-width:980px){.patternStrip{grid-template-columns:repeat(2,minmax(0,1fr));}}
+    @media (max-width:720px){.patternStrip{grid-template-columns:1fr;}}
+
+@media (max-width:980px){.actionDock{grid-template-columns:1fr 1fr}}
+    @media (max-width:720px){.actionDock{grid-template-columns:1fr}}
+
+
+  
+    /* Booking quick modal */
+    #bOverlay{ position:fixed; inset:0; background:rgba(15,23,42,.55); display:none; align-items:center; justify-content:center; z-index:1000002; }
+    #bModal{ width:min(720px, calc(100vw - 24px)); background:#fff; border-radius:18px; border:1px solid rgba(0,0,0,.10); box-shadow:0 30px 80px rgba(0,0,0,.35); overflow:hidden; }
+    #bHead{ padding:14px 16px; border-bottom:1px solid rgba(0,0,0,.08); background:linear-gradient(135deg,rgba(180,138,79,.16),rgba(108,82,46,.10)); font-weight:1000; display:flex; align-items:center; justify-content:space-between; gap:10px; }
+    #bClose{ border: 1px solid rgba(0,0,0,0.14); background:#fff; border-radius: 12px; padding: 8px 10px; cursor:pointer; font-weight: 900; }
+    #bBody{ padding:14px 16px 18px; display:flex; flex-direction:column; gap:10px; }
+    .bGrid{ display:grid; grid-template-columns:1fr 1fr; gap:10px 12px; }
+    .bField{ border:1px solid rgba(0,0,0,.08); border-radius:14px; padding:10px 12px; background:rgba(0,0,0,.02); }
+    .bK{ font-size:12px; font-weight:950; color:rgba(15,23,42,.70); }
+    .bV{ margin-top:4px; font-size:12.5px; font-weight:950; color:#0f172a; white-space:pre-wrap; }
+    .bSpan2{ grid-column:1 / -1; }
+
+  
+
+    /* phase 16: fleet planner tuning */
+    html{scrollbar-color:rgba(142,109,61,.42) rgba(15,23,42,.06)}
+    ::-webkit-scrollbar{width:12px;height:12px}
+    ::-webkit-scrollbar-thumb{background:linear-gradient(180deg,rgba(180,138,79,.44),rgba(108,82,46,.44));border-radius:999px;border:3px solid rgba(255,255,255,.86)}
+    ::-webkit-scrollbar-track{background:rgba(15,23,42,.04);border-radius:999px}
+    .pageHero,.opsTile,.dockCard,.patternCard,.stat,.workspacePanel,.toolbarBand,.legendStrip,.card,.routeShell,.statusLine{transition:transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease}
+    .opsTile:hover,.dockCard:hover,.patternCard:hover,.stat:hover{transform:translateY(-2px);box-shadow:0 18px 38px rgba(15,23,42,.10);border-color:rgba(180,138,79,.18)}
+    .workspacePanel,.card, .toolbarBand{margin-top:0;box-shadow:0 16px 34px rgba(15,23,42,.06)}
+    button,.routeBtn,.routeTab,.btnPrimary,.userMenuBtn{transition:transform .14s ease, box-shadow .14s ease, border-color .14s ease, background .14s ease}
+    button:hover,.routeBtn:hover,.routeTab:hover{transform:translateY(-1px);box-shadow:0 12px 24px rgba(15,23,42,.08)}
+    .searchWrap:focus-within,.rangeWrap:focus-within{border-color:rgba(180,138,79,.20);box-shadow:0 0 0 4px rgba(180,138,79,.08),0 14px 26px rgba(15,23,42,.05)}
+    .searchWrap input:focus,.rangeWrap input:focus{outline:none}
+    .legendStrip, .workspacePanel{margin-top:0;background:linear-gradient(180deg,#ffffff 0%,#fbfaf7 100%)}
+
+
+    /* phase 24: fleet planner controls + preview lane */
+    .fleetModeTabs{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0 12px}
+    .fleetModeBtn{border:1px solid rgba(15,23,42,.10);background:#fff;color:#334155;border-radius:999px;padding:9px 12px;font:900 11px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;cursor:pointer}
+    .fleetModeBtn.active{background:linear-gradient(180deg,#8e6d3d 0%,#6c522e 100%);color:#fff;border-color:#6c522e;box-shadow:0 14px 26px rgba(108,82,46,.18)}
+    .fleetModeHint{font:800 11px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#64748b}
+    .timelineControlStrip{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 12px}
+    .timelineCtl{border:1px solid rgba(15,23,42,.10);background:#fff;color:#334155;border-radius:999px;padding:8px 11px;font:900 11px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;cursor:pointer}
+    .timelineCtl.primary{background:rgba(180,138,79,.10);color:#6c522e;border-color:rgba(180,138,79,.20)}
+     .previewLayout{display:grid;grid-template-columns:1fr;gap:12px;align-items:start}
+     .timelineStage{display:grid;gap:10px;min-height:0;min-width:0}
+     .miniLane{margin-top:0;padding:12px 13px;border-radius:18px;border:1px solid rgba(15,23,42,.08);background:linear-gradient(180deg,#ffffff 0%,#fbf8f3 100%);box-shadow:0 16px 34px rgba(15,23,42,.06);display:grid;gap:8px}
+    .miniLaneHead{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+    .miniLaneTitle{font:1000 15px/1.12 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#0f172a}
+    .miniLaneSub{font:800 11px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#64748b}
+    .miniLaneList{display:grid;gap:8px}
+    .miniLaneRow{display:grid;gap:4px;padding:10px 11px;border-radius:14px;border:1px solid rgba(15,23,42,.08);background:#fff}
+    .miniLaneRow strong{font:950 12px/1.3 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#0f172a}
+    .miniLaneRow span{font:800 11px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#64748b}
+    .miniLaneActions{display:flex;gap:6px;flex-wrap:wrap}
+    .miniLaneActions button{border:1px solid rgba(15,23,42,.10);background:#fff;border-radius:999px;padding:6px 9px;font:900 10px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;cursor:pointer}
+     .fleetPreview{display:none !important}
+    .previewCard{padding:14px 15px;border-radius:18px;border:1px solid rgba(15,23,42,.08);background:linear-gradient(180deg,#ffffff 0%,#fbf8f3 100%);box-shadow:0 16px 34px rgba(15,23,42,.06);display:grid;gap:10px}
+    .previewEyebrow{font:1000 10px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;letter-spacing:.08em;text-transform:uppercase;color:#8e6d3d}
+    .previewTitle{font:1000 17px/1.15 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#0f172a}
+    .previewSub{font:800 11px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#64748b}
+    .previewGrid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .previewField{padding:10px 11px;border-radius:14px;border:1px solid rgba(15,23,42,.08);background:#fff;display:grid;gap:4px}
+    .previewField.full{grid-column:1 / -1}
+    .previewK{font:900 10px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:#8e6d3d}
+    .previewV{font:950 12px/1.45 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#0f172a;word-break:break-word}
+    .previewActions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .actionMenu{position:relative}
+    .actionMenu summary{list-style:none}
+    .actionMenu summary::-webkit-details-marker{display:none}
+    .actionMenu[open]{z-index:15}
+    .actionMenuPop{position:absolute;right:0;top:calc(100% + 8px);min-width:220px;display:grid;gap:8px;padding:10px;border:1px solid rgba(15,23,42,.10);border-radius:14px;background:#fff;box-shadow:0 18px 40px rgba(15,23,42,.12)}
+    .actionMenuPop button{width:100%;justify-content:flex-start}
+    .previewBtn{border:1px solid rgba(15,23,42,.10);background:#fff;color:#334155;border-radius:14px;padding:10px 12px;font:900 11px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;cursor:pointer;text-align:center}
+    .previewBtn.primary{background:linear-gradient(180deg,#8e6d3d 0%,#6c522e 100%);color:#fff;border-color:#6c522e}
+    .previewBtn.soft{background:rgba(180,138,79,.10);color:#6c522e;border-color:rgba(180,138,79,.20)}
+    @media (max-width:1180px){ .previewLayout{grid-template-columns:1fr} .fleetPreview{position:static} .plannerSchema{grid-template-columns:1fr} .plannerSchemaLeft,.fleetGroupCell{grid-template-columns:36px 84px 1fr 70px 70px} .plannerSchemaRight{display:none} }
+    @media (max-width:720px){.previewGrid,.previewActions{grid-template-columns:1fr}}
+
+
+    /* phase27 compact cleanup */
+    .pageHero,.opsRail,.statsLine,.legendStrip,.patternStrip{display:none !important;}
+    #btnSaveFleetView{display:none !important;}
+    .wrap{padding-top:8px !important;gap:8px !important;}
+     .workspacePanel{margin-top:0;gap:8px !important;}
+    .workspaceHead{padding:10px 12px !important;}
+    
+  
+    .unassignedDrawer{display:grid;gap:8px;padding:10px 12px;border-top:1px solid rgba(15,23,42,.06);background:linear-gradient(180deg,#fff 0%,#faf7f1 100%)}
+    .drawerHead{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+    .drawerTitle{font:1000 13px/1.1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#0f172a}
+    .drawerSub{font:800 11px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#64748b}
+    .drawerTools{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .drawerBody{border:1px solid rgba(15,23,42,.08);border-radius:18px;background:#fff;overflow:auto;resize:vertical;min-height:160px;height:220px;max-height:420px}
+    .drawerTable{width:100%;border-collapse:collapse}
+    .drawerTable th,.drawerTable td{padding:10px 12px;border-bottom:1px solid rgba(15,23,42,.06);text-align:left;font:800 11.5px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#0f172a;vertical-align:top}
+    .drawerTable th{position:sticky;top:0;background:#f8fafc;font:1000 10px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:#64748b;z-index:2}
+    .drawerMeta{font:800 10.5px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#64748b}
+    .drawerPills{display:flex;gap:6px;flex-wrap:wrap}
+    .drawerPill{display:inline-flex;align-items:center;padding:5px 8px;border-radius:999px;border:1px solid rgba(15,23,42,.08);background:#fff7ed;font:900 10px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#8e6d3d}
+    .drawer{display:grid;gap:8px;margin-top:8px}
+    .drawerHead{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+    .drawerTitle{font:1000 13px/1.1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#0f172a}
+    .drawerSub{font:800 11px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#64748b}
+    .drawerTools{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .drawerBody{border:1px solid rgba(15,23,42,.08);border-radius:18px;background:#fff;overflow:auto;resize:vertical;min-height:160px;height:220px;max-height:420px}
+    .drawerTable{width:100%;border-collapse:collapse}
+    .drawerTable th,.drawerTable td{padding:10px 12px;border-bottom:1px solid rgba(15,23,42,.06);text-align:left;font:800 11.5px/1.4 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#0f172a;vertical-align:top}
+    .drawerTable th{position:sticky;top:0;background:#f8fafc;font:1000 10px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;text-transform:uppercase;letter-spacing:.06em;color:#64748b;z-index:2}
+    .drawerMeta{font:800 10.5px/1.35 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#64748b}
+    .drawerPills{display:flex;gap:6px;flex-wrap:wrap}
+    .drawerPill{display:inline-flex;align-items:center;padding:5px 8px;border-radius:999px;border:1px solid rgba(15,23,42,.08);background:#fff7ed;font:900 10px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#8e6d3d}
+    .drawerActions{display:flex;gap:6px;flex-wrap:wrap}
+    .drawerActions button,.previewBtn.danger{border:1px solid rgba(15,23,42,.10);border-radius:12px;padding:8px 10px;background:#fff;font:900 11px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;cursor:pointer;color:#0f172a}
+    .previewBtn.danger{background:#fff5f5;color:#b42318;border-color:rgba(180,35,24,.16)}
+    .contextMenu{position:fixed;display:none;z-index:999999;min-width:210px;background:#fff;border:1px solid rgba(15,23,42,.10);border-radius:16px;box-shadow:0 22px 50px rgba(15,23,42,.18);overflow:hidden}
+    .contextMenu.open{display:block}
+    .contextMenu button{display:block;width:100%;text-align:left;padding:12px 14px;border:0;background:#fff;font:900 12px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;cursor:pointer;color:#0f172a}
+    .contextMenu button:hover{background:#fbf8f3}
+    .contextMenu button.danger{color:#b42318;background:#fff7f7}
+
+  
+    .card.isLocked{outline:2px solid rgba(180,35,24,.28);background:linear-gradient(180deg,#fff 0%,#fff6f6 100%)}
+    .card.isUnassigned{outline:2px solid rgba(180,138,79,.26);background:linear-gradient(180deg,#fff 0%,#fff8ef 100%)}
+  </style>
+</head>
+<body>
+<div id="wrap">
+<div id="topbar">
+<div class="routeTop">
+<div class="brandPanel"><div class="routeLogo">D</div><div class="brandText"><span class="brandTitle">DIAMOND Backroom</span><span class="brandSub">Fleet chart · Admin workspace</span></div></div>
+<div class="headerZone">
+<div class="headerNavRow">
+<div class="routeTabs">
+<button class="routeBtn" data-route="home" type="button">Myroom</button>
+<button class="routeBtn" data-route="daily" type="button">Daily</button>
+<button class="routeBtn active" data-route="fleet" type="button">Fleet</button>
+<button class="routeBtn" data-route="bookings" type="button">Bookings</button>
+<button class="routeBtn" data-route="settings" type="button">Settings</button>
+</div>
+<div class="headerTools">
+<button class="routeBtn" data-menu-action="reload" type="button">Reload</button>
+<button class="routeBtn" data-menu-action="logout" type="button">Logout</button>
+<div class="userMenuWrap">
+<button class="userMenuBtn" id="userMenuBtn" type="button"><span class="userBadge" id="userBadge">O</span><span class="userText"><span class="userName" id="userName">Operator</span><span class="userRole" id="userRole">Backroom</span></span><span class="caret">▾</span></button>
+<div class="userMenu" id="userMenu"><div class="userMenuHead"><div class="userName" id="menuUserName">Operator</div><div class="userRole" id="menuUserRole">Backroom</div></div><button class="userMenuItem" data-menu-action="reload" type="button">Ανανέωση</button><button class="userMenuItem danger" data-menu-action="logout" type="button">Αποσύνδεση</button></div>
+</div>
+</div>
+</div>
+<div class="routeMeta">
+<span class="routeChip primary">Fleet chart</span>
+<span class="routeChip soft" id="todayMeta">—</span>
+</div>
+</div>
+</div>
+</div>
+<div class="pageHero"><div class="pageHeroRow"><div><span class="pageEyebrow">FLEET OVERVIEW</span><div class="pageTitle">Fleet chart</div><div class="pageSub">Timeline planning με cleaner full-width planner, unassigned drawer και contextual actions χωρίς δεξί inspector panel.</div></div></div></div><div class="toolbarBand">
+<div class="controls">
+<button id="btnRefresh">⟳ Ανανέωση</button>
+<button id="btnToday">◎ Σήμερα</button>
+<div class="rangeWrap" title="Επίλεξε διάστημα προβολής">
+<label>Από</label><input id="fromDate" type="date"/>
+<label>Έως</label><input id="toDate" type="date"/>
+<button id="range7d">7d</button>
+<button id="range14d">14d</button>
+<button id="range30d">30d</button>
+<button id="btnApplyRange">Εφαρμογή</button>
+</div>
+<div class="searchWrap" title="Search: booking, όνομα, pickup, dropoff">
+<input id="searchBox" placeholder="Αναζήτηση booking / ονόματος / σημείου..."/>
+<button id="btnClearSearch">Καθαρισμός</button>
+</div>
+<button id="btnUnassigned">Χωρίς ανάθεση (<span id="uCount">0</span>)</button>
+<button class="btnPrimary" id="btnAutoAssign">Auto-assign</button>
+<button id="btnFocusNextUnassigned">Next unassigned</button>
+<button id="btnJumpDailyFromRange">Open Daily</button>
+<button id="btnJumpBookingsRange">Open Bookings</button>
+<details class="actionMenu">
+<summary class="btnSecondary" role="button">More</summary>
+<div class="actionMenuPop">
+<button id="btnCopyFleetSummary">Copy σύνοψη</button>
+<button id="btnCopyUnassigned">Copy unassigned</button>
+<button id="btnCopyLocked">Copy locked</button>
+<button id="btnQueueFleetIssue">Queue next</button>
+<button id="btnExportFleetJson">Export JSON</button>
+</div>
+</details>
+</div>
+<div class="statusLine" id="statusBar">BOOT...</div>
+</div><div class="statsLine" id="statsLine">
+<div class="stat"><div class="statLabel">Οχήματα</div><div class="statValue" id="stVehicles">0</div><div class="statMeta">Οχήματα / groups που προβάλλονται στο timeline.</div></div>
+<div class="stat"><div class="statLabel">Ορατά items</div><div class="statValue" id="stItems">0</div><div class="statMeta">Bookings που είναι φορτωμένα ή φιλτραρισμένα στο current view.</div></div>
+<div class="stat"><div class="statLabel">Χωρίς ανάθεση</div><div class="statValue" id="stUnassigned">0</div><div class="statMeta">Κρατήσεις που χρειάζονται manual ή auto assignment.</div></div>
+<div class="stat"><div class="statLabel">Active / Pre</div><div class="statValue" id="stLocked">0</div><div class="statMeta">Items που είναι κλειδωμένα για drag λόγω current state.</div></div>
+<div class="stat"><div class="statLabel">Διάστημα</div><div class="statValue" id="stRange">—</div><div class="statMeta">Τρέχον operational παράθυρο φόρτωσης.</div></div>
+</div><div class="workspacePanel">
+<div class="workspaceHead">
+<div>
+<div class="workspaceTitle">Timeline workspace</div>
+</div>
+<div class="workspaceTools">
+<span class="workspaceBadge primary">Planner</span>
+<span class="workspaceBadge">Unassigned lane</span>
+</div>
+</div>
+<div class="fleetModeTabs" id="fleetModeTabs">
+<button class="fleetModeBtn active" data-mode="all" type="button">All items</button>
+<button class="fleetModeBtn" data-mode="attention" type="button">Attention</button>
+<button class="fleetModeBtn" data-mode="locked" type="button">Locked / pre</button>
+</div>
+<div class="timelineControlStrip">
+<button class="timelineCtl" id="btnZoomOut" type="button">Zoom −</button>
+<button class="timelineCtl" id="btnZoomIn" type="button">Zoom +</button>
+<button class="timelineCtl primary" id="btnFitTimeline" type="button">Fit range</button>
+<button class="timelineCtl" id="btnNowFocus" type="button">Move to now</button>
+</div>
+<div class="plannerSchema"><div class="plannerSchemaLeft"><span>#</span><span>Plate</span><span>Model</span><span>Station</span><span>Group</span></div><div class="plannerSchemaRight"><strong>Timeline</strong><span>Structured fleet planner με πραγματικές σειρές οχημάτων και operational context.</span></div></div>
+<div class="previewLayout">
+<div class="timelineStage">
+<div id="timeline"></div>
+<div class="miniLane" id="miniUnassignedLane"></div>
+</div>
+<aside class="fleetPreview disabled-preview" id="fleetPreviewPanel"></aside>
+</div>
+<div class="drawer" id="unassignedDrawer">
+<div class="drawerHead">
+<div>
+<div class="drawerTitle">Unassigned drawer</div>
+<div class="drawerSub">Σταθερό split pane για unassigned bookings του current range.</div>
+</div>
+<div class="drawerTools">
+<div class="drawerMeta" id="drawerMeta">Range: —</div>
+<button class="timelineCtl" id="btnToggleDrawer" type="button">Collapse</button>
+<button class="timelineCtl" id="btnDrawerRefresh" type="button">Ανανέωση</button>
+</div>
+</div>
+<div class="drawerBody" id="drawerBody">
+<table class="drawerTable">
+<thead><tr><th>Booking</th><th>Customer</th><th>Schedule</th><th>Category</th><th>Actions</th></tr></thead>
+<tbody id="drawerTbody"></tbody>
+</table>
+</div>
+</div>
+</div></div>
+
+
+<div class="ctxMenu" id="fleetCtxMenu"><div class="ctxHead" id="ctxHead">Selected item</div><button class="ctxItem" data-ctx="contract" type="button">Open contract</button><button class="ctxItem" data-ctx="daily" type="button">Pickup Daily</button><button class="ctxItem" data-ctx="bookings" type="button">Open bookings window</button><button class="ctxItem" data-ctx="auto" type="button">Auto pick</button><button class="ctxItem danger" data-ctx="unassign" type="button">Unassign</button></div>
+<div class="fleetHoverTip" id="fleetHoverTip"></div>
+
+
+<div id="uOverlay">
+<div id="uModal">
+<div id="uHead">
+<div id="uTitle">Κρατήσεις χωρίς ανάθεση στο επιλεγμένο range</div>
+<button id="uClose">Κλείσιμο</button>
+</div>
+<div id="uBody">
+<div class="muted" id="uMeta">—</div>
+<div style="height:10px;"></div>
+<table id="uTable">
+<thead>
+<tr>
+<th>Booking</th>
+<th>Customer</th>
+<th>Schedule</th>
+<th>Category</th>
+<th>Actions</th>
+</tr>
+</thead>
+<tbody id="uTbody"></tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- Booking quick modal -->
+<div id="bOverlay">
+<div id="bModal">
+<div id="bHead">
+<div id="bTitle">Booking</div>
+<button id="bClose">Κλείσιμο</button>
+</div>
+<div id="bBody">
+<div class="bGrid">
+<div class="bField"><div class="bK">Booking</div><div class="bV" id="bBooking">—</div></div>
+<div class="bField"><div class="bK">State</div><div class="bV" id="bState">—</div></div>
+<div class="bField bSpan2"><div class="bK">Customer</div><div class="bV" id="bCustomer">—</div></div>
+<div class="bField"><div class="bK">Start</div><div class="bV" id="bStart">—</div></div>
+<div class="bField"><div class="bK">End</div><div class="bV" id="bEnd">—</div></div>
+<div class="bField bSpan2"><div class="bK">Route</div><div class="bV" id="bRoute">—</div></div>
+<div class="bField bSpan2"><div class="bK">Vehicle</div><div class="bV" id="bVehicle">—</div></div>
+</div>
+<div class="muted">Tip: Κλικ έξω από το modal για κλείσιμο. Το dragging μπλοκάρεται σε Active Rental / Pre Check-In και τα overlaps απορρίπτονται.</div>
+</div>
+</div>
+</div>
+<script>
+  function postToWix(msg){ window.parent.postMessage(msg, "*"); }
+  function reportHeight(extra=0){
+    const h = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight, document.body.offsetHeight);
+    postToWix({ type:'resizeShell', height:h + 12 + Number(extra || 0) });
+  }
+
+  const statusBar = document.getElementById("statusBar");
+  const timelineEl = document.getElementById("timeline");
+  const todayMeta = document.getElementById("todayMeta");
+  const userMenuBtn = document.getElementById('userMenuBtn');
+  const userMenu = document.getElementById('userMenu');
+  const userBadge = document.getElementById('userBadge');
+  const userName = document.getElementById('userName');
+  const userRole = document.getElementById('userRole');
+  const menuUserName = document.getElementById('menuUserName');
+  const menuUserRole = document.getElementById('menuUserRole');
+  function setStatus(msg){ statusBar.textContent = msg || ""; }
+  function safe(v){ return (v == null ? '' : String(v)).trim(); }
+  function toYmdFromValue(value){ const dt = new Date(value); return Number.isNaN(dt.getTime()) ? '' : `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,'0')}-${String(dt.getDate()).padStart(2,'0')}`; }
+  function openFleetContract(it){ if (!it || !safe(it.id)) return; postToWix({ type:'openContract', bookingId:safe(it.id) }); }
+  function openFleetDaily(it){ const date = toYmdFromValue(it && (it.start || it.pickupDateTime)); if (!date) { setStatus('Δεν υπάρχει ημερομηνία για Daily handoff.'); return; } postToWix({ type:'openOnDaily', bookingId:safe(it && it.id), date, viewMode:'full', tab:'bookings' }); }
+  function openFleetBookings(it){ const startDate = toYmdFromValue(it && (it.start || it.pickupDateTime)); const endDate = toYmdFromValue(it && (it.end || it.dropoffDateTime)) || startDate; if (!startDate) { setStatus('Δεν υπάρχει ημερομηνία για Bookings handoff.'); return; } postToWix({ type:'openOnBookings', bookingId:safe(it && it.id), startDate, endDate }); }
+  function applyUserContext(ctx){
+    const name = safe(ctx && (ctx.name || ctx.email) || 'Operator') || 'Operator';
+    const role = safe(ctx && ctx.role || 'Backroom') || 'Backroom';
+    const initial = (name[0] || 'O').toUpperCase();
+    userBadge.textContent = initial; userName.textContent = name; userRole.textContent = role; menuUserName.textContent = name; menuUserRole.textContent = role;
+  }
+  document.querySelectorAll('.routeBtn[data-route]').forEach((btn)=>{
+    btn.addEventListener('click', ()=>{
+      const route = btn.getAttribute('data-route');
+      if (route) postToWix({ type:'navigate', route });
+    });
+  });
+  if (userMenuBtn) userMenuBtn.addEventListener('click', (e)=>{ e.stopPropagation(); userMenu.classList.toggle('open'); reportHeight(userMenu.classList.contains('open') ? 320 : 0); });
+  document.addEventListener('click', (e)=>{ if (userMenu && !e.target.closest('.userMenuWrap')) { userMenu.classList.remove('open'); reportHeight(); } });
+  document.querySelectorAll('[data-menu-action]').forEach((btn)=>{ btn.addEventListener('click', ()=>{ const action = btn.getAttribute('data-menu-action'); userMenu.classList.remove('open'); reportHeight(); postToWix({ type:'menuAction', action }); }); });
+  window.addEventListener('resize', ()=>reportHeight());
+  requestAnimationFrame(()=>reportHeight());
+
+  window.addEventListener("error", (e) => {
+    try { setStatus("JS ERROR: " + (e.message || "unknown")); } catch(_) {}
+  });
+  window.addEventListener("unhandledrejection", (e) => {
+    const r = e?.reason;
+    const msg = (r && r.message) ? r.message : String(r);
+    try { setStatus("PROMISE ERROR: " + msg); } catch(_) {}
+  });
+
+  function pad2(n){ return String(n).padStart(2,"0"); }
+  function toISODate(d){
+    const dt = new Date(d);
+    return `${dt.getFullYear()}-${pad2(dt.getMonth()+1)}-${pad2(dt.getDate())}`;
+  }
+  function hhmm(d){
+    const dt = new Date(d);
+    if (isNaN(dt.getTime())) return "--:--";
+    return `${pad2(dt.getHours())}:${pad2(dt.getMinutes())}`;
+  }
+  function fmtDateTime(d){
+    const dt = new Date(d);
+    if (isNaN(dt.getTime())) return "-";
+    const dd = pad2(dt.getDate());
+    const mm = pad2(dt.getMonth()+1);
+    const yyyy = dt.getFullYear();
+    return `${dd}/${mm}/${yyyy} ${hhmm(dt)}`;
+  }
+  function norm(s){ return (s ?? "").toString().toLowerCase().trim(); }
+  function escHtml(s){
+    return (s ?? "").toString()
+      .replace(/&/g,"&amp;")
+      .replace(/</g,"&lt;")
+      .replace(/>/g,"&gt;");
+  }
+
+  function assertVisReady(){
+    if (!window.vis || !vis.DataSet || !vis.Timeline) {
+      throw new Error("vis-timeline failed to load (blocked or network).");
+    }
+  }
+
+  function getClass(status, rentalState){
+    const st = String(status || "");
+    if (st === "Canceled") return "cnc";
+    if (String(st).toLowerCase().includes("non")) return "nr";
+    const rs = String(rentalState || "Booking");
+    if (rs === "Active Rental") return "run";
+    if (rs === "Pre Check-In") return "pre";
+    if (rs === "Closed Rental") return "in";
+    return "bk";
+  }
+
+  const HEAT_GROUP_ID = "__heat__";
+
+  let groupsDS, itemsDS, timeline;
+
+  let lastLoadedItems = [];
+  let lastUnassigned = [];
+  let lastRange = { from: null, to: null };
+
+  let suppressRangeEvents = false;
+  let userWindowDirty = false;
+  let keepWindow = null;
+  let fleetViewMode = "all";
+  let selectedFleetId = "";
+
+
+  // Booking modal
+  const bOverlay = document.getElementById("bOverlay");
+  const bClose = document.getElementById("bClose");
+  const bTitle = document.getElementById("bTitle");
+  const bBooking = document.getElementById("bBooking");
+  const bState = document.getElementById("bState");
+  const bCustomer = document.getElementById("bCustomer");
+  const bStart = document.getElementById("bStart");
+  const bEnd = document.getElementById("bEnd");
+  const bRoute = document.getElementById("bRoute");
+  const bVehicle = document.getElementById("bVehicle");
+  const fleetModeTabs = document.getElementById("fleetModeTabs");
+  const fleetPreviewPanel = document.getElementById("fleetPreviewPanel");
+  const miniUnassignedLane = document.getElementById("miniUnassignedLane");
+  const drawer = document.getElementById("unassignedDrawer");
+  const drawerBody = document.getElementById("drawerBody");
+  const drawerMeta = document.getElementById("drawerMeta");
+  const drawerTbody = document.getElementById("drawerTbody");
+  const fleetCtxMenu = document.getElementById("fleetCtxMenu");
+  const ctxHead = document.getElementById("ctxHead");
+  const fleetHoverTip = document.getElementById("fleetHoverTip");
+  const btnToggleDrawer = document.getElementById("btnToggleDrawer");
+  const btnDrawerRefresh = document.getElementById("btnDrawerRefresh");
+
+  function openBookingModal(it){
+    if (!it) return;
+    bTitle.textContent = `Booking • ${it.bookingNumber || it.id}`;
+    bBooking.textContent = it.bookingNumber || it.id || "—";
+    bState.textContent = `${it.status || "—"} • ${it.rentalState || "Booking"}`;
+    bCustomer.textContent = it.customerName || "—";
+    bStart.textContent = fmtDateTime(it.start);
+    bEnd.textContent = fmtDateTime(it.end);
+    const p1 = it.pickuppoint || "";
+    const p2 = it.dropoffpoint || "";
+    const loc = (p1 || p2) ? `${p1}${p1 && p2 ? " → " : ""}${p2}` : "—";
+    bRoute.textContent = loc;
+    bVehicle.textContent = it.assignedVehicleLabel || it.group || "—";
+    bOverlay.style.display = "flex";
+  }
+  function closeBookingModal(){ bOverlay.style.display = "none"; }
+  bClose.addEventListener("click", closeBookingModal);
+  bOverlay.addEventListener("click", (e)=>{ if (e.target===bOverlay) closeBookingModal(); });
+
+  const pendingOldGroup = new Map(); // bookingId -> previous group
+
+
+  const WORKSPACE_KEY = "diamond.fleet.workspace.v1";
+  const RESUME_WORKSPACE_KEY = "diamond.backroom.resume.v1";
+const WORKSPACE_HISTORY_KEY = "diamond.backroom.history.v1";
+  const PINNED_WORKSPACES_KEY = "diamond.backroom.pins.v1";
+  const DAILY_WORKSPACE_KEY = "diamond.daily.workspace.v1";
+  const BOOKINGS_WORKSPACE_KEY = "diamond.bookings.workspace.v1";
+  const HANDOFF_QUEUE_KEY = "diamond.backroom.handoffQueue.v1";
+  const SAVED_VIEWS_KEY = 'diamond.backroom.savedViews.v1';
+  try { localStorage.removeItem(FLEET_SNAPSHOT_KEY); localStorage.removeItem(SAVED_VIEWS_KEY); } catch(_){}
+  const fromEl = document.getElementById("fromDate");
+  const toEl   = document.getElementById("toDate");
+
+  function initRangeDefaults(){
+    const now = new Date();
+    const start = new Date(now); start.setHours(0,0,0,0);
+    const p14 = new Date(now.getTime() + 1000*60*60*24*14);
+    fromEl.value = toISODate(start);
+    toEl.value   = toISODate(p14);
+    lastRange = {
+      from: start.toISOString(),
+      to: new Date(p14.setHours(23,59,59,999)).toISOString()
+    };
+  }
+  function presetRange(days){
+    const start = new Date();
+    start.setHours(0,0,0,0);
+    const end = new Date(start.getTime() + 1000*60*60*24*(Math.max(1, Number(days||14)) - 1));
+    fromEl.value = toISODate(start);
+    toEl.value = toISODate(end);
+    return applyRange(fromEl.value, toEl.value, true);
+  }
+  function loadWorkspace(){ try { const raw = JSON.parse(localStorage.getItem(WORKSPACE_KEY) || 'null'); return raw && typeof raw === 'object' ? raw : null; } catch(_) { return null; } }
+  function saveWorkspace(){ const sb = document.getElementById('searchBox'); try { localStorage.setItem(WORKSPACE_KEY, JSON.stringify({ from: fromEl?.value || '', to: toEl?.value || '', search: sb?.value || '', viewMode: fleetViewMode })); } catch(_){} }
+  function pushWorkspaceHistory(entry){ try { if (!entry || !entry.route) return; const raw = JSON.parse(localStorage.getItem(WORKSPACE_HISTORY_KEY) || '[]'); const list = Array.isArray(raw) ? raw.filter((it)=> it && typeof it === 'object' && it.route !== entry.route) : []; list.unshift(entry); localStorage.setItem(WORKSPACE_HISTORY_KEY, JSON.stringify(list.slice(0, 6))); } catch(_){} }
+  function saveResume(){ const sb = document.getElementById('searchBox'); try { const entry = { route:'fleet', routeLabel:'Fleet', title:'Fleet control room', subtitle:`${fromEl?.value || '—'} → ${toEl?.value || '—'}${(sb?.value || '').trim() ? ' • search active' : ''}`, updatedAt:new Date().toISOString() }; localStorage.setItem(RESUME_WORKSPACE_KEY, JSON.stringify(entry)); pushWorkspaceHistory(entry); } catch(_){} }
+  function restoreWorkspace(){ const ws = loadWorkspace(); const sb = document.getElementById('searchBox'); if (!ws) return; if (fromEl && /^\d{4}-\d{2}-\d{2}$/.test(String(ws.from || ''))) fromEl.value = ws.from; if (toEl && /^\d{4}-\d{2}-\d{2}$/.test(String(ws.to || ''))) toEl.value = ws.to; if (sb && typeof ws.search === 'string') sb.value = ws.search; if (typeof ws.viewMode === 'string' && ['all','attention','locked'].includes(ws.viewMode)) fleetViewMode = ws.viewMode; }
+  function upsertPinnedWorkspace(entry){ try { if (!entry || !entry.route) return; const raw = JSON.parse(localStorage.getItem(PINNED_WORKSPACES_KEY) || '[]'); const list = Array.isArray(raw) ? raw.filter((it)=> it && typeof it === 'object' && it.route !== entry.route) : []; list.unshift(entry); localStorage.setItem(PINNED_WORKSPACES_KEY, JSON.stringify(list.slice(0, 6))); } catch(_){} }
+  function upsertHandoffQueue(entry){ try { if (!entry || !entry.id) return; const raw = JSON.parse(localStorage.getItem(HANDOFF_QUEUE_KEY) || '[]'); const list = Array.isArray(raw) ? raw.filter((it)=> it && typeof it === 'object' && it.id !== entry.id) : []; list.unshift(entry); localStorage.setItem(HANDOFF_QUEUE_KEY, JSON.stringify(list.slice(0, 8))); } catch(_){} }
+  function upsertSavedView(entry){ try { if (!entry || !entry.id) return; const raw = JSON.parse(localStorage.getItem(SAVED_VIEWS_KEY) || '[]'); const list = Array.isArray(raw) ? raw.filter((it)=> it && typeof it === 'object' && it.id !== entry.id) : []; list.unshift(entry); localStorage.setItem(SAVED_VIEWS_KEY, JSON.stringify(list.slice(0, 12))); } catch(_){} }
+  function pinCurrentFleetView(){ const sb = document.getElementById('searchBox'); const entry = { route:'fleet', routeLabel:'Fleet', title:'Pinned fleet window', subtitle:`${fromEl?.value || '—'} → ${toEl?.value || '—'}${safe(sb?.value || '') ? ' • search active' : ''}`, updatedAt:new Date().toISOString() }; upsertPinnedWorkspace(entry); setStatus('Το current Fleet window έγινε pin στη Myroom.'); }
+  function saveCurrentFleetView(){ const sb = document.getElementById('searchBox'); const defaultName = `Fleet • ${fromEl?.value || '—'} → ${toEl?.value || '—'}`; const title = String(window.prompt('Όνομα για το saved view του Fleet:', defaultName) || '').trim(); if (!title) { setStatus('Η αποθήκευση του saved view ακυρώθηκε.'); return; } upsertSavedView({ id:`saved:fleet:${Date.now()}`, route:'fleet', routeLabel:'Fleet', title, subtitle:`${fromEl?.value || '—'} → ${toEl?.value || '—'}${safe(sb?.value || '') ? ' • search active' : ''}`, summaryLine:`Visible ${visibleFleetItems().length} • Unassigned ${Array.isArray(lastUnassigned) ? lastUnassigned.length : 0}`, metrics:[`Search: ${safe(sb?.value || '') || '—'}`, `Groups: ${Math.max(0, (groupsDS && groupsDS.length ? groupsDS.length - 1 : 0))}`], workspaceKey:WORKSPACE_KEY, workspace:{ from: fromEl?.value || '', to: toEl?.value || '', search: safe(sb?.value || '') }, updatedAt:new Date().toISOString() }); setStatus('Το current Fleet window αποθηκεύτηκε στη Myroom.'); }
+  function jumpToDailyFromRange(){ const day = fromEl?.value || ''; if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) { setStatus('Διάλεξε πρώτα valid range.'); return; } postToWix({ type:'openOnDaily', date:day, viewMode:'full', tab:'bookings' }); }
+  function jumpToBookingsFromRange(){ const from = fromEl?.value || ''; const to = toEl?.value || ''; if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) { setStatus('Διάλεξε πρώτα valid range.'); return; } postToWix({ type:'openOnBookings', startDate:from, endDate:to }); }
+
+  function applyRange(fromDate, toDate, animate=true){
+    const f = new Date(fromDate);
+    const t = new Date(toDate);
+    if (isNaN(f.getTime()) || isNaN(t.getTime()) || t <= f) return false;
+
+    const start = new Date(f); start.setHours(0,0,0,0);
+    const end = new Date(t); end.setHours(23,59,59,999);
+
+    suppressRangeEvents = true;
+    timeline.setWindow(start, end, { animation: !!animate });
+    
+    // Hard limit navigation to selected range
+    try {
+      timeline.setOptions({ min: start, max: end, zoomMax: Math.max(1000*60*60*6, end.getTime()-start.getTime()) });
+    } catch(e) {}
+setTimeout(()=>{ suppressRangeEvents = false; }, 0);
+
+    lastRange = { from: start.toISOString(), to: end.toISOString() };
+    saveWorkspace();
+    saveResume();
+    return true;
+  }
+
+  function itemSearchBlob(it){
+    return [
+      it.bookingNumber, it.customerName,
+      it.pickuppoint, it.dropoffpoint,
+      it.pickupComment, it.dropoffComment,
+      it.bookedCategoryLabel, it.assignedVehicleLabel,
+      it.status, it.rentalState
+    ].map(norm).join(" | ");
+  }
+
+  const searchBox = document.getElementById("searchBox");
+  const btnClearSearch = document.getElementById("btnClearSearch");
+
+  function copyTextWithFallback(text, successMessage, errorMessage){
+    const value = String(text || '');
+    if (!value) { setStatus(errorMessage || 'Δεν υπάρχουν διαθέσιμα δεδομένα.'); return; }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(value).then(()=> setStatus(successMessage || 'Έγινε αντιγραφή.')).catch(()=> fallbackCopy(value, successMessage, errorMessage));
+      return;
+    }
+    fallbackCopy(value, successMessage, errorMessage);
+  }
+  function fallbackCopy(text, successMessage, errorMessage){
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = String(text || '');
+      ta.setAttribute('readonly', 'readonly');
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      setStatus(successMessage || 'Έγινε αντιγραφή.');
+    } catch(_) {
+      setStatus(errorMessage || 'Δεν έγινε αντιγραφή.');
+    }
+  }
+  function downloadText(filename, text, mime){
+    try {
+      const blob = new Blob([text], { type: mime || 'application/json;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 80);
+    } catch(_) {
+      setStatus('Δεν έγινε export αρχείου.');
+    }
+  }
+  function visibleFleetItems(){
+    const q = norm(searchBox && searchBox.value || '');
+    return !q ? lastLoadedItems.slice() : lastLoadedItems.filter(it => itemSearchBlob(it).includes(q));
+  }
+  function buildFleetSummary(){
+    const visible = visibleFleetItems();
+    const locked = visible.filter((it)=> /Active Rental|Pre Check-In/i.test(String(it.rentalState || ''))).length;
+    return [
+      'Fleet control room summary',
+      `Range: ${fromEl?.value || '—'} → ${toEl?.value || '—'}`,
+      `Search: ${(searchBox && searchBox.value || '').trim() || '—'}`,
+      `Visible items: ${visible.length}`,
+      `Unassigned: ${lastUnassigned.length}`,
+      `Locked active/pre: ${locked}`,
+      `Vehicles/groups: ${Math.max(0, (groupsDS && groupsDS.length ? groupsDS.length - 1 : 0))}`
+    ].join('\n');
+  }
+  function buildLockedCopy(){
+    const rows = visibleFleetItems().filter((it)=> /Active Rental|Pre Check-In/i.test(String(it.rentalState || ''))).sort((a,b)=> new Date(a.start || 0).getTime() - new Date(b.start || 0).getTime()).slice(0, 12);
+    return [
+      'Fleet locked / critical items',
+      `Range: ${fromEl?.value || '—'} → ${toEl?.value || '—'}`,
+      `Search: ${(searchBox && searchBox.value || '').trim() || '—'}`,
+      `Locked visible: ${rows.length}`,
+      '---',
+      ...rows.map((it, idx)=> `${idx + 1}. ${safe(it.bookingNumber || it.id || '—')} • ${safe(it.customerName || '—')} • ${safe(it.assignedVehicleLabel || it.group || '—')} • ${safe(it.rentalState || '—')} • ${fmtDateTime(it.start)}`)
+    ].join('\n');
+  }
+  function writeFleetSnapshot(){ return; }
+  function queueFleetFollowUp(){ const item = (Array.isArray(lastUnassigned) && lastUnassigned.length ? lastUnassigned[0] : visibleFleetItems()[0]) || null; if (!item) { setStatus('Δεν υπάρχει visible Fleet item για handoff queue.'); return; } const searchValue = safe(item.customerName || item.bookingNumber || item.id || ''); const isUnassigned = Array.isArray(lastUnassigned) && lastUnassigned.some((it)=> String(it.id||'') === String(item.id||'')); upsertHandoffQueue({ id:`fleet:${safe(item.id || item.bookingNumber || Date.now())}`, route:'fleet', routeLabel:'Fleet', title:`${safe(item.bookingNumber || item.id || 'Item')} • ${safe(item.customerName || '—')}`, subtitle:`${isUnassigned ? 'Unassigned' : safe(item.rentalState || item.status || 'Visible item')} • ${fmtDateTime(item.start)}`, summaryLine:`${fromEl?.value || '—'} → ${toEl?.value || '—'} • ${safe(item.assignedVehicleLabel || item.group || 'No vehicle')}`, metrics:[`Search: ${searchValue || '—'}`, `Range: ${fromEl?.value || '—'} → ${toEl?.value || '—'}`], workspaceKey:WORKSPACE_KEY, workspace:{ from: fromEl?.value || '', to: toEl?.value || '', search: searchValue }, updatedAt:new Date().toISOString() }); setStatus('Το Fleet follow-up μπήκε στο handoff queue της Myroom.'); }
+  function exportFleetJson(){
+    const visible = visibleFleetItems();
+    const payload = {
+      range: { from: fromEl?.value || '', to: toEl?.value || '' },
+      search: searchBox?.value || '',
+      summary: {
+        visibleItems: visible.length,
+        unassigned: lastUnassigned.length,
+        lockedActivePre: visible.filter((it)=> /Active Rental|Pre Check-In/i.test(String(it.rentalState || ''))).length,
+        groups: Math.max(0, (groupsDS && groupsDS.length ? groupsDS.length - 1 : 0))
+      },
+      items: visible.map((it)=> ({
+        id: it.id,
+        bookingNumber: it.bookingNumber || '',
+        customerName: it.customerName || '',
+        group: it.group || '',
+        start: it.start,
+        end: it.end,
+        status: it.status || '',
+        rentalState: it.rentalState || '',
+        bookedCategoryLabel: it.bookedCategoryLabel || '',
+        bookedCategoryCode: it.bookedCategoryCode || '',
+        assignedVehicleLabel: it.assignedVehicleLabel || '',
+        pickuppoint: it.pickuppoint || '',
+        dropoffpoint: it.dropoffpoint || ''
+      })),
+      unassigned: (Array.isArray(lastUnassigned) ? lastUnassigned : []).map((it)=> ({
+        id: it.id,
+        bookingNumber: it.bookingNumber || '',
+        customerName: it.customerName || '',
+        start: it.start,
+        end: it.end,
+        bookedCategoryLabel: it.bookedCategoryLabel || '',
+        bookedCategoryCode: it.bookedCategoryCode || ''
+      }))
+    };
+    downloadText(`fleet-control-${fromEl?.value || 'from'}-${toEl?.value || 'to'}.json`, JSON.stringify(payload, null, 2), 'application/json;charset=utf-8');
+    setStatus(`Export JSON • items=${visible.length} • unassigned=${lastUnassigned.length}`);
+  }
+
+  function isAttentionItem(it){
+    const noVehicle = /noVehicle|no-vehicle|nr/i.test(String(it.className || '')) || !safe(it.assignedVehicleLabel || '');
+    const stateBlob = `${String(it.status || '').toLowerCase()} ${String(it.rentalState || '').toLowerCase()}`;
+    const locked = /active rental|pre check-in/.test(stateBlob);
+    const pendingish = /pending|waiting|hold/.test(stateBlob);
+    return noVehicle || locked || pendingish;
+  }
+  function isLockedItem(it){
+    const stateBlob = `${String(it.status || '').toLowerCase()} ${String(it.rentalState || '').toLowerCase()}`;
+    return /active rental|pre check-in/.test(stateBlob);
+  }
+  function applyFleetMode(items){
+    const list = Array.isArray(items) ? items : [];
+    if (fleetViewMode === 'attention') return list.filter(isAttentionItem);
+    if (fleetViewMode === 'locked') return list.filter(isLockedItem);
+    return list;
+  }
+  function renderFleetModeButtons(){ fleetModeTabs?.querySelectorAll('[data-mode]').forEach((btn)=> btn.classList.toggle('active', btn.getAttribute('data-mode') === fleetViewMode)); }
+  function previewField(k, v, full=false){ return `<div class="previewField${full ? ' full' : ''}"><div class="previewK">${escHtml(k)}</div><div class="previewV">${escHtml(v || '—')}</div></div>`; }
+  function currentVisibleFleetItems(){ return itemsDS ? itemsDS.get() : []; }
+  function selectedFleetItem(){ const visible = currentVisibleFleetItems(); if (selectedFleetId) { const found = visible.find((it)=> String(it.id||'') === String(selectedFleetId)); if (found) return found; } return visible[0] || lastLoadedItems[0] || null; }
+  let ctxItemId = "";
+  function hideCtxMenu(){ if (fleetCtxMenu) fleetCtxMenu.classList.remove('open'); ctxItemId = ""; }
+  function openCtxMenu(id, x, y){ if (!fleetCtxMenu) return; const it = itemsDS && id ? itemsDS.get(id) : null; if (!it) return; ctxItemId = String(id); selectedFleetId = String(id); renderFleetPreview(); ctxHead.textContent = `${safe(it.bookingNumber) || safe(it.id) || 'Item'} • ${safe(it.customerName) || '—'}`; fleetCtxMenu.style.left = `${Math.max(8, x)}px`; fleetCtxMenu.style.top = `${Math.max(8, y)}px`; fleetCtxMenu.classList.add('open'); }
+  function tooltipHtml(it){ if (!it) return ""; const lines = [ `${safe(it.bookingNumber) || safe(it.id) || '—'} • ${safe(it.customerName) || '—'}`, `${fmtDateTime(it.start)} → ${fmtDateTime(it.end)}`, `${safe(it.pickuppoint) || '—'} → ${safe(it.dropoffpoint) || '—'}`, `${safe(it.assignedVehicleLabel) || safe(it.group) || 'Χωρίς ανάθεση'} • ${safe(it.status) || '—'}` ]; const extras = [safe(it.flightNumber) ? `Flight ${safe(it.flightNumber)}` : "", safe(it.extras) || "" ].filter(Boolean).join(' • '); if (extras) lines.push(extras); return lines.join('\n'); }
+  function showHoverTip(it, x, y){ if (!fleetHoverTip || !it) return; fleetHoverTip.textContent = tooltipHtml(it); fleetHoverTip.style.left = `${Math.min(window.innerWidth - 340, x + 14)}px`; fleetHoverTip.style.top = `${Math.min(window.innerHeight - 120, y + 14)}px`; fleetHoverTip.classList.add('open'); }
+  function hideHoverTip(){ fleetHoverTip?.classList.remove('open'); }
+  function renderMiniUnassignedLane(){ if (!miniUnassignedLane) return; const top = (Array.isArray(lastUnassigned) ? lastUnassigned.slice(0, 4) : []); miniUnassignedLane.innerHTML = `<div class="miniLaneHead"><div><div class="miniLaneTitle">Unassigned preview lane</div><div class="miniLaneSub">Δείχνει γρήγορα τα πρώτα unassigned bookings του current range.</div></div><button class="timelineCtl" type="button" id="btnOpenUnassignedLane">Open full list</button></div><div class="miniLaneList">${top.length ? top.map((b)=> `<div class="miniLaneRow"><strong>${escHtml(b.bookingNumber || b.id || '—')} • ${escHtml(b.customerName || '—')}</strong><span>${escHtml(fmtDateTime(b.start))} → ${escHtml(fmtDateTime(b.end))} • ${escHtml(b.bookedCategoryLabel || b.bookedCategoryCode || '—')}</span><div class="miniLaneActions"><button type="button" data-uquick="focus" data-id="${escHtml(b.id)}">Focus</button><button type="button" data-uquick="auto" data-id="${escHtml(b.id)}">Auto pick</button></div></div>`).join('') : `<div class="miniLaneSub">Δεν υπάρχουν unassigned bookings στο current range.</div>`}</div>`; }
+
+  function tooltipText(it){ if (!it) return ''; const lines = [
+    `${safe(it.bookingNumber || it.id || '—')} • ${safe(it.customerName || '—')}`,
+    `${fmtDateTime(it.start)} → ${fmtDateTime(it.end)}`,
+    `${safe(it.assignedVehicleLabel || 'Unassigned')}`,
+    `${safe(it.pickuppoint || '—')} → ${safe(it.dropoffpoint || '—')}`,
+    [safe(it.source), safe(it.agent)].filter(Boolean).join(' • '),
+    [safe(it.flightNumber), safe(it.extras)].filter(Boolean).join(' • ')
+  ].filter(Boolean); return lines.join('\n'); }
+  function renderUnassignedDrawer(){ if (!drawer || !drawerTbody || !drawerMeta) return; drawerMeta.textContent = `Range: ${fromEl.value} → ${toEl.value} • unassigned=${lastUnassigned.length}`; drawerTbody.innerHTML = (Array.isArray(lastUnassigned) && lastUnassigned.length) ? lastUnassigned.map((b)=> `<tr><td><strong>${escHtml(b.bookingNumber || b.id || '—')}</strong><div class="drawerMeta">${escHtml(b.assignedVehicleLabel || 'Χωρίς ανάθεση')}</div></td><td>${escHtml(b.customerName || '—')}<div class="drawerMeta">${escHtml([safe(b.phone), safe(b.email)].filter(Boolean).join(' · ') || '—')}</div></td><td>${escHtml(fmtDateTime(b.start))}<br><span class="drawerMeta">${escHtml(fmtDateTime(b.end))}</span></td><td><div class="drawerPills"><span class="drawerPill">${escHtml(b.bookedCategoryLabel || b.bookedCategoryCode || '—')}</span>${safe(b.flightNumber) ? `<span class="drawerPill">Flight ${escHtml(b.flightNumber)}</span>` : ''}</div></td><td><div class="drawerActions"><button type="button" data-drawer-act="focus" data-id="${escHtml(b.id)}">Focus</button><button type="button" data-drawer-act="auto" data-id="${escHtml(b.id)}">Auto pick</button><button type="button" data-drawer-act="contract" data-id="${escHtml(b.id)}">Contract</button></div></td></tr>`).join('') : `<tr><td colspan="5"><div class="empty">Δεν υπάρχουν unassigned bookings στο current range.</div></td></tr>`; }
+  function toggleDrawer(forceOpen){ if (!drawer || !drawerBody || !btnToggleDrawer) return; const open = forceOpen === true ? true : forceOpen === false ? false : drawerBody.style.display === 'none'; drawerBody.style.display = open ? 'block' : 'none'; btnToggleDrawer.textContent = open ? 'Collapse' : 'Expand'; reportHeight(open ? 220 : 0); }
+  function unassignSelectedFleetItem(){ const it = selectedFleetItem(); if (!it || !safe(it.id)) { setStatus('Δεν υπάρχει selected item για unassign.'); return; } postToWix({ type:'moveBooking', bookingId:safe(it.id), newVehicleId:'unassigned' }); }
+  function renderFleetPreview(){ if (!fleetPreviewPanel || fleetPreviewPanel.classList.contains("disabled-preview")) return; const it = selectedFleetItem(); const visible = currentVisibleFleetItems(); if (!it) { fleetPreviewPanel.innerHTML = `<div class="previewCard"><div class="previewEyebrow">Selected timeline item</div><div class="previewTitle">Δεν υπάρχει visible item</div><div class="previewSub">Άλλαξε mode ή range. Το preview panel κρατά live context δίπλα στο planner. Με δεξί κλικ πάνω σε item ανοίγουν άμεσα οι βασικές actions.</div></div>`; return; } const stateText = `${it.status || '—'} • ${it.rentalState || 'Booking'}`; const route = `${it.pickuppoint || '—'} → ${it.dropoffpoint || '—'}`; const isUnassigned = !safe(it.assignedFleetId) || !safe(it.assignedVehicleLabel); fleetPreviewPanel.innerHTML = `<div class="previewCard"><div class="previewEyebrow">Selected timeline workspace</div><div class="previewTitle">${escHtml(it.bookingNumber || it.id || '—')} • ${escHtml(it.customerName || '—')}</div><div class="previewSub">Πρακτικό context panel για assignment, contract και route actions.</div><div class="previewGrid">${previewField('State', stateText)}${previewField('Vehicle', it.assignedVehicleLabel || it.group || 'Χωρίς ανάθεση')}${previewField('Start', fmtDateTime(it.start))}${previewField('End', fmtDateTime(it.end))}${previewField('Route', route, true)}${previewField('Source / agent', [safe(it.source), safe(it.agent)].filter(Boolean).join(' • ') || '—', true)}${previewField('Flight / extras', [safe(it.flightNumber), safe(it.extras)].filter(Boolean).join(' • ') || '—', true)}${previewField('Visible mode', fleetViewMode)}${previewField('Visible items', String(visible.length))}</div><div class="previewActions"><button class="previewBtn primary" type="button" data-preview-action="contract">Open contract</button><button class="previewBtn soft" type="button" data-preview-action="bookings">Open bookings window</button><button class="previewBtn" type="button" data-preview-action="daily">Pickup Daily</button><button class="previewBtn" type="button" data-preview-action="auto">${isUnassigned ? 'Auto pick' : 'Re-check fit'}</button><button class="previewBtn danger" type="button" data-preview-action="unassign">Unassign</button><button class="previewBtn" type="button" data-preview-action="drawer">Open drawer</button></div></div>`; }
+  function renderFromCache(filterText){
+    const q = norm(filterText);
+    const searchFiltered = !q ? lastLoadedItems : lastLoadedItems.filter(it => itemSearchBlob(it).includes(q));
+    const filtered = applyFleetMode(searchFiltered);
+    itemsDS.clear();
+    itemsDS.add(filtered);
+    if (selectedFleetId && !filtered.some((it)=> String(it.id||'') === String(selectedFleetId))) selectedFleetId = '';
+    try {
+      document.getElementById("stItems").textContent = String(filtered.length);
+      document.getElementById("stLocked").textContent = String(filtered.filter((it)=> isLockedItem(it)).length);
+    } catch(_){}
+    renderFleetModeButtons();
+    renderMiniUnassignedLane();
+    renderFleetPreview();
+    return filtered;
+  }
+
+  // Unassigned modal
+  const uOverlay = document.getElementById("uOverlay");
+  const uClose = document.getElementById("uClose");
+  const uTbody = document.getElementById("uTbody");
+  const uMeta = document.getElementById("uMeta");
+  const uCountEl = document.getElementById("uCount");
+
+  function openUnassigned(){
+    renderUnassignedDrawer();
+    toggleDrawer(true);
+    drawer?.scrollIntoView({ behavior:'smooth', block:'nearest' });
+  }
+
+  if (uClose) uClose.addEventListener("click", ()=> uOverlay.style.display="none");
+  if (uOverlay) uOverlay.addEventListener("click", (e)=>{ if (e.target===uOverlay) uOverlay.style.display="none"; });
+  document.getElementById("btnUnassigned").addEventListener("click", openUnassigned); if (btnToggleDrawer) btnToggleDrawer.addEventListener("click", ()=> toggleDrawer()); if (btnDrawerRefresh) btnDrawerRefresh.addEventListener("click", ()=> renderUnassignedDrawer());
+
+  uTbody.addEventListener("click", (e)=>{
+    const btn = e.target.closest("button");
+    if (!btn) return;
+    const act = btn.getAttribute("data-act");
+    const id = btn.getAttribute("data-id");
+    if (!id) return;
+
+    if (act === "focus") {
+      postToWix({ type:"focusBooking", bookingId: id });
+      uOverlay.style.display="none";
+      return;
+    }
+    if (act === "auto") {
+      postToWix({ type:"autoAssignSingle", bookingId: id });
+      return;
+    }
+  });
+
+  if (drawerTbody) drawerTbody.addEventListener("click", (e)=>{
+    const btn = e.target.closest("button");
+    if (!btn) return;
+    const act = btn.getAttribute("data-drawer-act");
+    const id = btn.getAttribute("data-id");
+    if (!id) return;
+    const item = (lastUnassigned || []).find((it)=> String(it.id||'') === String(id));
+    if (act === "focus") { postToWix({ type:"focusBooking", bookingId:id }); selectedFleetId = id; renderFleetPreview(); return; }
+    if (act === "auto") { postToWix({ type:"autoAssignSingle", bookingId:id }); return; }
+    if (act === "contract") { openFleetContract(item || { id }); return; }
+  });
+
+  try { todayMeta.textContent = new Date().toLocaleDateString('el-GR',{ weekday:'short', day:'2-digit', month:'2-digit', year:'numeric' }); } catch(_) {}
+
+  document.getElementById("btnAutoAssign").addEventListener("click", ()=>{
+    postToWix({ type:"autoAssignUnassigned", from: lastRange.from, to: lastRange.to });
+  });
+  document.getElementById("btnCopyFleetSummary")?.addEventListener("click", ()=> copyTextWithFallback(buildFleetSummary(), "Η σύνοψη του Fleet αντιγράφηκε.", "Δεν έγινε αντιγραφή σύνοψης."));
+  document.getElementById("btnCopyUnassigned")?.addEventListener("click", ()=> copyTextWithFallback(buildUnassignedCopy(), "Η ουρά unassigned αντιγράφηκε.", "Δεν έγινε αντιγραφή unassigned λίστας."));
+  document.getElementById("btnCopyLocked")?.addEventListener("click", ()=> copyTextWithFallback(buildLockedCopy(), "Η locked λίστα του Fleet αντιγράφηκε.", "Δεν έγινε αντιγραφή locked λίστας."));
+  document.getElementById("btnQueueFleetIssue")?.addEventListener("click", ()=> queueFleetFollowUp());
+  document.getElementById("btnExportFleetJson")?.addEventListener("click", ()=> exportFleetJson());
+  document.getElementById("btnPinFleetView")?.addEventListener("click", ()=> pinCurrentFleetView());
+  document.getElementById("btnSaveFleetView")?.addEventListener("click", ()=> saveCurrentFleetView());
+  document.getElementById("btnFocusNextUnassigned")?.addEventListener("click", ()=> focusNextUnassigned());
+  document.getElementById("btnZoomOut")?.addEventListener("click", ()=> { try { timeline && timeline.zoomOut(0.35); } catch(_){} });
+  document.getElementById("btnZoomIn")?.addEventListener("click", ()=> { try { timeline && timeline.zoomIn(0.35); } catch(_){} });
+  document.getElementById("btnFitTimeline")?.addEventListener("click", ()=> { try { timeline && timeline.fit({ animation:true }); } catch(_){} });
+  document.getElementById("btnNowFocus")?.addEventListener("click", ()=> { try { timeline && timeline.moveTo(new Date(), { animation:true }); } catch(_){} });
+  fleetModeTabs?.addEventListener("click", (e)=>{ const btn = e.target.closest("[data-mode]"); if (!btn) return; const next = btn.getAttribute("data-mode"); if (!next || next === fleetViewMode) return; fleetViewMode = next; renderFromCache(searchBox.value || ""); saveWorkspace(); saveResume(); setStatus(`Fleet mode: ${next}`); });
+  miniUnassignedLane?.addEventListener("click", (e)=>{ const laneBtn = e.target.closest("button[data-uquick]"); if (!laneBtn) { const openBtn = e.target.closest("#btnOpenUnassignedLane"); if (openBtn) openUnassigned(); return; } const act = laneBtn.getAttribute("data-uquick"); const id = laneBtn.getAttribute("data-id"); if (!id) return; if (act === "focus") { postToWix({ type:"focusBooking", bookingId:id }); return; } if (act === "auto") { postToWix({ type:"autoAssignSingle", bookingId:id }); return; } });
+  fleetPreviewPanel?.addEventListener("click", (e)=>{ const btn = e.target.closest("[data-preview-action]"); if (!btn) return; const it = selectedFleetItem(); const act = btn.getAttribute("data-preview-action"); if (act === "focus-unassigned") return focusNextUnassigned(); if (!it) return; if (act === "contract") return openFleetContract(it); if (act === "bookings") return openFleetBookings(it); if (act === "daily") return openFleetDaily(it); if (act === "auto") { postToWix({ type:'autoAssignSingle', bookingId:safe(it.id) }); return; } if (act === "unassign") { postToWix({ type:'moveBooking', bookingId:safe(it.id), newVehicleId:'' }); return; } if (act === "drawer") { toggleDrawer(true); return; } });
+  timelineEl?.addEventListener('contextmenu', (e)=>{ const itemEl = e.target.closest('.vis-item'); if (!itemEl) { hideCtxMenu(); return; } const id = itemEl.getAttribute('data-id') || itemEl.dataset.id; if (!id) return; e.preventDefault(); openCtxMenu(String(id), e.clientX, e.clientY); });
+  timelineEl?.addEventListener('mousemove', (e)=>{ const itemEl = e.target.closest('.vis-item'); if (!itemEl) { hideHoverTip(); return; } const id = itemEl.getAttribute('data-id') || itemEl.dataset.id; if (!id || !itemsDS) { hideHoverTip(); return; } const it = itemsDS.get(String(id)); if (!it) { hideHoverTip(); return; } showHoverTip(it, e.clientX, e.clientY); });
+  timelineEl?.addEventListener('mouseleave', hideHoverTip);
+  document.addEventListener('click', (e)=>{ if (!fleetCtxMenu?.contains(e.target)) hideCtxMenu(); });
+  fleetCtxMenu?.addEventListener('click', (e)=>{ const btn = e.target.closest('[data-ctx]'); if (!btn) return; const it = itemsDS && ctxItemId ? itemsDS.get(ctxItemId) : null; const act = btn.getAttribute('data-ctx'); hideCtxMenu(); if (!it) return; if (act === 'contract') return openFleetContract(it); if (act === 'daily') return openFleetDaily(it); if (act === 'bookings') return openFleetBookings(it); if (act === 'auto') { postToWix({ type:'autoAssignSingle', bookingId:safe(it.id) }); return; } if (act === 'unassign') { postToWix({ type:'moveBooking', bookingId:safe(it.id), newVehicleId:'' }); return; } });
+  document.getElementById("btnJumpDailyFromRange")?.addEventListener("click", ()=> jumpToDailyFromRange());
+  document.getElementById("btnJumpBookingsRange")?.addEventListener("click", ()=> jumpToBookingsFromRange());
+
+
+  function normalizeTimelineLabels(){
+    const monthMap = {
+      'січень':'Ιανουάριος','лютий':'Φεβρουάριος','березень':'Μάρτιος','квітень':'Απρίλιος','травень':'Μάιος','червень':'Ιούνιος','липень':'Ιούλιος','серпень':'Αύγουστος','вересень':'Σεπτέμβριος','жовтень':'Οκτώβριος','листопад':'Νοέμβριος','грудень':'Δεκέμβριος',
+      'январь':'Ιανουάριος','февраль':'Φεβρουάριος','март':'Μάρτιος','апрель':'Απρίλιος','май':'Μάιος','июнь':'Ιούνιος','июль':'Ιούλιος','август':'Αύγουστος','сентябрь':'Σεπτέμβριος','октябрь':'Οκτώβριος','ноябрь':'Νοέμβριος','декабрь':'Δεκέμβριος'
+    };
+    try {
+      document.querySelectorAll('#timeline .vis-text').forEach((node)=>{
+        const raw = String(node.textContent || '').trim();
+        if (!raw) return;
+        let next = raw;
+        Object.keys(monthMap).forEach((key)=>{
+          next = next.replace(new RegExp(key, 'gi'), monthMap[key]);
+        });
+        if (next !== raw) node.textContent = next;
+      });
+    } catch(_) {}
+  }
+
+  function syncTimelineLocaleSoon(){
+    try { requestAnimationFrame(()=> requestAnimationFrame(normalizeTimelineLabels)); } catch(_) { setTimeout(normalizeTimelineLabels, 30); }
+  }
+
+  function updateStats(groups, items, unassignedCount){
+    const vehicleCount = (groups || []).filter(g =>
+      g && String(g.id||"") && !String(g.id).startsWith("cat_") && String(g.id) !== HEAT_GROUP_ID
+    ).length;
+    const visibleItems = Array.isArray(items) ? items.length : 0;
+    const lockedItems = (Array.isArray(items) ? items : []).filter((it)=>{
+      const rs = String((it && it.rentalState) || "");
+      return rs === "Active Rental" || rs === "Pre Check-In";
+    }).length;
+    const fromLabel = fromEl && fromEl.value ? fromEl.value : "—";
+    const toLabel = toEl && toEl.value ? toEl.value : "—";
+
+    document.getElementById("stVehicles").textContent = String(vehicleCount);
+    document.getElementById("stItems").textContent = String(visibleItems);
+    document.getElementById("stUnassigned").textContent = String(unassignedCount || 0);
+    document.getElementById("stLocked").textContent = String(lockedItems);
+    document.getElementById("stRange").textContent = `${fromLabel} → ${toLabel}`;
+    uCountEl.textContent = String(unassignedCount || 0);
+    writeFleetSnapshot();
+
+    // leave-guard meta
+    postToWix({ type:"unassignedCount", count: unassignedCount || 0, from: lastRange.from, to: lastRange.to });
+  }
+
+  function initTimeline(){
+    assertVisReady();
+
+    groupsDS = new vis.DataSet([]);
+    itemsDS  = new vis.DataSet([]);
+
+    const options = {
+      selectable: true,
+      stack:false,
+      orientation:{ axis:"top", item:"top" },
+      margin:{ item:10, axis:10 },
+      groupHeightMode:"fixed",
+      editable:{ add:false, remove:false, updateTime:false, updateGroup:true },
+      multiselect:false,
+      zoomMin: 1000*60*60*6,
+      zoomMax: 1000*60*60*24*90,
+
+      template: function(item){
+        const s = new Date(item.start);
+        const e = new Date(item.end);
+        const cn = escHtml(item.customerName || "—");
+        const p1 = escHtml(item.pickuppoint || "");
+        const p2 = escHtml(item.dropoffpoint || "");
+        const loc = (p1 || p2) ? `${p1}${p1 && p2 ? " → " : ""}${p2}` : "";
+        const tip = escHtml(tooltipText(item));
+        const klass = /Active Rental|Pre Check-In/i.test(String(item.rentalState||'')) ? ' isLocked' : (!safe(item.assignedFleetId) ? ' isUnassigned' : '');
+        return `
+          <div class="card${klass}" title="${tip}">
+            <div class="rowMain">
+              <span class="tL">${escHtml(hhmm(s))}</span>
+              <div class="mid">
+                <div class="cust">${cn}</div>
+                <div class="loc">${escHtml(loc)}</div>
+              </div>
+              <span class="tR">${escHtml(hhmm(e))}</span>
+            </div>
+          </div>
+        `;
+      },
+
+      onMoving: function(item, callback){
+  // Block special groups
+  if (String(item.group||"") === HEAT_GROUP_ID) { callback(null); return; }
+  if (String(item.group||"").startsWith("cat_")) { setStatus("BLOCK: drop σε κατηγορία"); callback(null); return; }
+
+  // Block moving Active Rental / Pre Check-In
+  try {
+    const cur = itemsDS.get(item.id);
+    const rs = String(cur?.rentalState || "");
+    if (rs === "Active Rental" || rs === "Pre Check-In") {
+      setStatus("LOCKED: Active Rental / Pre Check-In");
+      callback(null);
+      return;
+    }
+  } catch(_) {}
+
+  callback(item);
+},
+
+      onMove: function(item, callback){
+  if (String(item.group||"") === HEAT_GROUP_ID) { callback(null); return; }
+  if (String(item.group||"").startsWith("cat_")) { setStatus("BLOCK: invalid target"); callback(null); return; }
+
+  // Lock moving Active Rental / Pre Check-In
+  try {
+    const cur = itemsDS.get(item.id);
+    const rs = String(cur?.rentalState || "");
+    if (rs === "Active Rental" || rs === "Pre Check-In") {
+      setStatus("LOCKED: Active Rental / Pre Check-In");
+      callback(null);
+      return;
+    }
+    // Remember old group for revert
+    pendingOldGroup.set(String(item.id), String(cur?.group || ""));
+  } catch(_) {}
+
+  postToWix({ type:"moveBooking", bookingId:item.id, newVehicleId:item.group });
+  callback(item);
+}
+    };
+
+    timeline = new vis.Timeline(document.getElementById("timeline"), itemsDS, groupsDS, options);
+
+    timeline.on("rangechanged", () => {
+      if (suppressRangeEvents) return;
+      try { keepWindow = timeline.getWindow(); userWindowDirty = true; } catch(e){}
+      syncTimelineLocaleSoon();
+    });
+
+    setStatus("READY • waiting data…");
+    syncTimelineLocaleSoon();
+    renderFleetModeButtons();
+    renderMiniUnassignedLane();
+    renderFleetPreview();
+
+    timeline.on("select", (props)=>{
+      try {
+        const id = props?.items?.[0];
+        selectedFleetId = id ? String(id) : '';
+        renderFleetPreview();
+      } catch(_) {}
+    });
+    timeline.on("doubleClick", (props)=>{
+      try {
+        const id = props?.item;
+        if (!id) return;
+        const it = itemsDS.get(id);
+        if (it) openBookingModal(it);
+      } catch(_) {}
+    });
+  }
+
+  // Toolbar
+  document.getElementById("btnApplyRange").addEventListener("click", () => {
+    const ok = applyRange(fromEl.value, toEl.value, true);
+    if (!ok) setStatus("RANGE ERROR: Δώσε σωστό διάστημα");
+    else {
+      userWindowDirty = false;
+      setStatus(`RANGE OK: ${fromEl.value} -> ${toEl.value}`);
+      postToWix({ type:"requestReload", from: lastRange.from, to: lastRange.to });
+    }
+  });
+  document.getElementById("range7d").addEventListener("click", () => { if (presetRange(7)) { userWindowDirty = false; postToWix({ type:"requestReload", from: lastRange.from, to: lastRange.to }); setStatus(`RANGE OK: ${fromEl.value} -> ${toEl.value}`); } });
+  document.getElementById("range14d").addEventListener("click", () => { if (presetRange(14)) { userWindowDirty = false; postToWix({ type:"requestReload", from: lastRange.from, to: lastRange.to }); setStatus(`RANGE OK: ${fromEl.value} -> ${toEl.value}`); } });
+  document.getElementById("range30d").addEventListener("click", () => { if (presetRange(30)) { userWindowDirty = false; postToWix({ type:"requestReload", from: lastRange.from, to: lastRange.to }); setStatus(`RANGE OK: ${fromEl.value} -> ${toEl.value}`); } });
+
+  document.getElementById("btnRefresh").addEventListener("click", () => {
+    saveWorkspace();
+    saveResume();
+    postToWix({ type:"requestReload", from: lastRange.from, to: lastRange.to });
+  });
+
+  document.getElementById("btnToday").addEventListener("click", () => {
+    try { timeline.moveTo(new Date(), { animation:true }); } catch(_) {}
+  });
+
+  searchBox.addEventListener("input", () => {
+    const filtered = renderFromCache(searchBox.value);
+    saveWorkspace();
+    saveResume();
+    setStatus(searchBox.value ? `SEARCH: matches=${filtered.length}` : `OK • items=${filtered.length}`);
+    writeFleetSnapshot();
+  });
+
+  btnClearSearch.addEventListener("click", () => {
+    searchBox.value = "";
+    const f = renderFromCache("");
+    saveWorkspace();
+    saveResume();
+    setStatus(`OK • items=${f.length}`);
+    writeFleetSnapshot();
+  });
+
+  window.addEventListener("message", (evt) => {
+    const data = evt.data;
+    if (!data || !data.type) return;
+
+    if (data.type === 'userContext') { applyUserContext(data); return; }
+    if (data.type === "toast") { setStatus(String(data.message || "OK")); return; }
+    if (data.type === "showError") { setStatus(String(data.message || "Error")); return; }
+
+    if (data.type === "loadData") {
+      const groups = Array.isArray(data.groups) ? data.groups : [];
+      const items  = Array.isArray(data.items)  ? data.items  : [];
+      lastUnassigned = Array.isArray(data.unassigned) ? data.unassigned : [];
+
+      let keep = null;
+      if (userWindowDirty && keepWindow) keep = keepWindow;
+
+      groupsDS.clear();
+      groupsDS.add([{ id: HEAT_GROUP_ID, content:"", visible:false }]);
+      groupsDS.add(groups);
+
+      lastLoadedItems = items.map(e => {
+        const cls = getClass(e.status, e.rentalState);
+        return {
+          id: e.id,
+          group: e.group,
+          start: e.start,
+          end: e.end,
+          bookingNumber: e.bookingNumber || "",
+          customerName: e.customerName || "—",
+          pickuppoint: e.pickuppoint || "",
+          dropoffpoint: e.dropoffpoint || "",
+          pickupComment: e.pickupComment || "",
+          dropoffComment: e.dropoffComment || "",
+          bookedCategoryLabel: e.bookedCategoryLabel || "",
+          bookedCategoryCode: e.bookedCategoryCode || "",
+          assignedVehicleLabel: e.assignedVehicleLabel || "",
+          status: e.status || "",
+          rentalState: e.rentalState || "Booking",
+          className: e.className || `bkItem ${cls}`
+        };
+      });
+
+      itemsDS.clear();
+      itemsDS.add(lastLoadedItems);
+
+      if (searchBox.value) renderFromCache(searchBox.value);
+
+      if (keep && keep.start && keep.end) {
+        suppressRangeEvents = true;
+        timeline.setWindow(keep.start, keep.end, { animation:false });
+        
+        try { timeline.setOptions({ min: keep.start, max: keep.end, zoomMax: Math.max(1000*60*60*6, keep.end.getTime()-keep.start.getTime()) }); } catch(e) {}
+setTimeout(()=>{ suppressRangeEvents = false; }, 0);
+      } else {
+        applyRange(fromEl.value, toEl.value, false);
+        setTimeout(()=> { try { timeline.moveTo(new Date(), { animation:true }); } catch(_) {} }, 250);
+      }
+
+      updateStats(groups, items, lastUnassigned.length);
+      syncTimelineLocaleSoon();
+      saveWorkspace();
+      saveResume();
+      setStatus(`Loaded: groups=${groups.length} · items=${items.length} · unassigned=${lastUnassigned.length}`);
+      return;
+    }
+
+    if (data.type === "patchItems") {
+      const items = Array.isArray(data.items) ? data.items : [];
+      lastUnassigned = Array.isArray(data.unassigned) ? data.unassigned : [];
+
+      // rebuild items only (DON'T touch groupsDS -> keeps layout/expanded/scroll)
+      lastLoadedItems = items.map((e) => {
+        const cls = getClass(e.status, e.rentalState);
+        return {
+          id: e.id,
+          group: e.group || e.resource || "",
+          start: e.start,
+          end: e.end,
+          bookingNumber: e.bookingNumber || "",
+          customerName: e.customerName || "—",
+          pickuppoint: e.pickuppoint || "",
+          dropoffpoint: e.dropoffpoint || "",
+          pickupComment: e.pickupComment || "",
+          dropoffComment: e.dropoffComment || "",
+          bookedCategoryLabel: e.bookedCategoryLabel || "",
+          bookedCategoryCode: e.bookedCategoryCode || "",
+          assignedVehicleLabel: e.assignedVehicleLabel || "",
+          status: e.status || "",
+          rentalState: e.rentalState || "Booking",
+          className: e.className || `bkItem ${cls}`
+        };
+      });
+
+      itemsDS.clear();
+      itemsDS.add(lastLoadedItems);
+
+      if (searchBox.value) renderFromCache(searchBox.value);
+      saveWorkspace();
+      saveResume();
+      setStatus(`OK • groups(kept)=${groupsDS.length} items=${lastLoadedItems.length}`);
+      return;
+    }
+
+
+
+    
+if (data.type === "moveRejected") {
+  const bookingId = String(data.bookingId || "");
+  const reason = String(data.reason || "Rejected");
+  const oldGroup = pendingOldGroup.get(bookingId);
+  if (bookingId && oldGroup) {
+    try { itemsDS.update({ id: bookingId, group: oldGroup }); } catch(_) {}
+    pendingOldGroup.delete(bookingId);
+  }
+  setStatus("MOVE REJECTED: " + reason);
+  return;
+}
+
+if (data.type === "focusBooking") {
+      try {
+        timeline.setSelection([data.bookingId], { focus: true });
+        const it = itemsDS.get(data.bookingId);
+        if (it) {
+          const center = new Date((new Date(it.start).getTime() + new Date(it.end).getTime()) / 2);
+          timeline.moveTo(center, { animation: true });
+        }
+      } catch(e){}
+      return;
+    }
+  });
+
+  (function init(){
+    try {
+      initRangeDefaults();
+      restoreWorkspace();
+      initTimeline();
+
+      // ✅ handshake
+      postToWix({ type:"calendarReady", from: lastRange.from, to: lastRange.to });
+
+      // ✅ first load immediately
+      postToWix({ type:"requestReload", from: lastRange.from, to: lastRange.to });
+
+      setStatus("READY • requesting data…");
+    } catch (e) {
+      setStatus("BOOT FAIL: " + (e?.message || String(e)));
+    }
+  })();
+</script>
+</body>
+</html>

@@ -1,0 +1,1048 @@
+import wixData from 'wix-data';
+
+export const COLLECTIONS = {
+  users: 'StaffUsers',
+  roles: 'StaffRoles',
+  audit: 'StaffAuditLog',
+  sessions: 'StaffSessions',
+  credentials: 'StaffCredentials'
+};
+
+const MODULES = ['bookings', 'rentals', 'customers', 'pricing', 'fleet', 'reports', 'financials'];
+const ACTIONS = ['view', 'insert', 'edit', 'delete'];
+const SPECIALS = [
+  'cancelBooking',
+  'cancelRental',
+  'voidInvoice',
+  'mergeCorporateCustomers',
+  'mergeIndividualRenters',
+  'mergeAgents',
+  'mergeSuppliers',
+  'manageStaff',
+  'manageBusinessSettings',
+  'overridePricing',
+  'approveManualOverride',
+  'viewChangeHistory'
+];
+
+const SPECIAL_DESCRIPTIONS = {
+  cancelBooking: 'Cancel a booking.',
+  cancelRental: 'Cancel or close a rental outside the standard flow.',
+  voidInvoice: 'Void an invoice or strong financial record.',
+  mergeCorporateCustomers: 'Access to corporate merge tools.',
+  mergeIndividualRenters: 'Access to individual renters merge tools.',
+  mergeAgents: 'Access to agents merge tools.',
+  mergeSuppliers: 'Access to suppliers merge tools.',
+  manageStaff: 'Create, edit, invite, deactivate and reset staff access.',
+  manageBusinessSettings: 'Change company settings, pricing catalog and preferences.',
+  overridePricing: 'Manually override pricing on booking / contract flow.',
+  approveManualOverride: 'Approve pricing deviations and desk overrides.',
+  viewChangeHistory: 'Open the change history and audit trail.'
+};
+
+const SESSION_TTL_HOURS = 12;
+const REMEMBER_TTL_DAYS = 30;
+const TOKEN_BYTES = 32;
+const PBKDF2_ITERATIONS = 120000;
+const KEY_LENGTH = 32;
+const HASH_DIGEST = 'sha256';
+const DEFAULT_BOOTSTRAP_PASSWORD = 'DiamondBackroom!2026';
+
+function cleanId(value) {
+  const raw = String(value ?? '').trim();
+  return raw || '';
+}
+
+let _cryptoApi;
+function getCrypto() {
+  if (_cryptoApi !== undefined) return _cryptoApi;
+  try {
+    // In Wix/Velo runtime, lazy require is often more reliable than a top-level default import.
+    // eslint-disable-next-line no-undef
+    _cryptoApi = typeof require === 'function' ? require('crypto') : null;
+  } catch (_) {
+    _cryptoApi = null;
+  }
+  return _cryptoApi;
+}
+
+function fallbackHash(input = '') {
+  const value = String(input || '');
+  let h1 = 0x811c9dc5;
+  let h2 = 0x9e3779b9;
+  let h3 = 0xc2b2ae35;
+  let h4 = 0x27d4eb2f;
+  for (let i = 0; i < value.length; i += 1) {
+    const c = value.charCodeAt(i);
+    h1 = Math.imul(h1 ^ c, 0x01000193) >>> 0;
+    h2 = Math.imul(h2 ^ c, 2246822519) >>> 0;
+    h3 = Math.imul(h3 ^ c, 3266489917) >>> 0;
+    h4 = Math.imul(h4 ^ c, 668265263) >>> 0;
+  }
+  const parts = [h1, h2, h3, h4].map((n) => n.toString(16).padStart(8, '0'));
+  return parts.join('').repeat(2).slice(0, 64);
+}
+
+function cryptoMode() {
+  const api = getCrypto();
+  return api && api.createHash && api.randomBytes && api.pbkdf2Sync ? 'native' : 'compat';
+}
+
+function text(value, fallback = '') {
+  const out = String(value ?? '').trim();
+  return out || fallback;
+}
+
+function normalizeEmail(value) {
+  return text(value).toLowerCase();
+}
+
+function readBool(value, fallback = false) {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'number') return value !== 0;
+  const raw = text(value).toLowerCase();
+  if (!raw) return fallback;
+  return ['1', 'true', 'yes', 'y', 'on'].includes(raw);
+}
+
+function slugKey(value) {
+  return String(value ?? '')
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .replace(/_{2,}/g, '_')
+    .toLowerCase();
+}
+
+function addHours(date, hours) {
+  const d = new Date(date);
+  d.setHours(d.getHours() + Number(hours || 0));
+  return d;
+}
+
+function addDays(date, days) {
+  const d = new Date(date);
+  d.setDate(d.getDate() + Number(days || 0));
+  return d;
+}
+
+function sha256(value) {
+  const api = getCrypto();
+  if (api?.createHash) return api.createHash('sha256').update(String(value || '')).digest('hex');
+  return fallbackHash(String(value || ''));
+}
+
+function randomHex(bytes = 16) {
+  const api = getCrypto();
+  if (api?.randomBytes) return api.randomBytes(bytes).toString('hex');
+  let out = '';
+  while (out.length < bytes * 2) out += `${Date.now().toString(16)}${Math.floor(Math.random() * 0xffffffff).toString(16).padStart(8, '0')}`;
+  return out.slice(0, bytes * 2);
+}
+
+function buildTempPassword() {
+  return `Dr-${randomHex(4)}-${randomHex(3)}`;
+}
+
+function buildOnboardingMessage({ fullName = '', email = '', tempPassword = '', roleLabel = '', loginPath = '/myroom-home' } = {}) {
+  const name = text(fullName || email || 'Staff user');
+  const role = text(roleLabel || 'Operator');
+  return [
+    `Backroom access`,
+    `User: ${name}`,
+    `Email: ${email}`,
+    `Role: ${role}`,
+    `Temporary password: ${tempPassword}`,
+    `Login page: ${loginPath}`,
+    `Note: Στην πρώτη σύνδεση ο χρήστης θα υποχρεωθεί να αλλάξει password.`
+  ].join('\n');
+}
+
+function safeJson(value) {
+  try { return JSON.stringify(value ?? null); } catch (_) { return ''; }
+}
+
+function derivePasswordHash(password, salt) {
+  const api = getCrypto();
+  if (api?.pbkdf2Sync) return api.pbkdf2Sync(String(password || ''), String(salt || ''), PBKDF2_ITERATIONS, KEY_LENGTH, HASH_DIGEST).toString('hex');
+  let out = sha256(`${salt}::${password}`);
+  for (let i = 0; i < 2048; i += 1) out = sha256(`${salt}:${i}:${out}:${password}`);
+  return out;
+}
+
+function safeEqual(a, b) {
+  const leftRaw = String(a || '');
+  const rightRaw = String(b || '');
+  const api = getCrypto();
+  if (api?.timingSafeEqual) {
+    try {
+      const left = Buffer.from(leftRaw, 'hex');
+      const right = Buffer.from(rightRaw, 'hex');
+      if (left.length !== right.length || !left.length) return false;
+      return api.timingSafeEqual(left, right);
+    } catch (_) {}
+  }
+  return leftRaw && rightRaw && leftRaw === rightRaw;
+}
+
+function verifyPassword(password, credential) {
+  const salt = text(credential?.passwordSalt);
+  const hash = text(credential?.passwordHash);
+  if (!salt || !hash) return false;
+  const computed = derivePasswordHash(password, salt);
+  return safeEqual(computed, hash);
+}
+
+function buildPermField(moduleKey, action) {
+  return `${moduleKey}${action.charAt(0).toUpperCase()}${action.slice(1)}`;
+}
+
+function toPermissionMap(role = {}) {
+  const out = {};
+  Object.keys(role || {}).forEach((key) => {
+    if (/^[a-z]+(View|Insert|Edit|Delete)$/i.test(key)) out[key] = readBool(role[key], false);
+  });
+  return out;
+}
+
+function parseSpecialPermissions(role = {}) {
+  return text(role.specialPermissions)
+    .split('|')
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function roleToView(role = {}) {
+  const permissions = {};
+  MODULES.forEach((moduleKey) => {
+    permissions[moduleKey] = {};
+    ACTIONS.forEach((action) => {
+      permissions[moduleKey][action] = readBool(role[buildPermField(moduleKey, action)], false);
+    });
+  });
+  return {
+    ...role,
+    permissions,
+    specialPermissionsList: parseSpecialPermissions(role)
+  };
+}
+
+function normalizeRole(payload = {}) {
+  const key = slugKey(payload.key || payload.label || payload.title);
+  const safeId = cleanId(payload._id);
+  const role = {
+    ...(safeId ? { _id: safeId } : {}),
+    key,
+    label: text(payload.label || payload.title || key),
+    description: text(payload.description),
+    active: readBool(payload.active, true),
+    sortOrder: Number(payload.sortOrder ?? 9999) || 9999,
+    systemRole: readBool(payload.systemRole, false),
+    specialPermissions: Array.isArray(payload.specialPermissions)
+      ? payload.specialPermissions.filter(Boolean).join('|')
+      : text(payload.specialPermissions)
+  };
+  MODULES.forEach((moduleKey) => ACTIONS.forEach((action) => {
+    role[buildPermField(moduleKey, action)] = readBool(payload[buildPermField(moduleKey, action)], false);
+  }));
+  return role;
+}
+
+function normalizeUser(payload = {}) {
+  const safeId = cleanId(payload._id);
+  return {
+    ...(safeId ? { _id: safeId } : {}),
+    email: normalizeEmail(payload.email),
+    fullName: text(payload.fullName || payload.name || payload.email),
+    roleKey: slugKey(payload.roleKey),
+    active: readBool(payload.active, true),
+    memberId: text(payload.memberId),
+    notes: text(payload.notes),
+    deactivatedAt: payload.deactivatedAt || null
+  };
+}
+
+function defaultRoles() {
+  const base = (key, label, description, active = true, systemRole = true) => normalizeRole({ key, label, description, active, systemRole });
+  const admin = base('admin', 'Admin', 'Πλήρης πρόσβαση σε όλο το backoffice.');
+  MODULES.forEach((moduleKey) => ACTIONS.forEach((action) => { admin[buildPermField(moduleKey, action)] = true; }));
+  admin.specialPermissions = SPECIALS.join('|');
+
+  const manager = base('manager', 'Manager', 'Διαχειριστική πρόσβαση χωρίς hard delete.');
+  MODULES.forEach((moduleKey) => {
+    manager[buildPermField(moduleKey, 'view')] = true;
+    manager[buildPermField(moduleKey, 'insert')] = true;
+    manager[buildPermField(moduleKey, 'edit')] = true;
+  });
+  manager.specialPermissions = ['cancelBooking','cancelRental','manageBusinessSettings','overridePricing','approveManualOverride','viewChangeHistory'].join('|');
+
+  const desk = base('desk', 'Desk', 'Κρατήσεις, renters και καθημερινό operation.');
+  ['bookings','rentals','customers'].forEach((moduleKey) => {
+    desk[buildPermField(moduleKey, 'view')] = true;
+    desk[buildPermField(moduleKey, 'insert')] = true;
+    desk[buildPermField(moduleKey, 'edit')] = true;
+  });
+  desk[buildPermField('fleet', 'view')] = true;
+  desk.specialPermissions = ['cancelBooking','overridePricing'].join('|');
+
+  const finance = base('finance', 'Finance', 'Οικονομικά, pricing review και έλεγχος.');
+  ['financials','reports','pricing','bookings','rentals'].forEach((moduleKey) => {
+    finance[buildPermField(moduleKey, 'view')] = true;
+    if (moduleKey === 'financials' || moduleKey === 'pricing') finance[buildPermField(moduleKey, 'edit')] = true;
+  });
+  finance.specialPermissions = ['voidInvoice','viewChangeHistory','approveManualOverride'].join('|');
+
+  const viewer = base('viewer', 'Viewer', 'Read-only πρόσβαση για έλεγχο.');
+  MODULES.forEach((moduleKey) => { viewer[buildPermField(moduleKey, 'view')] = true; });
+  viewer.specialPermissions = 'viewChangeHistory';
+  return [admin, manager, desk, finance, viewer];
+}
+
+async function bootstrapRoles() {
+  const res = await wixData.query(COLLECTIONS.roles).limit(200).find({ suppressAuth: true }).catch(() => ({ items: [] }));
+  if ((res.items || []).length) return res.items;
+  const inserted = [];
+  for (const role of defaultRoles()) {
+    try {
+      inserted.push(await wixData.insert(COLLECTIONS.roles, role, { suppressAuth: true }));
+    } catch (_) {}
+  }
+  return inserted;
+}
+
+async function logAudit(entry = {}) {
+  try {
+    await wixData.insert(COLLECTIONS.audit, {
+      entityType: text(entry.entityType, 'staffAuth'),
+      entityId: text(entry.entityId),
+      action: text(entry.action),
+      summary: text(entry.summary),
+      oldValue: text(entry.oldValue),
+      newValue: text(entry.newValue),
+      actorEmail: normalizeEmail(entry.actorEmail),
+      actorName: text(entry.actorName),
+      createdAt: new Date(),
+      retentionUntil: addDays(new Date(), 365)
+    }, { suppressAuth: true });
+  } catch (_) {}
+}
+
+async function getStaffUser(email) {
+  const safeEmail = normalizeEmail(email);
+  if (!safeEmail) return null;
+  const res = await wixData.query(COLLECTIONS.users).eq('email', safeEmail).limit(1).find({ suppressAuth: true }).catch(() => ({ items: [] }));
+  return res.items?.[0] || null;
+}
+
+async function getRole(roleKey) {
+  const safeKey = text(roleKey).toLowerCase();
+  if (!safeKey) return null;
+  await bootstrapRoles();
+  const res = await wixData.query(COLLECTIONS.roles).eq('key', safeKey).limit(1).find({ suppressAuth: true }).catch(() => ({ items: [] }));
+  return res.items?.[0] || null;
+}
+
+async function getAllRoles() {
+  await bootstrapRoles();
+  const res = await wixData.query(COLLECTIONS.roles).ascending('sortOrder').ascending('label').limit(200).find({ suppressAuth: true }).catch(() => ({ items: [] }));
+  return res.items || [];
+}
+
+async function getRoleMap() {
+  const rows = (await getAllRoles()).filter((row) => readBool(row.active, true));
+  const map = new Map();
+  rows.forEach((row) => map.set(String(row.key), roleToView(row)));
+  return { rows: rows.map(roleToView), map };
+}
+
+async function getCredential(email) {
+  const safeEmail = normalizeEmail(email);
+  if (!safeEmail) return null;
+  const res = await wixData.query(COLLECTIONS.credentials).eq('email', safeEmail).limit(1).find({ suppressAuth: true }).catch(() => ({ items: [] }));
+  return res.items?.[0] || null;
+}
+
+async function upsertCredential(email, password, options = {}) {
+  const safeEmail = normalizeEmail(email);
+  const existing = await getCredential(safeEmail);
+  const salt = randomHex(16);
+  const passwordHash = derivePasswordHash(password, salt);
+  const payload = {
+    ...(existing || {}),
+    email: safeEmail,
+    passwordSalt: salt,
+    passwordHash,
+    active: readBool(options.active, true),
+    mustChangePassword: readBool(options.mustChangePassword, false),
+    passwordSetAt: new Date(),
+    notes: text(options.notes)
+  };
+  return payload._id
+    ? wixData.update(COLLECTIONS.credentials, payload, { suppressAuth: true })
+    : wixData.insert(COLLECTIONS.credentials, payload, { suppressAuth: true });
+}
+
+async function createSession({ email, roleKey, fullName, remember = false, userAgent = '' } = {}) {
+  const rawToken = randomHex(TOKEN_BYTES);
+  const expiresAt = remember ? addDays(new Date(), REMEMBER_TTL_DAYS) : addHours(new Date(), SESSION_TTL_HOURS);
+  await wixData.insert(COLLECTIONS.sessions, {
+    tokenHash: sha256(rawToken),
+    email: normalizeEmail(email),
+    roleKey: text(roleKey).toLowerCase(),
+    fullName: text(fullName),
+    active: true,
+    remember: readBool(remember, false),
+    userAgent: text(userAgent).slice(0, 300),
+    createdAt: new Date(),
+    lastSeenAt: new Date(),
+    expiresAt,
+    revokedAt: null
+  }, { suppressAuth: true });
+  return { sessionToken: rawToken, expiresAt };
+}
+
+async function getSessionByToken(sessionToken) {
+  const tokenHash = sha256(sessionToken);
+  const res = await wixData.query(COLLECTIONS.sessions).eq('tokenHash', tokenHash).limit(1).find({ suppressAuth: true }).catch(() => ({ items: [] }));
+  return res.items?.[0] || null;
+}
+
+function buildProfile(user, role, session, credential) {
+  const roleKey = text(role?.key || user?.roleKey || session?.roleKey || 'viewer').toLowerCase();
+  const isAdmin = roleKey === 'admin';
+  const permissions = toPermissionMap(role || {});
+  const specialPermissions = parseSpecialPermissions(role || {});
+  if (isAdmin) {
+    MODULES.forEach((moduleKey) => ACTIONS.forEach((action) => { permissions[buildPermField(moduleKey, action)] = true; }));
+    permissions.__admin = true;
+    SPECIALS.forEach((key) => { if (!specialPermissions.includes(key)) specialPermissions.push(key); });
+  }
+  return {
+    authenticated: true,
+    email: normalizeEmail(user?.email),
+    fullName: text(user?.fullName || session?.fullName || 'Operator'),
+    roleKey,
+    roleLabel: isAdmin ? 'Admin' : text(role?.label || user?.roleKey || 'Viewer'),
+    permissions,
+    specialPermissions,
+    isAdmin,
+    mustChangePassword: readBool(credential?.mustChangePassword, false),
+    session: {
+      expiresAt: session?.expiresAt || null,
+      remember: readBool(session?.remember, false),
+      lastSeenAt: session?.lastSeenAt || null
+    }
+  };
+}
+
+function canAccessArea(permissions = {}, area = '', action = 'View') {
+  if (readBool(permissions?.__admin, false)) return true;
+  const safeArea = text(area).trim();
+  const safeAction = text(action, 'View');
+  if (!safeArea) return true;
+  const key = `${safeArea}${safeAction.charAt(0).toUpperCase()}${safeAction.slice(1).toLowerCase()}`;
+  return readBool(permissions[key], false);
+}
+
+function summarizeRole(roleView) {
+  return MODULES.map((moduleKey) => ({
+    key: moduleKey,
+    flags: ACTIONS.filter((action) => !!roleView?.permissions?.[moduleKey]?.[action]).map((a) => a.charAt(0).toUpperCase())
+  }));
+}
+
+async function getAllCredentials() {
+  const res = await wixData.query(COLLECTIONS.credentials).ascending('email').limit(500).find({ suppressAuth: true }).catch(() => ({ items: [] }));
+  return res.items || [];
+}
+
+async function getActiveCredentialsCount() {
+  const rows = await getAllCredentials().catch(() => []);
+  return rows.filter((row) => readBool(row.active, true)).length;
+}
+
+async function canUseBootstrapLogin(user = {}) {
+  if (text(user?.roleKey).toLowerCase() !== 'admin') return false;
+  const activeCredentialCount = await getActiveCredentialsCount();
+  return activeCredentialCount === 0;
+}
+
+async function getAllSessions() {
+  const res = await wixData.query(COLLECTIONS.sessions).descending('lastSeenAt').limit(500).find({ suppressAuth: true }).catch(() => ({ items: [] }));
+  return (res.items || []).filter((item) => {
+    const expiresAt = item?.expiresAt ? new Date(item.expiresAt) : null;
+    return expiresAt && !Number.isNaN(expiresAt.getTime());
+  });
+}
+
+async function getAuditRows(limit = 60) {
+  const res = await wixData.query(COLLECTIONS.audit).descending('createdAt').limit(limit).find({ suppressAuth: true }).catch(() => ({ items: [] }));
+  return res.items || [];
+}
+
+async function getStaffUsersList() {
+  const res = await wixData.query(COLLECTIONS.users).ascending('fullName').limit(300).find({ suppressAuth: true }).catch(() => ({ items: [] }));
+  return res.items || [];
+}
+
+async function getCollectionHealth(collectionName) {
+  try {
+    const res = await wixData.query(collectionName).limit(1).find({ suppressAuth: true });
+    return { ok: true, collectionName, countHint: Array.isArray(res?.items) ? res.items.length : 0, error: '' };
+  } catch (err) {
+    return { ok: false, collectionName, countHint: 0, error: text(err?.message || err, 'Query failed') };
+  }
+}
+
+async function getAuthHealthDetails() {
+  const [usersCol, rolesCol, credsCol, sessionsCol, auditCol] = await Promise.all([
+    getCollectionHealth(COLLECTIONS.users),
+    getCollectionHealth(COLLECTIONS.roles),
+    getCollectionHealth(COLLECTIONS.credentials),
+    getCollectionHealth(COLLECTIONS.sessions),
+    getCollectionHealth(COLLECTIONS.audit)
+  ]);
+  const collections = { users: usersCol, roles: rolesCol, credentials: credsCol, sessions: sessionsCol, audit: auditCol };
+
+  const users = usersCol.ok ? await getStaffUsersList().catch(() => []) : [];
+  const roles = rolesCol.ok ? await getAllRoles().catch(() => []) : [];
+  const credentials = credsCol.ok ? await getAllCredentials().catch(() => []) : [];
+  const admins = users.filter((row) => readBool(row.active, true) && text(row.roleKey).toLowerCase() === 'admin');
+  const adminViews = admins.map((row) => ({
+    email: normalizeEmail(row.email),
+    fullName: text(row.fullName || row.email),
+    hasCredential: credentials.some((cred) => normalizeEmail(cred.email) === normalizeEmail(row.email) && readBool(cred.active, true))
+  }));
+  const missing = Object.values(collections).filter((item) => !item.ok).map((item) => item.collectionName);
+  return {
+    ok: missing.length === 0,
+    missingCollections: missing,
+    collections,
+    usersCount: users.length,
+    rolesCount: roles.length,
+    credentialsCount: credentials.filter((row) => readBool(row.active, true)).length,
+    adminUsers: adminViews,
+    notes: missing.length ? 'Λείπει ή αποτυγχάνει τουλάχιστον ένα collection/query του custom auth.' : 'Το custom auth φαίνεται έτοιμο από άποψη collections.'
+  };
+}
+
+async function assertUniqueRoleKey(key, excludeId = '') {
+  const normalizedKey = slugKey(key);
+  if (!normalizedKey) throw new Error('Το role key είναι υποχρεωτικό.');
+  const res = await wixData.query(COLLECTIONS.roles).eq('key', normalizedKey).limit(5).find({ suppressAuth: true });
+  const hit = (res.items || []).find((item) => String(item._id || '') !== String(excludeId || ''));
+  if (hit) throw new Error(`Υπάρχει ήδη role με key "${normalizedKey}".`);
+  return normalizedKey;
+}
+
+async function assertUniqueUserEmail(email, excludeId = '') {
+  const normalized = normalizeEmail(email);
+  if (!normalized) throw new Error('Το email είναι υποχρεωτικό.');
+  const res = await wixData.query(COLLECTIONS.users).eq('email', normalized).limit(5).find({ suppressAuth: true });
+  const hit = (res.items || []).find((item) => String(item._id || '') !== String(excludeId || ''));
+  if (hit) throw new Error(`Υπάρχει ήδη staff user με email "${normalized}".`);
+  return normalized;
+}
+
+async function revokeSessionsByQuery(queryBuilder, currentTokenHash = '', exceptCurrent = false) {
+  const res = await queryBuilder.limit(500).find({ suppressAuth: true }).catch(() => ({ items: [] }));
+  const rows = res.items || [];
+  let revoked = 0;
+  for (const row of rows) {
+    if (exceptCurrent && currentTokenHash && String(row.tokenHash || '') === currentTokenHash) continue;
+    if (!readBool(row.active, true)) continue;
+    await wixData.update(COLLECTIONS.sessions, { ...row, active: false, revokedAt: new Date() }, { suppressAuth: true });
+    revoked += 1;
+  }
+  return revoked;
+}
+
+export async function loginStaff({ email, password, remember = false, userAgent = '' } = {}) {
+  await bootstrapRoles();
+  const safeEmail = normalizeEmail(email);
+  const rawPassword = String(password || '');
+  if (!safeEmail || !rawPassword) throw new Error('Συμπλήρωσε email και password.');
+
+  const user = await getStaffUser(safeEmail);
+  if (!user || !readBool(user.active, true)) {
+    await logAudit({ entityId: safeEmail, action: 'loginFailed', summary: 'Unknown or inactive user', actorEmail: safeEmail, actorName: safeEmail });
+    throw new Error('Λάθος email ή password.');
+  }
+
+  const role = await getRole(user.roleKey);
+  if (!role || !readBool(role.active, true)) {
+    await logAudit({ entityId: safeEmail, action: 'loginFailed', summary: 'Inactive role', actorEmail: safeEmail, actorName: text(user.fullName) });
+    throw new Error('Λάθος email ή password.');
+  }
+
+  let credential = await getCredential(safeEmail);
+  if (!credential) {
+    const bootstrapAllowed = await canUseBootstrapLogin(user);
+    if (!bootstrapAllowed || rawPassword !== DEFAULT_BOOTSTRAP_PASSWORD) {
+      await logAudit({ entityId: safeEmail, action: 'loginFailed', summary: 'Invalid bootstrap login', actorEmail: safeEmail, actorName: text(user.fullName) });
+      throw new Error('Λάθος email ή password.');
+    }
+    credential = await upsertCredential(safeEmail, rawPassword, {
+      mustChangePassword: true,
+      active: true,
+      notes: 'Bootstrap password created automatically during first setup.'
+    });
+  }
+
+  if (!readBool(credential.active, true)) {
+    await logAudit({ entityId: safeEmail, action: 'loginFailed', summary: 'Inactive credentials', actorEmail: safeEmail, actorName: text(user.fullName) });
+    throw new Error('Λάθος email ή password.');
+  }
+  if (!verifyPassword(rawPassword, credential)) {
+    await logAudit({ entityId: safeEmail, action: 'loginFailed', summary: 'Wrong password', actorEmail: safeEmail, actorName: text(user.fullName) });
+    throw new Error('Λάθος email ή password.');
+  }
+
+  const created = await createSession({
+    email: safeEmail,
+    roleKey: role.key,
+    fullName: user.fullName,
+    remember,
+    userAgent
+  });
+
+  await logAudit({ entityId: safeEmail, action: 'loginSuccess', summary: 'Backroom login', actorEmail: safeEmail, actorName: text(user.fullName) });
+
+  return {
+    success: true,
+    sessionToken: created.sessionToken,
+    expiresAt: created.expiresAt,
+    bootstrapUsed: !credential?._id,
+    profile: buildProfile(user, role, { ...created, remember }, credential)
+  };
+}
+
+export async function getSessionState({ sessionToken, touch = true } = {}) {
+  const rawToken = text(sessionToken);
+  if (!rawToken) return { authenticated: false };
+
+  const session = await getSessionByToken(rawToken);
+  if (!session || !readBool(session.active, true)) return { authenticated: false };
+
+  const expiresAt = session?.expiresAt ? new Date(session.expiresAt) : null;
+  if (!expiresAt || Number.isNaN(expiresAt.getTime()) || expiresAt.getTime() <= Date.now()) {
+    try { await wixData.update(COLLECTIONS.sessions, { ...session, active: false, revokedAt: new Date() }, { suppressAuth: true }); } catch (_) {}
+    return { authenticated: false };
+  }
+
+  const user = await getStaffUser(session.email);
+  if (!user || !readBool(user.active, true)) return { authenticated: false };
+  const role = await getRole(user.roleKey);
+  if (!role || !readBool(role.active, true)) return { authenticated: false };
+  const credential = await getCredential(session.email);
+
+  if (touch) {
+    try {
+      await wixData.update(COLLECTIONS.sessions, { ...session, lastSeenAt: new Date() }, { suppressAuth: true });
+    } catch (_) {}
+  }
+
+  return buildProfile(user, role, session, credential);
+}
+
+export async function logoutStaff({ sessionToken } = {}) {
+  const rawToken = text(sessionToken);
+  if (!rawToken) return { success: true };
+  const session = await getSessionByToken(rawToken);
+  if (!session) return { success: true };
+  await wixData.update(COLLECTIONS.sessions, { ...session, active: false, revokedAt: new Date() }, { suppressAuth: true });
+  await logAudit({ entityId: normalizeEmail(session.email), action: 'logout', summary: 'Backroom logout', actorEmail: normalizeEmail(session.email), actorName: text(session.fullName) });
+  return { success: true };
+}
+
+export async function requireStaffAccess({ sessionToken, area = '', action = 'View', specialPermission = '' } = {}) {
+  const state = await getSessionState({ sessionToken, touch: true });
+  if (!state?.authenticated) throw new Error('AUTH_REQUIRED');
+  if (state.isAdmin || text(state.roleKey).toLowerCase() === 'admin' || readBool(state.permissions?.__admin, false)) return state;
+  if (specialPermission) {
+    const hasSpecial = Array.isArray(state.specialPermissions) && state.specialPermissions.includes(String(specialPermission));
+    if (!hasSpecial) throw new Error('ACCESS_DENIED');
+  }
+  if (!canAccessArea(state.permissions, area, action)) throw new Error('ACCESS_DENIED');
+  return state;
+}
+
+export async function authorizeStaffRoute({ sessionToken, area = '', action = 'View' } = {}) {
+  const state = await getSessionState({ sessionToken, touch: true });
+  if (!state?.authenticated) return { authenticated: false, allowed: false };
+  return { ...state, allowed: canAccessArea(state.permissions, area, action) };
+}
+
+export async function getStaffAccessSnapshot({ sessionToken } = {}) {
+  await bootstrapRoles();
+  const state = await getSessionState({ sessionToken, touch: false });
+  if (!state?.authenticated) {
+    return {
+      accessState: 'authRequired',
+      currentStaff: null,
+      roles: [],
+      users: [],
+      auditRows: [],
+      sessionRows: [],
+      meta: {
+        modules: MODULES,
+        actions: ACTIONS,
+        specialPermissions: SPECIALS,
+        note: 'Χρειάζεται ενεργό custom backroom session για να εμφανιστούν τα στοιχεία.'
+      },
+      bootstrapHelp: await getBootstrapHelp()
+    };
+  }
+
+  const isAdmin = !!(state.isAdmin || text(state.roleKey).toLowerCase() === 'admin' || readBool(state.permissions?.__admin, false));
+  const canManageStaff = isAdmin || (Array.isArray(state.specialPermissions) && state.specialPermissions.includes('manageStaff'));
+  const canViewAudit = isAdmin || canManageStaff || (Array.isArray(state.specialPermissions) && state.specialPermissions.includes('viewChangeHistory'));
+  const allRoles = (await getAllRoles()).map(roleToView);
+  const usersRaw = canManageStaff ? await getStaffUsersList() : [];
+  const credentials = canManageStaff ? await getAllCredentials() : [];
+  const sessions = canManageStaff ? await getAllSessions() : [];
+  const auditRows = canViewAudit ? await getAuditRows(80) : [];
+  const credentialMap = new Map(credentials.map((row) => [normalizeEmail(row.email), row]));
+  const activeSessionCounts = new Map();
+  sessions.forEach((row) => {
+    const expiresAt = row?.expiresAt ? new Date(row.expiresAt) : null;
+    if (!readBool(row.active, true) || !expiresAt || expiresAt.getTime() <= Date.now()) return;
+    const safeEmail = normalizeEmail(row.email);
+    activeSessionCounts.set(safeEmail, (activeSessionCounts.get(safeEmail) || 0) + 1);
+  });
+  const currentTokenHash = sessionToken ? sha256(sessionToken) : '';
+  const users = usersRaw.map((row) => {
+    const cred = credentialMap.get(normalizeEmail(row.email));
+    return {
+      ...row,
+      hasCredential: !!cred,
+      credentialActive: readBool(cred?.active, false),
+      mustChangePassword: readBool(cred?.mustChangePassword, false),
+      passwordSetAt: cred?.passwordSetAt || null,
+      activeSessionCount: activeSessionCounts.get(normalizeEmail(row.email)) || 0
+    };
+  });
+  const sessionRows = canManageStaff
+    ? sessions.map((row) => ({
+        _id: row._id,
+        email: normalizeEmail(row.email),
+        roleKey: text(row.roleKey).toLowerCase(),
+        fullName: text(row.fullName),
+        active: readBool(row.active, true),
+        remember: readBool(row.remember, false),
+        createdAt: row.createdAt || null,
+        lastSeenAt: row.lastSeenAt || null,
+        expiresAt: row.expiresAt || null,
+        userAgent: text(row.userAgent),
+        currentSession: currentTokenHash && String(row.tokenHash || '') === currentTokenHash
+      }))
+    : [];
+
+  const currentRoleView = roleToView(await getRole(state.roleKey) || {});
+  const canManageBusinessSettings = isAdmin || hasSpecialPermission(state, 'manageBusinessSettings');
+  const canOverridePricing = isAdmin || hasSpecialPermission(state, 'overridePricing');
+  const canApproveManualOverride = isAdmin || hasSpecialPermission(state, 'approveManualOverride');
+  return {
+    accessState: 'ready',
+    currentStaff: {
+      email: state.email,
+      name: state.fullName,
+      roleKey: state.roleKey,
+      roleLabel: state.roleLabel,
+      isAdmin,
+      canManageStaff,
+      canViewAudit,
+      canManageBusinessSettings,
+      canOverridePricing,
+      canApproveManualOverride,
+      permissions: currentRoleView.permissions || {},
+      permissionsSummary: summarizeRole({ permissions: currentRoleView.permissions }),
+      specialPermissions: state.specialPermissions || [],
+      mustChangePassword: !!state.mustChangePassword,
+      sessionExpiresAt: state.session?.expiresAt || null
+    },
+    roles: canManageStaff ? allRoles : [],
+    users,
+    auditRows,
+    sessionRows,
+    meta: {
+      modules: MODULES,
+      actions: ACTIONS,
+      specialPermissions: SPECIALS,
+      specialPermissionDescriptions: SPECIALS.map((key) => ({ key, description: SPECIAL_DESCRIPTIONS[key] || '' })),
+      pendingRecoveryCount: auditRows.filter((row) => String(row.entityType || '') === 'accessRecovery' && String(row.action || '') === 'requestRecovery').length,
+      note: 'Ξεχωριστός λογαριασμός ανά χρήστη. Deactivate αντί για delete, ώστε να διατηρείται το audit trail.'
+    },
+    bootstrapHelp: await getBootstrapHelp()
+  };
+}
+
+export async function upsertStaffRole({ sessionToken, payload = {} } = {}) {
+  const ctx = await requireStaffAccess({ sessionToken, area: 'pricing', action: 'Edit', specialPermission: 'manageStaff' });
+  const item = normalizeRole(payload);
+  item.key = await assertUniqueRoleKey(item.key, item._id);
+  const oldItem = item._id ? await wixData.get(COLLECTIONS.roles, item._id, { suppressAuth: true }).catch(() => null) : null;
+  const saved = item._id
+    ? await wixData.update(COLLECTIONS.roles, { ...oldItem, ...item }, { suppressAuth: true })
+    : await wixData.insert(COLLECTIONS.roles, item, { suppressAuth: true });
+  await logAudit({
+    entityType: 'role',
+    entityId: saved._id,
+    action: item._id ? 'role.update' : 'role.create',
+    summary: `${item._id ? 'Ενημερώθηκε' : 'Δημιουργήθηκε'} role ${saved.label}`,
+    oldValue: safeJson(oldItem),
+    newValue: safeJson(saved),
+    actorEmail: ctx.email,
+    actorName: ctx.fullName
+  });
+  return saved;
+}
+
+export async function upsertStaffUser({ sessionToken, payload = {} } = {}) {
+  const ctx = await requireStaffAccess({ sessionToken, area: 'pricing', action: 'Edit', specialPermission: 'manageStaff' });
+  const item = normalizeUser(payload);
+  item.email = await assertUniqueUserEmail(item.email, item._id);
+  if (!item.roleKey) throw new Error('Διάλεξε role για τον χρήστη.');
+  const roleMap = (await getRoleMap()).map;
+  if (!roleMap.has(item.roleKey)) throw new Error('Το role δεν βρέθηκε ή δεν είναι ενεργό.');
+  const oldItem = item._id ? await wixData.get(COLLECTIONS.users, item._id, { suppressAuth: true }).catch(() => null) : null;
+  const saved = item._id
+    ? await wixData.update(COLLECTIONS.users, { ...oldItem, ...item }, { suppressAuth: true })
+    : await wixData.insert(COLLECTIONS.users, item, { suppressAuth: true });
+  await logAudit({
+    entityType: 'user',
+    entityId: saved._id,
+    action: item._id ? 'user.update' : 'user.create',
+    summary: `${item._id ? 'Ενημερώθηκε' : 'Δημιουργήθηκε'} staff user ${saved.email}`,
+    oldValue: safeJson(oldItem),
+    newValue: safeJson(saved),
+    actorEmail: ctx.email,
+    actorName: ctx.fullName
+  });
+  return saved;
+}
+
+export async function deactivateStaffUser({ sessionToken, itemId } = {}) {
+  const ctx = await requireStaffAccess({ sessionToken, area: 'pricing', action: 'Edit', specialPermission: 'manageStaff' });
+  if (!itemId) throw new Error('Missing itemId');
+  const oldItem = await wixData.get(COLLECTIONS.users, itemId, { suppressAuth: true });
+  const updated = await wixData.update(COLLECTIONS.users, { ...oldItem, active: false, deactivatedAt: new Date().toISOString() }, { suppressAuth: true });
+  await revokeSessionsByQuery(wixData.query(COLLECTIONS.sessions).eq('email', normalizeEmail(updated.email)));
+  await logAudit({ entityType: 'user', entityId: updated._id, action: 'user.deactivate', summary: `Απενεργοποιήθηκε ο χρήστης ${updated.email}`, oldValue: safeJson(oldItem), newValue: safeJson(updated), actorEmail: ctx.email, actorName: ctx.fullName });
+  return updated;
+}
+
+export async function reactivateStaffUser({ sessionToken, itemId } = {}) {
+  const ctx = await requireStaffAccess({ sessionToken, area: 'pricing', action: 'Edit', specialPermission: 'manageStaff' });
+  if (!itemId) throw new Error('Missing itemId');
+  const oldItem = await wixData.get(COLLECTIONS.users, itemId, { suppressAuth: true });
+  const updated = await wixData.update(COLLECTIONS.users, { ...oldItem, active: true, deactivatedAt: null }, { suppressAuth: true });
+  await logAudit({ entityType: 'user', entityId: updated._id, action: 'user.reactivate', summary: `Επανενεργοποιήθηκε ο χρήστης ${updated.email}`, oldValue: safeJson(oldItem), newValue: safeJson(updated), actorEmail: ctx.email, actorName: ctx.fullName });
+  return updated;
+}
+
+export async function inviteStaffUser({ sessionToken, payload = {} } = {}) {
+  const ctx = await requireStaffAccess({ sessionToken, area: 'pricing', action: 'Edit', specialPermission: 'manageStaff' });
+  const safeEmail = normalizeEmail(payload.email);
+  if (!safeEmail) throw new Error('Missing email');
+  const current = await getStaffUser(safeEmail);
+  const roleKey = slugKey(payload.roleKey || current?.roleKey || 'viewer');
+  const role = await getRole(roleKey);
+  if (!role) throw new Error('Role not found');
+
+  const userPayload = {
+    _id: current?._id,
+    email: safeEmail,
+    fullName: text(payload.fullName || current?.fullName || safeEmail.split('@')[0]),
+    roleKey,
+    active: payload.active !== undefined ? readBool(payload.active, true) : (current ? readBool(current.active, true) : true),
+    memberId: text(payload.memberId || current?.memberId),
+    notes: text(payload.notes || current?.notes)
+  };
+  const userRow = await upsertStaffUser({ sessionToken, payload: userPayload });
+  const tempPassword = buildTempPassword();
+  await upsertCredential(safeEmail, tempPassword, { mustChangePassword: true, active: true, notes: 'Temporary onboarding password issued by admin.' });
+  const currentTokenHash = sessionToken ? sha256(sessionToken) : '';
+  await revokeSessionsByQuery(wixData.query(COLLECTIONS.sessions).eq('email', safeEmail), currentTokenHash, false);
+  await logAudit({
+    entityType: 'user',
+    entityId: safeEmail,
+    action: current ? 'user.reinvite' : 'user.invite',
+    summary: current ? 'Εκδόθηκε νέο προσωρινό password / re-onboard' : 'Δημιουργήθηκε νέος staff user και onboarding access',
+    oldValue: current ? safeJson({ roleKey: current.roleKey, active: current.active }) : '',
+    newValue: safeJson({ roleKey: userRow.roleKey, active: userRow.active }),
+    actorEmail: ctx.email,
+    actorName: ctx.fullName
+  });
+  return {
+    success: true,
+    mode: current ? 'reinvite' : 'invite',
+    email: safeEmail,
+    fullName: userRow.fullName,
+    roleKey,
+    roleLabel: role.label || roleKey,
+    tempPassword,
+    mustChangePassword: true,
+    onboardingMessage: buildOnboardingMessage({
+      fullName: userRow.fullName,
+      email: safeEmail,
+      tempPassword,
+      roleLabel: role.label || roleKey
+    })
+  };
+}
+
+export async function setStaffPassword({ sessionToken, email, newPassword, mustChangePassword = false } = {}) {
+  const ctx = await requireStaffAccess({ sessionToken, area: 'pricing', action: 'Edit', specialPermission: 'manageStaff' });
+  const safeEmail = normalizeEmail(email);
+  if (!safeEmail) throw new Error('Missing email');
+  if (String(newPassword || '').length < 8) throw new Error('Το password πρέπει να έχει τουλάχιστον 8 χαρακτήρες.');
+  const user = await getStaffUser(safeEmail);
+  if (!user) throw new Error('User not found');
+  await upsertCredential(safeEmail, String(newPassword), { mustChangePassword, active: true, notes: 'Set by admin.' });
+  await logAudit({ entityType: 'user', entityId: safeEmail, action: 'passwordSet', summary: 'Ορίστηκε νέο password από admin', oldValue: '', newValue: '', actorEmail: ctx.email, actorName: ctx.fullName });
+  return { success: true, email: safeEmail, mustChangePassword: !!mustChangePassword };
+}
+
+export async function resetStaffPassword({ sessionToken, email } = {}) {
+  const ctx = await requireStaffAccess({ sessionToken, area: 'pricing', action: 'Edit', specialPermission: 'manageStaff' });
+  const safeEmail = normalizeEmail(email);
+  if (!safeEmail) throw new Error('Missing email');
+  const user = await getStaffUser(safeEmail);
+  if (!user) throw new Error('User not found');
+  const tempPassword = buildTempPassword();
+  await upsertCredential(safeEmail, tempPassword, { mustChangePassword: true, active: true, notes: 'Temporary password reset by admin.' });
+  const currentTokenHash = sessionToken ? sha256(sessionToken) : '';
+  await revokeSessionsByQuery(wixData.query(COLLECTIONS.sessions).eq('email', safeEmail), currentTokenHash, false);
+  await logAudit({ entityType: 'user', entityId: safeEmail, action: 'passwordReset', summary: 'Έγινε reset προσωρινού password', actorEmail: ctx.email, actorName: ctx.fullName });
+  return { success: true, email: safeEmail, tempPassword, mustChangePassword: true };
+}
+
+export async function revokeStaffSessions({ sessionToken, email, itemId = '', exceptCurrent = false } = {}) {
+  const ctx = await requireStaffAccess({ sessionToken, area: 'pricing', action: 'Edit', specialPermission: 'manageStaff' });
+  const currentTokenHash = sessionToken ? sha256(sessionToken) : '';
+  let revoked = 0;
+  if (itemId) {
+    const row = await wixData.get(COLLECTIONS.sessions, itemId, { suppressAuth: true }).catch(() => null);
+    if (row && readBool(row.active, true) && (!exceptCurrent || String(row.tokenHash || '') !== currentTokenHash)) {
+      await wixData.update(COLLECTIONS.sessions, { ...row, active: false, revokedAt: new Date() }, { suppressAuth: true });
+      revoked = 1;
+    }
+  } else {
+    const safeEmail = normalizeEmail(email);
+    if (!safeEmail) throw new Error('Missing email');
+    revoked = await revokeSessionsByQuery(wixData.query(COLLECTIONS.sessions).eq('email', safeEmail), currentTokenHash, exceptCurrent);
+  }
+  await logAudit({ entityType: 'session', entityId: itemId || normalizeEmail(email), action: 'session.revoke', summary: `Ανακλήθηκαν ${revoked} session(s)`, actorEmail: ctx.email, actorName: ctx.fullName });
+  return { success: true, revoked };
+}
+
+export async function changeOwnPassword({ sessionToken, currentPassword, newPassword } = {}) {
+  const state = await requireStaffAccess({ sessionToken, area: '', action: 'View' });
+  const safeEmail = normalizeEmail(state.email);
+  const credential = await getCredential(safeEmail);
+  if (!credential || !verifyPassword(String(currentPassword || ''), credential)) throw new Error('Το τρέχον password δεν είναι σωστό.');
+  if (String(newPassword || '').length < 8) throw new Error('Το νέο password πρέπει να έχει τουλάχιστον 8 χαρακτήρες.');
+  await upsertCredential(safeEmail, String(newPassword), { mustChangePassword: false, active: true, notes: 'Changed by staff user.' });
+  await logAudit({ entityType: 'user', entityId: safeEmail, action: 'passwordChange', summary: 'Ο χρήστης άλλαξε το password του', actorEmail: safeEmail, actorName: state.fullName });
+  return { success: true };
+}
+
+
+export async function revokeOwnOtherSessions({ sessionToken } = {}) {
+  const state = await requireStaffAccess({ sessionToken, area: '', action: 'View' });
+  const safeEmail = normalizeEmail(state.email);
+  const currentTokenHash = sessionToken ? sha256(sessionToken) : '';
+  const revoked = await revokeSessionsByQuery(
+    wixData.query(COLLECTIONS.sessions).eq('email', safeEmail),
+    currentTokenHash,
+    true
+  );
+  await logAudit({ entityType: 'session', entityId: safeEmail, action: 'session.revokeOthers', summary: `Ο χρήστης ανακάλεσε ${revoked} άλλο/ά active session(s)`, actorEmail: safeEmail, actorName: state.fullName });
+  return { success: true, revoked };
+}
+
+
+async function hasRecentRecoveryRequest(email, minutes = 15) {
+  const safeEmail = normalizeEmail(email);
+  if (!safeEmail) return false;
+  try {
+    const since = addHours(new Date(), -(Number(minutes || 0) / 60));
+    const res = await wixData.query(COLLECTIONS.audit)
+      .eq('entityType', 'accessRecovery')
+      .eq('entityId', safeEmail)
+      .eq('action', 'requestRecovery')
+      .ge('createdAt', since)
+      .descending('createdAt')
+      .limit(1)
+      .find({ suppressAuth: true });
+    return !!(res.items && res.items.length);
+  } catch (_) {
+    return false;
+  }
+}
+
+export async function requestAccessRecovery({ email, userAgent = '' } = {}) {
+  const safeEmail = normalizeEmail(email);
+  const generic = {
+    success: true,
+    accepted: true,
+    message: 'Η αίτηση recovery καταχωρήθηκε. Αν ο λογαριασμός είναι ενεργός, ο διαχειριστής θα δει το αίτημα στο backroom και θα εκδώσει νέο προσωρινό password.'
+  };
+  if (!safeEmail) return { ...generic, accepted: false, message: 'Συμπλήρωσε πρώτα το εταιρικό email σου.' };
+  const user = await getStaffUser(safeEmail).catch(() => null);
+  if (!user || !readBool(user.active, true)) {
+    return generic;
+  }
+  const recent = await hasRecentRecoveryRequest(safeEmail, 15);
+  if (recent) {
+    return { ...generic, accepted: false, message: 'Υπάρχει ήδη πρόσφατο αίτημα recovery για αυτό το email. Αν δεν έχεις απάντηση, μίλησε με τον διαχειριστή.' };
+  }
+  await logAudit({
+    entityType: 'accessRecovery',
+    entityId: safeEmail,
+    action: 'requestRecovery',
+    summary: `Recovery requested for ${safeEmail}`,
+    actorEmail: safeEmail,
+    actorName: text(user.fullName),
+    newValue: JSON.stringify({ status: 'pending', userAgent: text(userAgent).slice(0, 280) })
+  });
+  return generic;
+}
+
+export async function getPublicLoginBootstrap() {
+  return {
+    ready: true,
+    bootstrapAvailable: false,
+    bootstrapMode: 'private',
+    cryptoMode: cryptoMode(),
+    notes: 'Το login setup παραμένει ιδιωτικό και δεν εμφανίζει δημόσια διαγνωστικά στοιχεία.'
+  };
+}
+
+export async function getPublicAuthHealth() {
+  return {
+    ok: true,
+    cryptoMode: cryptoMode(),
+    bootstrapAvailable: false,
+    bootstrapMode: 'private',
+    notes: 'Τα διαγνωστικά του custom auth είναι κλειστά στο public login panel.'
+  };
+}
+
+export async function getBootstrapHelp() {
+  return {
+    bootstrapAvailable: false,
+    bootstrapMode: 'private',
+    cryptoMode: cryptoMode(),
+    notes: 'Το bootstrap/login diagnostic layer δεν εμφανίζει πλέον δημόσια στοιχεία.'
+  };
+}
+
+function hasSpecialPermission(state = {}, key = '') {
+  return Array.isArray(state?.specialPermissions) && state.specialPermissions.includes(String(key || ''));
+}
+
+

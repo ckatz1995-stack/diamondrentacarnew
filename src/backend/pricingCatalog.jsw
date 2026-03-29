@@ -1,0 +1,332 @@
+import wixData from 'wix-data';
+import * as bookingConfig from 'backend/bookingConfig.js';
+
+export const PRICING_COLLECTIONS = {
+  businessSettings: 'BusinessSettings',
+  insurancePlans: 'InsurancePlans',
+  extraServices: 'ExtraServices',
+  feeRules: 'FeeRules',
+  pricingSeasons: 'PricingSeasons',
+  categoryRateRules: 'CategoryRateRules',
+  pickupLocations: 'PickupLocations'
+};
+
+const CACHE_TTL_MS = 60 * 1000;
+let cache = { public: null, all: null };
+
+function now(){ return Date.now(); }
+function hasFresh(entry){ return !!entry && (now() - Number(entry.ts || 0) < CACHE_TTL_MS); }
+function readBool(value, fallback = false){ if (typeof value === 'boolean') return value; if (typeof value === 'number') return value !== 0; const raw = String(value ?? '').trim().toLowerCase(); if (!raw) return fallback; return ['1','true','yes','y','on'].includes(raw); }
+function toNumber(value, fallback = 0){ const num = Number(value); return Number.isFinite(num) ? num : fallback; }
+function text(value, fallback = ''){ const out = String(value ?? '').trim(); return out || fallback; }
+function sortByOrder(a, b){ const sa = toNumber(a?.sortOrder, 9999); const sb = toNumber(b?.sortOrder, 9999); if (sa !== sb) return sa - sb; return text(a?.label).localeCompare(text(b?.label), 'el'); }
+async function safeQuery(collectionName, queryBuilder){ try { const q = typeof queryBuilder === 'function' ? queryBuilder(wixData.query(collectionName)) : wixData.query(collectionName); const res = await q.limit(1000).find(); return Array.isArray(res?.items) ? res.items : []; } catch (_) { return []; } }
+
+const VAT_RATE = toNumber(bookingConfig?.VAT_RATE, 0.24);
+const DEFAULT_BUSINESS_SETTINGS = bookingConfig?.DEFAULT_BUSINESS_SETTINGS || {
+  title: 'Default business settings',
+  currency: 'EUR',
+  vatRate: 24,
+  vatRateDecimal: VAT_RATE,
+  nightStartHour: 22,
+  nightEndHour: 8,
+  defaultDeposit: 300,
+  companyName: 'DIAMOND Rent A Car',
+  companyTagline: 'Ενοικίαση οχημάτων στη Θεσσαλονίκη με καθαρή διαδικασία και γρήγορη επιβεβαίωση.',
+  companyCity: 'Thessaloniki',
+  companyAddress: 'Θεσσαλονίκη, Ελλάδα',
+  footerNote: 'Επαγγελματική εμπειρία ενοικίασης οχήματος με καθαρή ροή κράτησης, ξεκάθαρη τιμολόγηση και προσωπική επιβεβαίωση.',
+  companyPhone: '+30 2310 000 000',
+  companyEmail: 'info@diamondrentacar.gr',
+  insuranceTermsTitle: 'Όροι και λεπτομέρειες ασφαλειών',
+  insuranceTermsIntro: 'Οι ασφαλιστικές επιλογές και οι σχετικοί όροι παρουσιάζονται με απλό τρόπο πριν από την ολοκλήρωση της κράτησης.',
+  insuranceTermsBody: 'Η βασική κάλυψη αφορά την τυπική συμμετοχή του ενοικιαστή σύμφωνα με τους όρους της εταιρίας. Οι επιπλέον καλύψεις μειώνουν ή περιορίζουν την ευθύνη ανάλογα με το πρόγραμμα που θα επιλεγεί. Πριν από την τελική παράδοση του οχήματος, η ομάδα μας επιβεβαιώνει ξανά τις καλύψεις, τις εξαιρέσεις και το ύψος της συμμετοχής. Δεν καλύπτονται περιστατικά που προκύπτουν από παραβίαση του ΚΟΚ, οδήγηση υπό επήρεια, μη εξουσιοδοτημένο οδηγό, απώλεια κλειδιών ή εγγράφων και χρήση του οχήματος εκτός των συμφωνημένων όρων. Οι πληροφορίες της σελίδας έχουν ενημερωτικό χαρακτήρα και υπερισχύουν οι τελικοί όροι που επιβεβαιώνονται από την εταιρία πριν την παραλαβή.',
+  insuranceDetailsTitle: 'Λεπτομέρειες ασφαλιστικών επιλογών',
+  insuranceDetailsIntro: 'Παρακάτω βλέπεις συνοπτικά τις επιλογές κάλυψης που χρησιμοποιούνται στο front booking flow.',
+  insuranceDetailsBody: 'Το CDW αποτελεί τη βασική κάλυψη χωρίς επιπλέον ημερήσια χρέωση. Το SCDW μειώνει περαιτέρω την οικονομική έκθεση του οδηγού, ενώ το FULL παρέχει την πιο ενισχυμένη επιλογή προστασίας που εμφανίζεται στο backroom και στο booking flow. Για κάθε κράτηση, το τελικό πρόγραμμα ασφάλισης, οι χρεώσεις και οι εξαιρέσεις επιβεβαιώνονται από την ομάδα μας πριν από την παράδοση.',
+  rentalTermsTitle: 'Όροι ενοικίασης και πολιτικές',
+  rentalTermsIntro: 'Στην παρακάτω σελίδα συγκεντρώνονται βασικοί όροι, προϋποθέσεις και πολιτικές της ενοικίασης με μορφή εύκολη για ανάγνωση και ενημέρωση από το backroom.',
+  rentalTermsBody: 'Η ενοικίαση ολοκληρώνεται μόνο μετά από επιβεβαίωση της διαθεσιμότητας από την εταιρία και έλεγχο των στοιχείων του οδηγού. Η εταιρία διατηρεί το δικαίωμα να προτείνει ισοδύναμο όχημα ίδιας ή ανώτερης κατηγορίας όταν αυτό απαιτηθεί από λειτουργικούς λόγους, χωρίς πρόσθετη χρέωση για τον πελάτη.',
+  rentalRequirementsBody: 'Ο κύριος οδηγός οφείλει να διαθέτει ισχύουσα άδεια οδήγησης, ταυτότητα ή διαβατήριο και κάρτα ή άλλο μέσο πληρωμής αποδεκτό από την εταιρία. Ελάχιστη ηλικία, έτη κατοχής διπλώματος, εγγύηση και τυχόν επασφάλιστρα εξαρτώνται από την κατηγορία οχήματος και την τελική επιβεβαίωση της κράτησης.',
+  rentalPoliciesBody: 'Η πολιτική καυσίμου, οι ώρες παράδοσης και παραλαβής, οι χρεώσεις εκτός ωραρίου, οι ακυρώσεις, οι καθυστερήσεις και οι όροι επέκτασης της μίσθωσης επιβεβαιώνονται πριν την παράδοση. Τυχόν ζημιές, πρόστιμα, απώλειες εξοπλισμού ή χρήση του οχήματος κατά παράβαση των συμφωνημένων όρων βαρύνουν τον ενοικιαστή σύμφωνα με την τελική σύμβαση.',
+  rentalPrivacyBody: 'Τα προσωπικά δεδομένα χρησιμοποιούνται αποκλειστικά για την εξυπηρέτηση της κράτησης, την επικοινωνία με τον πελάτη και την εκπλήρωση νομικών ή φορολογικών υποχρεώσεων της εταιρίας. Για ειδικά αιτήματα, διορθώσεις στοιχείων ή απορίες σχετικά με την επεξεργασία δεδομένων, ο πελάτης μπορεί να επικοινωνεί με την εταιρία στα διαθέσιμα στοιχεία επικοινωνίας.',
+  active: true
+};
+const FALLBACK_INSURANCE_OPTIONS = Array.isArray(bookingConfig?.INSURANCE_OPTIONS) && bookingConfig.INSURANCE_OPTIONS.length ? bookingConfig.INSURANCE_OPTIONS : [
+  { key: 'cdw', label: 'CDW', description: 'Βασική ασφαλιστική επιλογή χωρίς επιπλέον ημερήσια χρέωση.', pricePerDay: 0 },
+  { key: 'scdw', label: 'SCDW', description: 'Μειωμένη ευθύνη με χρέωση 12,00€ ανά ημέρα.', pricePerDay: 12 },
+  { key: 'full', label: 'FULL', description: 'Πιο ολοκληρωμένη κάλυψη με χρέωση 20,00€ ανά ημέρα.', pricePerDay: 20 }
+];
+const FALLBACK_EXTRA_OPTIONS = Array.isArray(bookingConfig?.EXTRA_OPTIONS) && bookingConfig.EXTRA_OPTIONS.length ? bookingConfig.EXTRA_OPTIONS : [
+  { key: 'baby', label: 'Βρεφικό κάθισμα', description: 'Άνετη και ασφαλής λύση για πολύ μικρές ηλικίες.', price: 5, mode: 'perDay' },
+  { key: 'child', label: 'Παιδικό κάθισμα', description: 'Πρακτική επιλογή για ταξίδια με παιδιά και σωστή ασφάλιση.', price: 5, mode: 'perDay' },
+  { key: 'booster', label: 'Booster', description: 'Συμπληρωματική επιλογή για μεγαλύτερα παιδιά.', price: 5, mode: 'perDay' },
+  { key: 'secondDriver', label: 'Δεύτερος οδηγός', description: 'Για πιο άνετη κατανομή της οδήγησης.', price: 7, mode: 'perDay' },
+  { key: 'gps', label: 'GPS', description: 'Πλοήγηση για πιο εύκολες μετακινήσεις.', price: 8, mode: 'perDay' }
+];
+const FALLBACK_FEE_RULES = Array.isArray(bookingConfig?.FEE_RULES) && bookingConfig.FEE_RULES.length ? bookingConfig.FEE_RULES : [
+  { key: 'youngDriver19to22', label: 'Επασφάλιστρο ηλικίας (19-22)', ruleType: 'ageRange', audienceGroup: '19-22', amount: 16, billingMode: 'perBooking' },
+  { key: 'senior70plus', label: 'Επασφάλιστρο ηλικίας (70+)', ruleType: 'ageRange', audienceGroup: '70+', amount: 10, billingMode: 'perBooking' },
+  { key: 'nightPickup', label: 'Νυχτερινή χρέωση παραλαβής', ruleType: 'nightPickup', amount: 15, billingMode: 'perBooking' },
+  { key: 'nightDropoff', label: 'Νυχτερινή χρέωση επιστροφής', ruleType: 'nightDropoff', amount: 15, billingMode: 'perBooking' },
+  { key: 'damagesAdmin', label: 'Ζημιές / διαχειριστικό', ruleType: 'manual', amount: 0, billingMode: 'perBooking', publicVisible: false }
+];
+
+function normalizeKey(value){ return text(value, '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').replace(/_{2,}/g, '_').toLowerCase(); }
+
+function normalizeBusinessSettings(item){
+  const vatRate = toNumber(item?.vatRate, DEFAULT_BUSINESS_SETTINGS.vatRate);
+  return {
+    ...DEFAULT_BUSINESS_SETTINGS,
+    _id: item?._id || '',
+    title: text(item?.title, DEFAULT_BUSINESS_SETTINGS.title),
+    currency: text(item?.currency, DEFAULT_BUSINESS_SETTINGS.currency),
+    vatRate,
+    vatRateDecimal: vatRate > 1 ? vatRate / 100 : vatRate || VAT_RATE,
+    nightStartHour: toNumber(item?.nightStartHour, DEFAULT_BUSINESS_SETTINGS.nightStartHour),
+    nightEndHour: toNumber(item?.nightEndHour, DEFAULT_BUSINESS_SETTINGS.nightEndHour),
+    defaultDeposit: toNumber(item?.defaultDeposit, DEFAULT_BUSINESS_SETTINGS.defaultDeposit),
+    companyName: text(item?.companyName, DEFAULT_BUSINESS_SETTINGS.companyName),
+    companyTagline: text(item?.companyTagline, DEFAULT_BUSINESS_SETTINGS.companyTagline),
+    companyPhone: text(item?.companyPhone, DEFAULT_BUSINESS_SETTINGS.companyPhone),
+    companyEmail: text(item?.companyEmail, DEFAULT_BUSINESS_SETTINGS.companyEmail),
+    operatingHoursLabel: text(item?.operatingHoursLabel, DEFAULT_BUSINESS_SETTINGS.operatingHoursLabel),
+    afterHoursNotice: text(item?.afterHoursNotice, DEFAULT_BUSINESS_SETTINGS.afterHoursNotice),
+    allowOverbooking: readBool(item?.allowOverbooking, DEFAULT_BUSINESS_SETTINGS.allowOverbooking),
+    enableTriggeredEmails: readBool(item?.enableTriggeredEmails, DEFAULT_BUSINESS_SETTINGS.enableTriggeredEmails),
+    bookingConfirmedTriggerId: text(item?.bookingConfirmedTriggerId, DEFAULT_BUSINESS_SETTINGS.bookingConfirmedTriggerId),
+    bookingCanceledTriggerId: text(item?.bookingCanceledTriggerId, DEFAULT_BUSINESS_SETTINGS.bookingCanceledTriggerId),
+    vehiclesPageDisplayMode: ['models', 'categories'].includes(text(item?.vehiclesPageDisplayMode, '').toLowerCase()) ? text(item?.vehiclesPageDisplayMode, DEFAULT_BUSINESS_SETTINGS.vehiclesPageDisplayMode).toLowerCase() : DEFAULT_BUSINESS_SETTINGS.vehiclesPageDisplayMode,
+    vehiclesPageModelsSource: ['vehicles', 'fleet'].includes(text(item?.vehiclesPageModelsSource, '').toLowerCase()) ? text(item?.vehiclesPageModelsSource, DEFAULT_BUSINESS_SETTINGS.vehiclesPageModelsSource).toLowerCase() : DEFAULT_BUSINESS_SETTINGS.vehiclesPageModelsSource,
+    companyAddress: text(item?.companyAddress, DEFAULT_BUSINESS_SETTINGS.companyAddress),
+    companyCity: text(item?.companyCity, DEFAULT_BUSINESS_SETTINGS.companyCity),
+    footerNote: text(item?.footerNote, DEFAULT_BUSINESS_SETTINGS.footerNote),
+    insuranceTermsTitle: text(item?.insuranceTermsTitle, DEFAULT_BUSINESS_SETTINGS.insuranceTermsTitle),
+    insuranceTermsIntro: text(item?.insuranceTermsIntro, DEFAULT_BUSINESS_SETTINGS.insuranceTermsIntro),
+    insuranceTermsBody: text(item?.insuranceTermsBody, DEFAULT_BUSINESS_SETTINGS.insuranceTermsBody),
+    insuranceDetailsTitle: text(item?.insuranceDetailsTitle, DEFAULT_BUSINESS_SETTINGS.insuranceDetailsTitle),
+    insuranceDetailsIntro: text(item?.insuranceDetailsIntro, DEFAULT_BUSINESS_SETTINGS.insuranceDetailsIntro),
+    insuranceDetailsBody: text(item?.insuranceDetailsBody, DEFAULT_BUSINESS_SETTINGS.insuranceDetailsBody),
+    rentalTermsTitle: text(item?.rentalTermsTitle, DEFAULT_BUSINESS_SETTINGS.rentalTermsTitle),
+    rentalTermsIntro: text(item?.rentalTermsIntro, DEFAULT_BUSINESS_SETTINGS.rentalTermsIntro),
+    rentalTermsBody: text(item?.rentalTermsBody, DEFAULT_BUSINESS_SETTINGS.rentalTermsBody),
+    rentalRequirementsBody: text(item?.rentalRequirementsBody, DEFAULT_BUSINESS_SETTINGS.rentalRequirementsBody),
+    rentalPoliciesBody: text(item?.rentalPoliciesBody, DEFAULT_BUSINESS_SETTINGS.rentalPoliciesBody),
+    rentalPrivacyBody: text(item?.rentalPrivacyBody, DEFAULT_BUSINESS_SETTINGS.rentalPrivacyBody),
+    dailyRateLabel: text(item?.dailyRateLabel, ''),
+    daysLabel: text(item?.daysLabel, ''),
+    bookingSummaryLabel: text(item?.bookingSummaryLabel, ''),
+    baseChargeLabel: text(item?.baseChargeLabel, ''),
+    insuranceLabel: text(item?.insuranceLabel, ''),
+    extrasLabel: text(item?.extrasLabel, ''),
+    locationFeeLabel: text(item?.locationFeeLabel, ''),
+    ageFeeLabel: text(item?.ageFeeLabel, ''),
+    nightFeeLabel: text(item?.nightFeeLabel, ''),
+    grandTotalLabel: text(item?.grandTotalLabel, ''),
+    noExtrasLabel: text(item?.noExtrasLabel, ''),
+    active: readBool(item?.active, true)
+  };
+}
+function normalizeInsurance(item, fallbackSort = 9999){ return { _id: item?._id || '', key: normalizeKey(item?.key || item?.slug || item?.code || item?.label || item?.title), label: text(item?.label || item?.title, ''), description: text(item?.description, ''), pricePerDay: toNumber(item?.pricePerDay ?? item?.price, 0), billingMode: 'perDay', active: readBool(item?.active, true), publicVisible: readBool(item?.publicVisible, true), sortOrder: toNumber(item?.sortOrder, fallbackSort) }; }
+function normalizeExtra(item, fallbackSort = 9999){ return { _id: item?._id || '', key: normalizeKey(item?.key || item?.slug || item?.code || item?.label || item?.title), label: text(item?.label || item?.title, ''), description: text(item?.description, ''), price: toNumber(item?.price ?? item?.pricePerDay, 0), billingMode: text(item?.billingMode || item?.mode, 'perDay') === 'perBooking' ? 'perBooking' : 'perDay', active: readBool(item?.active, true), publicVisible: readBool(item?.publicVisible, true), sortOrder: toNumber(item?.sortOrder, fallbackSort) }; }
+function normalizeFeeRule(item, fallbackSort = 9999){ return { _id: item?._id || '', key: normalizeKey(item?.key || item?.slug || item?.code || item?.label || item?.title), label: text(item?.label || item?.title, ''), description: text(item?.description, ''), ruleType: text(item?.ruleType, 'manual'), audienceGroup: text(item?.audienceGroup, ''), amount: toNumber(item?.amount ?? item?.price, 0), billingMode: text(item?.billingMode || item?.mode, 'perBooking') === 'perDay' ? 'perDay' : 'perBooking', active: readBool(item?.active, true), publicVisible: readBool(item?.publicVisible, true), sortOrder: toNumber(item?.sortOrder, fallbackSort) }; }
+function normalizeSeason(item, fallbackSort = 9999){
+  const startDate = text(item?.startDate || item?.start || item?.fromDate, '');
+  const endDate = text(item?.endDate || item?.end || item?.toDate, '');
+  return {
+    _id: item?._id || '',
+    key: normalizeKey(item?.key || item?.slug || item?.code || item?.label || item?.title || `${startDate}_${endDate}`),
+    label: text(item?.label || item?.title, ''),
+    description: text(item?.description, ''),
+    startDate,
+    endDate,
+    active: readBool(item?.active, true),
+    publicVisible: readBool(item?.publicVisible, true),
+    sortOrder: toNumber(item?.sortOrder, fallbackSort),
+    priority: toNumber(item?.priority, 0),
+    repeatYearly: readBool(item?.repeatYearly, false)
+  };
+}
+function normalizeCategoryRateRule(item, fallbackSort = 9999){
+  return {
+    _id: item?._id || '',
+    key: normalizeKey(item?.key || item?.slug || item?.code || item?.label || item?.title || `${item?.categoryCode || ''}_${item?.seasonKey || ''}_${item?.minDays || ''}_${item?.maxDays || ''}`),
+    label: text(item?.label || item?.title, ''),
+    description: text(item?.description, ''),
+    categoryCode: text(item?.categoryCode || item?.category || item?.Category, '').toUpperCase(),
+    vehicleCategoryId: text(item?.vehicleCategoryId || item?.categoryId || item?.vehicleId, ''),
+    seasonKey: normalizeKey(item?.seasonKey || item?.season || item?.seasonCode || item?.seasonId || ''),
+    minDays: Math.max(1, Math.floor(toNumber(item?.minDays, 1))),
+    maxDays: Math.max(0, Math.floor(toNumber(item?.maxDays, 0))),
+    pricePerDay: toNumber(item?.pricePerDay ?? item?.dailyPrice ?? item?.price, 0),
+    active: readBool(item?.active, true),
+    publicVisible: readBool(item?.publicVisible, true),
+    sortOrder: toNumber(item?.sortOrder, fallbackSort)
+  };
+}
+
+function normalizePickupLocation(item, fallbackSort = 9999){
+  return {
+    _id: item?._id || '',
+    key: normalizeKey(item?.key || item?.slug || item?.code || item?.label || item?.title || item?.address || ''),
+    label: text(item?.label || item?.title, ''),
+    description: text(item?.description, ''),
+    locationType: text(item?.locationType || item?.type, 'both') || 'both',
+    address: text(item?.address, ''),
+    mapUrl: text(item?.mapUrl || item?.mapsUrl || item?.googleMapsUrl, ''),
+    extraFee: toNumber(item?.extraFee ?? item?.fee ?? item?.price, 0),
+    active: readBool(item?.active, true),
+    publicVisible: readBool(item?.publicVisible, true),
+    sortOrder: toNumber(item?.sortOrder, fallbackSort)
+  };
+}
+
+function parseDateOnly(value){
+  const raw = text(value, '');
+  if (!raw) return null;
+  const dt = new Date(raw);
+  if (Number.isNaN(dt.getTime())) return null;
+  dt.setHours(0,0,0,0);
+  return dt;
+}
+function seasonMatchesDate(date, season){
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return false;
+  const start = parseDateOnly(season?.startDate);
+  const end = parseDateOnly(season?.endDate);
+  if (!start || !end) return false;
+  const check = new Date(date);
+  check.setHours(0,0,0,0);
+  if (season?.repeatYearly) {
+    const monthDay = (d) => ({ m: d.getUTCMonth() + 1, day: d.getUTCDate() });
+    const s = monthDay(start);
+    const e = monthDay(end);
+    const c = monthDay(check);
+    const cv = c.m * 100 + c.day;
+    const sv = s.m * 100 + s.day;
+    const ev = e.m * 100 + e.day;
+    return sv <= ev ? (cv >= sv && cv <= ev) : (cv >= sv || cv <= ev);
+  }
+  return check >= start && check <= end;
+}
+function findActiveSeason(pricingSeasons = [], pickupDateTime){
+  const rows = Array.isArray(pricingSeasons) ? pricingSeasons.filter((row) => row && row.active !== false) : [];
+  const matches = rows.filter((row) => seasonMatchesDate(pickupDateTime, row));
+  matches.sort((a, b) => {
+    const pa = toNumber(b?.priority, 0) - toNumber(a?.priority, 0);
+    if (pa !== 0) return pa;
+    return sortByOrder(a, b);
+  });
+  return matches[0] || null;
+}
+
+function mergeRowsByKey(defaultRows, cmsRows){
+  const map = new Map();
+  defaultRows.forEach((row) => { const key = normalizeKey(row?.key); if (key) map.set(key, { ...row, key }); });
+  cmsRows.forEach((row) => {
+    const key = normalizeKey(row?.key);
+    if (!key) return;
+    const base = map.get(key) || {};
+    const merged = { ...base, ...row, key, _id: row._id || base._id || '' };
+    map.set(key, merged);
+  });
+  return Array.from(map.values()).filter((item) => item.key && item.label);
+}
+
+function buildInsuranceMap(rows = []){ const out = {}; rows.forEach((item) => { if (item?.key) out[item.key] = toNumber(item.pricePerDay, 0); }); return out; }
+function buildExtraMap(rows = []){ const out = {}; rows.forEach((item) => { if (item?.key) out[item.key] = { price: toNumber(item.price, 0), mode: text(item.billingMode, 'perDay') === 'perBooking' ? 'perBooking' : 'perDay', label: text(item.label || item.key) }; }); return out; }
+
+async function readBusinessSettings(){ const items = await safeQuery(PRICING_COLLECTIONS.businessSettings, (q) => q.ascending('_createdDate')); return normalizeBusinessSettings(items[0] || DEFAULT_BUSINESS_SETTINGS); }
+async function readInsurancePlans(scope = 'public'){ const items = await safeQuery(PRICING_COLLECTIONS.insurancePlans, (q) => q.ascending('sortOrder')); const defaults = FALLBACK_INSURANCE_OPTIONS.map((item, index) => normalizeInsurance(item, (index + 1) * 10)); const cmsRows = items.map((item, index) => normalizeInsurance(item, (index + 1) * 10)); let rows = mergeRowsByKey(defaults, cmsRows).filter((item) => item.active !== false); if (scope === 'public') rows = rows.filter((item) => item.publicVisible !== false); return rows.sort(sortByOrder); }
+async function readExtraServices(scope = 'public'){ const items = await safeQuery(PRICING_COLLECTIONS.extraServices, (q) => q.ascending('sortOrder')); const defaults = FALLBACK_EXTRA_OPTIONS.map((item, index) => normalizeExtra(item, (index + 1) * 10)); const cmsRows = items.map((item, index) => normalizeExtra(item, (index + 1) * 10)); let rows = mergeRowsByKey(defaults, cmsRows).filter((item) => item.active !== false); if (scope === 'public') rows = rows.filter((item) => item.publicVisible !== false); return rows.sort(sortByOrder); }
+async function readFeeRules(scope = 'public'){ const items = await safeQuery(PRICING_COLLECTIONS.feeRules, (q) => q.ascending('sortOrder')); const defaults = FALLBACK_FEE_RULES.map((item, index) => normalizeFeeRule(item, (index + 1) * 10)); const cmsRows = items.map((item, index) => normalizeFeeRule(item, (index + 1) * 10)); let rows = mergeRowsByKey(defaults, cmsRows).filter((item) => item.active !== false); if (scope === 'public') rows = rows.filter((item) => item.publicVisible !== false); return rows.sort(sortByOrder); }
+async function readPricingSeasons(scope = 'all'){ const items = await safeQuery(PRICING_COLLECTIONS.pricingSeasons, (q) => q.ascending('sortOrder')); let rows = items.map((item, index) => normalizeSeason(item, (index + 1) * 10)).filter((item) => item.active !== false); if (scope === 'public') rows = rows.filter((item) => item.publicVisible !== false); return rows.sort(sortByOrder); }
+async function readCategoryRateRules(scope = 'all'){ const items = await safeQuery(PRICING_COLLECTIONS.categoryRateRules, (q) => q.ascending('sortOrder')); let rows = items.map((item, index) => normalizeCategoryRateRule(item, (index + 1) * 10)).filter((item) => item.active !== false); if (scope === 'public') rows = rows.filter((item) => item.publicVisible !== false); return rows.sort(sortByOrder); }
+async function readPickupLocations(scope = 'all'){ const items = await safeQuery(PRICING_COLLECTIONS.pickupLocations, (q) => q.ascending('sortOrder')); let rows = items.map((item, index) => normalizePickupLocation(item, (index + 1) * 10)).filter((item) => item.active !== false); if (scope === 'public') rows = rows.filter((item) => item.publicVisible !== false); return rows.sort(sortByOrder); }
+
+function buildCatalogSnapshot({ businessSettings, insurancePlans, extraServices, feeRules, pricingSeasons, categoryRateRules, pickupLocations }){
+  return {
+    businessSettings,
+    insurancePlans,
+    extraServices,
+    feeRules,
+    pricingSeasons,
+    categoryRateRules,
+    pickupLocations,
+    maps: {
+      insurance: buildInsuranceMap(insurancePlans),
+      extras: buildExtraMap(extraServices),
+      fees: feeRules.reduce((acc, rule) => { if (rule.key) acc[rule.key] = rule; return acc; }, {}),
+      pricingSeasons: (pricingSeasons || []).reduce((acc, season) => { if (season.key) acc[season.key] = season; return acc; }, {}),
+      categoryRateRules: categoryRateRules || [],
+      pickupLocations: pickupLocations || []
+    }
+  };
+}
+
+export async function getPricingCatalog(options = {}){
+  const scope = options?.scope === 'all' ? 'all' : 'public';
+  if (!options?.force && hasFresh(cache[scope])) return JSON.parse(JSON.stringify(cache[scope].value));
+  const [businessSettings, insurancePlans, extraServices, feeRules, pricingSeasons, categoryRateRules, pickupLocations] = await Promise.all([
+    readBusinessSettings(),
+    readInsurancePlans(scope),
+    readExtraServices(scope),
+    readFeeRules(scope),
+    readPricingSeasons(scope === 'public' ? 'public' : 'all'),
+    readCategoryRateRules(scope === 'public' ? 'public' : 'all'),
+    readPickupLocations(scope === 'public' ? 'public' : 'all')
+  ]);
+  const value = buildCatalogSnapshot({ businessSettings, insurancePlans, extraServices, feeRules, pricingSeasons, categoryRateRules, pickupLocations });
+  cache[scope] = { ts: now(), value };
+  return JSON.parse(JSON.stringify(value));
+}
+export async function getPublicPricingCatalog(){ return getPricingCatalog({ scope: 'public' }); }
+export async function getPricingMaps(options = {}){ const catalog = await getPricingCatalog({ scope: options?.scope === 'all' ? 'all' : 'public', force: options?.force }); return { businessSettings: catalog.businessSettings, insurancePlans: catalog.insurancePlans, extraServices: catalog.extraServices, feeRules: catalog.feeRules, pricingSeasons: catalog.pricingSeasons || [], categoryRateRules: catalog.categoryRateRules || [], pickupLocations: catalog.pickupLocations || [], insuranceMap: catalog.maps.insurance, extrasMap: catalog.maps.extras, feeRulesMap: catalog.maps.fees, pickupLocationsMap: catalog.maps.pickupLocations || [] }; }
+function athensHour(date, timeZone = 'Europe/Athens'){ const dtf = new Intl.DateTimeFormat('en-GB', { timeZone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }); const parts = dtf.formatToParts(date); const lookup = (type) => Number((parts.find((part) => part.type === type) || {}).value || 0); return { hour: lookup('hour'), minute: lookup('minute') }; }
+function isNightShift(date, businessSettings){ if (!(date instanceof Date) || Number.isNaN(date.getTime())) return false; const startHour = toNumber(businessSettings?.nightStartHour, DEFAULT_BUSINESS_SETTINGS.nightStartHour); const endHour = toNumber(businessSettings?.nightEndHour, DEFAULT_BUSINESS_SETTINGS.nightEndHour); const { hour } = athensHour(date, 'Europe/Athens'); return startHour > endHour ? (hour >= startHour || hour < endHour) : (hour >= startHour && hour < endHour); }
+function feeRuleAmount(rule, fallback = 0){ return toNumber(rule?.amount, fallback); }
+export function computeAutomaticFees({ driverAge, pickupDateTime, dropoffDateTime, businessSettings, feeRules = [] } = {}){ const settings = businessSettings || DEFAULT_BUSINESS_SETTINGS; const rules = Array.isArray(feeRules) ? feeRules : []; const ageText = text(driverAge, ''); const ageRule = rules.find((rule) => rule.ruleType === 'ageRange' && text(rule.audienceGroup) === ageText) || null; const ageFeeFallback = ageText === '19-22' ? 16 : (ageText === '70+' ? 10 : 0); const ageFee = feeRuleAmount(ageRule, ageFeeFallback); const nightPickupRule = rules.find((rule) => rule.ruleType === 'nightPickup') || rules.find((rule) => rule.ruleType === 'night'); const nightDropoffRule = rules.find((rule) => rule.ruleType === 'nightDropoff') || rules.find((rule) => rule.ruleType === 'night'); const pickupNight = isNightShift(pickupDateTime, settings) ? feeRuleAmount(nightPickupRule, 15) : 0; const dropoffNight = isNightShift(dropoffDateTime, settings) ? feeRuleAmount(nightDropoffRule, 15) : 0; return { ageFee: Number(ageFee.toFixed(2)), nightFee: Number((pickupNight + dropoffNight).toFixed(2)), appliedRules: { ageRule: ageRule ? { key: ageRule.key, label: ageRule.label, amount: ageFee } : null, pickupNight: pickupNight ? { key: nightPickupRule?.key || 'nightPickup', label: nightPickupRule?.label || 'Νυχτερινή χρέωση παραλαβής', amount: pickupNight } : null, dropoffNight: dropoffNight ? { key: nightDropoffRule?.key || 'nightDropoff', label: nightDropoffRule?.label || 'Νυχτερινή χρέωση επιστροφής', amount: dropoffNight } : null } }; }
+export function getFallbackCatalogSnapshot(){ return buildCatalogSnapshot({ businessSettings: normalizeBusinessSettings(DEFAULT_BUSINESS_SETTINGS), insurancePlans: FALLBACK_INSURANCE_OPTIONS.map((item, index) => normalizeInsurance(item, (index + 1) * 10)), extraServices: FALLBACK_EXTRA_OPTIONS.map((item, index) => normalizeExtra(item, (index + 1) * 10)), feeRules: FALLBACK_FEE_RULES.map((item, index) => normalizeFeeRule(item, (index + 1) * 10)), pricingSeasons: [], categoryRateRules: [], pickupLocations: [] }); }
+export function clearPricingCatalogCache(){ cache = { public: null, all: null }; return true; }
+
+export function resolveDynamicPricingRate({ categoryCode = '', vehicleCategoryId = '', billableDays = 1, pickupDateTime = null, dropoffDateTime = null, catalog = null, fallbackPricePerDay = 0 } = {}) {
+  const safeCatalog = catalog || {};
+  const seasons = Array.isArray(safeCatalog.pricingSeasons) ? safeCatalog.pricingSeasons : [];
+  const rules = Array.isArray(safeCatalog.categoryRateRules) ? safeCatalog.categoryRateRules : [];
+  const resolvedSeason = findActiveSeason(seasons, pickupDateTime);
+  const code = text(categoryCode, '').toUpperCase();
+  const categoryId = text(vehicleCategoryId, '');
+  const days = Math.max(1, Math.floor(toNumber(billableDays, 1)));
+  const candidates = rules.filter((rule) => {
+    if (!rule || rule.active === false) return false;
+    if (code && text(rule.categoryCode, '').toUpperCase() && text(rule.categoryCode, '').toUpperCase() !== code) return false;
+    if (!code && categoryId && text(rule.vehicleCategoryId, '') && text(rule.vehicleCategoryId, '') !== categoryId) return false;
+    const minDays = Math.max(1, Math.floor(toNumber(rule.minDays, 1)));
+    const maxDays = Math.max(0, Math.floor(toNumber(rule.maxDays, 0)));
+    if (days < minDays) return false;
+    if (maxDays > 0 && days > maxDays) return false;
+    const ruleSeasonKey = normalizeKey(rule.seasonKey || '');
+    if (resolvedSeason?.key) return !ruleSeasonKey || ruleSeasonKey === normalizeKey(resolvedSeason.key);
+    return !ruleSeasonKey;
+  });
+  candidates.sort((a, b) => {
+    const seasonMatchDiff = Number(normalizeKey(a?.seasonKey || '') === normalizeKey(resolvedSeason?.key || '')) - Number(normalizeKey(b?.seasonKey || '') === normalizeKey(resolvedSeason?.key || ''));
+    if (seasonMatchDiff !== 0) return -seasonMatchDiff;
+    const minA = Math.max(1, Math.floor(toNumber(a?.minDays, 1)));
+    const minB = Math.max(1, Math.floor(toNumber(b?.minDays, 1)));
+    if (minA !== minB) return minB - minA;
+    const rangeA = Math.max(0, Math.floor(toNumber(a?.maxDays, 0))) || 999999;
+    const rangeB = Math.max(0, Math.floor(toNumber(b?.maxDays, 0))) || 999999;
+    const widthA = rangeA - minA;
+    const widthB = rangeB - minB;
+    if (widthA !== widthB) return widthA - widthB;
+    return sortByOrder(a, b);
+  });
+  const rule = candidates[0] || null;
+  const pricePerDay = rule ? toNumber(rule.pricePerDay, fallbackPricePerDay) : toNumber(fallbackPricePerDay, 0);
+  return {
+    pricePerDay,
+    source: rule ? 'dynamicRule' : 'vehicleBasePrice',
+    season: resolvedSeason ? { key: resolvedSeason.key, label: resolvedSeason.label, startDate: resolvedSeason.startDate, endDate: resolvedSeason.endDate } : null,
+    rule: rule ? { key: rule.key, label: rule.label, minDays: rule.minDays, maxDays: rule.maxDays, seasonKey: rule.seasonKey, categoryCode: rule.categoryCode || code || '', pricePerDay: toNumber(rule.pricePerDay, 0) } : null
+  };
+}
