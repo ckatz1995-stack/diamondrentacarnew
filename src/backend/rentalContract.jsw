@@ -39,6 +39,22 @@ function extractCode(labelOrCode){
   return m ? m[1].trim() : s.split(/\s+/)[0].trim();
 }
 
+function deriveStationCode(raw){
+  const source = pickLabel(raw);
+  const code = extractCode(source).toUpperCase();
+  if (!code) return "";
+  if (!/^[A-Z0-9]{2,6}$/.test(code)) return "";
+  return code;
+}
+
+function stationMatchesBooking(requestedRaw, currentCode, currentLabel){
+  const requestedCode = deriveStationCode(requestedRaw);
+  if (!requestedCode) return true;
+  const current = deriveStationCode(currentCode || currentLabel || "");
+  if (!current) return true;
+  return requestedCode === current;
+}
+
 function parsePhotosField(v){
   if (Array.isArray(v)) return v.map(x => safeText(x).trim()).filter(Boolean);
   const s = safeText(v).trim();
@@ -241,7 +257,18 @@ async function getFleetMapByIds(ids){
       const model = safeText(f.model || f.Model || f.title || f.Title).trim();
       const assignedCategoryCode = extractCode(f.categoryCode || f.categoryLabel || f.category || f.Category || f.assignedCategoryCode || "");
       const label = safeText(f.vehicleLabel || (plate ? (model ? `${plate} - ${model}` : plate) : (model || recordId))).trim();
-      fleetMap.set(recordId, { plate, model, label, assignedCategoryCode });
+      fleetMap.set(recordId, {
+        plate,
+        model,
+        label,
+        assignedCategoryCode,
+        currentStationCode: safeText(f.currentStationCode || ''),
+        currentStationLabel: safeText(f.currentStationLabel || ''),
+        mileage: safeNum(f.mileage),
+        fuelLevel: safeNum(f.fuelLevel),
+        excess: safeNum(f.excess),
+        operationalStatus: safeText(f.operationalStatus || f.status || '')
+      });
     });
   };
 
@@ -521,6 +548,8 @@ async function buildContractLookups(booking = {}){
   const bookingStart = asDate(booking.pickupDateTime);
   const bookingEnd = asDate(booking.dropoffDateTime);
   const busyVehicleIds = await findBusyAssignedVehicleIds(bookingStart, bookingEnd, booking._id);
+  const currentAssignedId = safeText(booking.assignedVehicle || '').trim();
+  const requestedStationRaw = pickLabel(booking.pickuppoint || '');
 
   try {
     const fleetRes = await wixData.query(VEHICLE_FLEET_COLLECTION).eq("active", true).limit(FLEET_LIMIT).find({ suppressAuth:true });
@@ -533,7 +562,46 @@ async function buildContractLookups(booking = {}){
       addCategory(categoryCode, categoryLabel, categoryLabel, item.categoryId || '');
       const operationalStatus = safeText(item.operationalStatus || item.status || 'available');
       const status = safeText(item.status || 'available');
-      const available = !busyVehicleIds.has(recordId) && !['service','blocked','inactive'].includes(operationalStatus.toLowerCase());
+      const currentStationCode = safeText(item.currentStationCode || '');
+      const currentStationLabel = safeText(item.currentStationLabel || '');
+      const assignedThis = !!currentAssignedId && currentAssignedId === recordId;
+      const serviceBlocked = ['service','blocked','inactive'].includes(operationalStatus.toLowerCase()) || ['service','blocked','inactive'].includes(status.toLowerCase());
+      const hardUnavailable = ['assigned','unavailable','out'].includes(operationalStatus.toLowerCase()) || ['assigned','unavailable','out'].includes(status.toLowerCase());
+      const busyConflict = !assignedThis && (busyVehicleIds.has(recordId) || hardUnavailable);
+      const wrongStation = !assignedThis && !busyConflict && !serviceBlocked && !stationMatchesBooking(requestedStationRaw, currentStationCode, currentStationLabel);
+
+      let selectorStatusKey = 'available';
+      let selectorStatusLabel = 'Available';
+      let selectorTone = 'ok';
+      let selectorStatusReason = 'Ready for assign in this booking window.';
+      let assignable = true;
+
+      if (assignedThis) {
+        selectorStatusKey = 'assignedThis';
+        selectorStatusLabel = 'Assigned here';
+        selectorTone = 'info';
+        selectorStatusReason = 'This vehicle is already assigned to the current booking.';
+        assignable = true;
+      } else if (serviceBlocked) {
+        selectorStatusKey = 'service';
+        selectorStatusLabel = 'Service / blocked';
+        selectorTone = 'danger';
+        selectorStatusReason = 'Vehicle is not operationally available.';
+        assignable = false;
+      } else if (busyConflict) {
+        selectorStatusKey = 'busy';
+        selectorStatusLabel = 'Busy / conflict';
+        selectorTone = 'danger';
+        selectorStatusReason = 'Overlaps with another booking or rental window.';
+        assignable = false;
+      } else if (wrongStation) {
+        selectorStatusKey = 'wrongStation';
+        selectorStatusLabel = 'Wrong station';
+        selectorTone = 'warn';
+        selectorStatusReason = `Vehicle currently belongs to ${currentStationLabel || currentStationCode || 'another station'}.`;
+        assignable = false;
+      }
+
       vehicles.push({
         _id: recordId,
         fleetVehicleId: safeText(item.fleetVehicleId || ''),
@@ -542,8 +610,8 @@ async function buildContractLookups(booking = {}){
         label: safeText(item.vehicleLabel || (plate ? (model ? `${plate} - ${model}` : plate) : (model || recordId))),
         categoryCode,
         categoryLabel,
-        currentStationCode: safeText(item.currentStationCode || ''),
-        currentStationLabel: safeText(item.currentStationLabel || ''),
+        currentStationCode,
+        currentStationLabel,
         status,
         operationalStatus,
         mileage: safeNum(item.mileage),
@@ -552,7 +620,13 @@ async function buildContractLookups(booking = {}){
         excess: safeNum(item.excess),
         ownershipState: safeText(item.ownershipState || ''),
         poolType: safeText(item.poolType || ''),
-        available
+        available: selectorStatusKey === 'available',
+        assignable,
+        thisBookingAssigned: assignedThis,
+        selectorStatusKey,
+        selectorStatusLabel,
+        selectorTone,
+        selectorStatusReason
       });
     }
   } catch (_) {}
@@ -564,11 +638,13 @@ async function buildContractLookups(booking = {}){
 
   const categories = Array.from(categoryMap.values()).sort((a, b) => String(a.code).localeCompare(String(b.code), 'el', { numeric:true, sensitivity:'base' }));
   vehicles.sort((a, b) => {
-    if ((a.available ? 1 : 0) !== (b.available ? 1 : 0)) return a.available ? -1 : 1;
+    const score = (v) => v.thisBookingAssigned ? 4 : v.assignable ? 3 : v.selectorStatusKey === 'wrongStation' ? 2 : v.selectorStatusKey === 'busy' ? 1 : 0;
+    if (score(a) !== score(b)) return score(b) - score(a);
     return String(a.label).localeCompare(String(b.label), 'el', { numeric:true, sensitivity:'base' });
   });
 
   const customers = [];
+
   try {
     const customerRes = await wixData.query("Customers").eq("isActive", true).ascending("fullName").limit(500).find({ suppressAuth:true });
     for (const item of (customerRes.items || [])) {
@@ -1051,6 +1127,11 @@ export async function getContract({ authToken, bookingId }) {
         booking.assignedCategoryCode = safeText(booking.assignedCategoryCode || f.assignedCategoryCode);
         booking.assignedVehiclePlate = safeText(booking.assignedVehiclePlate || f.plate);
         booking.assignedVehicleModel = safeText(booking.assignedVehicleModel || f.model);
+        booking.assignedVehicleStationCode = safeText(booking.assignedVehicleStationCode || f.currentStationCode);
+        booking.assignedVehicleStationLabel = safeText(booking.assignedVehicleStationLabel || f.currentStationLabel);
+        booking.assignedVehicleMileage = safeNum(booking.assignedVehicleMileage || f.mileage);
+        booking.assignedVehicleFuelLevel = safeNum(booking.assignedVehicleFuelLevel || f.fuelLevel);
+        booking.assignedVehicleExcess = safeNum(booking.assignedVehicleExcess || f.excess);
       }
     }
 
@@ -1083,6 +1164,11 @@ export async function getContract({ authToken, bookingId }) {
     if (!safeText(rental.assignedVehicleLabel) && safeText(booking.assignedVehicleLabel)) {
       rental.assignedVehicleLabel = safeText(booking.assignedVehicleLabel);
     }
+    if (!safeText(rental.assignedVehicleStationCode) && safeText(booking.assignedVehicleStationCode)) rental.assignedVehicleStationCode = safeText(booking.assignedVehicleStationCode);
+    if (!safeText(rental.assignedVehicleStationLabel) && safeText(booking.assignedVehicleStationLabel)) rental.assignedVehicleStationLabel = safeText(booking.assignedVehicleStationLabel);
+    if (!safeNum(rental.assignedVehicleMileage) && safeNum(booking.assignedVehicleMileage)) rental.assignedVehicleMileage = safeNum(booking.assignedVehicleMileage);
+    if (!safeNum(rental.assignedVehicleFuelLevel) && safeNum(booking.assignedVehicleFuelLevel)) rental.assignedVehicleFuelLevel = safeNum(booking.assignedVehicleFuelLevel);
+    if (!safeNum(rental.assignedVehicleExcess) && safeNum(booking.assignedVehicleExcess)) rental.assignedVehicleExcess = safeNum(booking.assignedVehicleExcess);
     await wixData.update("Rentals", rental, { suppressAuth:true });
 
     const lookups = await buildContractLookups(booking);
@@ -1162,11 +1248,42 @@ export async function saveContract({ authToken, bookingId, payload, stage }) {
 
     const rental = await ensureRentalForBooking(booking);
 
-    if (payload?.assignedVehicle !== undefined) booking.assignedVehicle = safeText(payload.assignedVehicle);
-    if (payload?.assignedVehicleLabel !== undefined) rental.assignedVehicleLabel = safeText(payload.assignedVehicleLabel);
-    if (payload?.assignedVehicleLabel !== undefined) booking.assignedVehicleLabel = safeText(payload.assignedVehicleLabel);
-    if (payload?.assignedVehiclePlate !== undefined) booking.assignedVehiclePlate = safeText(payload.assignedVehiclePlate);
-    if (payload?.assignedVehicleModel !== undefined) booking.assignedVehicleModel = safeText(payload.assignedVehicleModel);
+    if (payload?.assignedVehicle !== undefined) {
+      booking.assignedVehicle = safeText(payload.assignedVehicle);
+      rental.assignedVehicleId = safeText(payload.assignedVehicle);
+    }
+    if (payload?.assignedVehicleLabel !== undefined) {
+      rental.assignedVehicleLabel = safeText(payload.assignedVehicleLabel);
+      booking.assignedVehicleLabel = safeText(payload.assignedVehicleLabel);
+    }
+    if (payload?.assignedVehiclePlate !== undefined) {
+      booking.assignedVehiclePlate = safeText(payload.assignedVehiclePlate);
+      rental.assignedVehiclePlate = safeText(payload.assignedVehiclePlate);
+    }
+    if (payload?.assignedVehicleModel !== undefined) {
+      booking.assignedVehicleModel = safeText(payload.assignedVehicleModel);
+      rental.assignedVehicleModel = safeText(payload.assignedVehicleModel);
+    }
+    if (payload?.assignedVehicleStationCode !== undefined) {
+      booking.assignedVehicleStationCode = safeText(payload.assignedVehicleStationCode);
+      rental.assignedVehicleStationCode = safeText(payload.assignedVehicleStationCode);
+    }
+    if (payload?.assignedVehicleStationLabel !== undefined) {
+      booking.assignedVehicleStationLabel = safeText(payload.assignedVehicleStationLabel);
+      rental.assignedVehicleStationLabel = safeText(payload.assignedVehicleStationLabel);
+    }
+    if (payload?.assignedVehicleMileage !== undefined) {
+      booking.assignedVehicleMileage = safeNum(payload.assignedVehicleMileage);
+      rental.assignedVehicleMileage = safeNum(payload.assignedVehicleMileage);
+    }
+    if (payload?.assignedVehicleFuelLevel !== undefined) {
+      booking.assignedVehicleFuelLevel = safeNum(payload.assignedVehicleFuelLevel);
+      rental.assignedVehicleFuelLevel = safeNum(payload.assignedVehicleFuelLevel);
+    }
+    if (payload?.assignedVehicleExcess !== undefined) {
+      booking.assignedVehicleExcess = safeNum(payload.assignedVehicleExcess);
+      rental.assignedVehicleExcess = safeNum(payload.assignedVehicleExcess);
+    }
     if (payload?.assignedCategoryCode !== undefined) {
       booking.assignedCategoryCode = safeText(payload.assignedCategoryCode);
       rental.assignedCategoryCode = safeText(payload.assignedCategoryCode);
