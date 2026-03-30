@@ -496,7 +496,38 @@
     .location-fee-pill{min-width:94px;height:42px;border-radius:12px;border:1px solid #efd3a1;background:#fff7e8;color:#8b5200;display:flex;align-items:center;justify-content:center;font-weight:900;padding:0 10px}
     @media (max-width: 1100px){.movement-cards-grid,.movement-inline-strip,.movement-dt-shell{grid-template-columns:1fr}.station-row{grid-template-columns:1fr}.station-label{padding-top:0}.location-fee-shell,.station-select-shell,.dual-inline-fields,.time-chip-grid{grid-template-columns:1fr 1fr}.time-chip-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
-  </style>
+  
+    /* Vehicle selector modal */
+    .vehicle-selector-shell-pro{display:grid;gap:14px}
+    .vehicle-selector-top{display:grid;grid-template-columns:1.2fr .8fr auto auto;gap:10px;align-items:end}
+    .vehicle-selector-filters{display:flex;gap:8px;flex-wrap:wrap}
+    .vehicle-filter-chip{appearance:none;border:1px solid var(--line-strong);background:#fff;border-radius:999px;padding:9px 12px;cursor:pointer;font-weight:700;color:#29415e}
+    .vehicle-filter-chip.active{background:var(--accent);border-color:var(--accent);color:#fff}
+    .vehicle-selector-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+    .vehicle-mini{background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:10px 12px}
+    .vehicle-mini .k{font-size:11px;font-weight:900;color:#5f6f86;text-transform:uppercase;letter-spacing:.05em}
+    .vehicle-mini .v{margin-top:6px;font-size:14px;font-weight:800;color:var(--text)}
+    .vehicle-table-wrap{border:1px solid var(--line);border-radius:16px;overflow:hidden;background:#fff}
+    .vehicle-table{width:100%;border-collapse:collapse;font-size:13px}
+    .vehicle-table th,.vehicle-table td{padding:12px 10px;border-bottom:1px solid var(--line);vertical-align:middle;text-align:left}
+    .vehicle-table th{font-size:11px;color:#5f6f86;text-transform:uppercase;letter-spacing:.05em;background:#fbfcff}
+    .vehicle-row-btn{cursor:pointer}
+    .vehicle-row-btn.active{background:#eef4ff}
+    .vehicle-badge{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;padding:4px 8px;border:1px solid var(--line);background:#f8fafc;font-size:11px;font-weight:800;color:#33495f}
+    .vehicle-badge.ok{background:#e9f7ef;border-color:#b9e2c7;color:#0a7a42}
+    .vehicle-badge.warn{background:#fff7ec;border-color:#f2c27c;color:#8f5200}
+    .vehicle-badge.danger{background:#fff1f0;border-color:#f3bbb7;color:#a12f28}
+    .vehicle-assigned-card{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:12px 14px;border:1px solid var(--line);border-radius:16px;background:linear-gradient(180deg,#fff,#fbfcff)}
+    .vehicle-assigned-main{display:grid;gap:4px}
+    .vehicle-assigned-title{font-size:15px;font-weight:900;color:var(--text)}
+    .vehicle-assigned-sub{font-size:12px;color:var(--muted)}
+    .vehicle-actions-inline{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+    .vehicle-table-empty{padding:18px;text-align:center;color:var(--muted)}
+    .vehicle-row-main{display:grid;gap:2px}
+    .vehicle-row-main b{font-size:13px}
+    .vehicle-row-main span{font-size:12px;color:var(--muted)}
+
+</style>
 </head>
 <body>
 <div class="app" id="app">
@@ -1412,38 +1443,92 @@
 
 <!-- Vehicle modal -->
 <div class="modal-wrap" id="vehicleModalWrap" data-modal-wrap="vehicleModal">
-  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="vehicleModalTitle">
+  <div class="modal modal-xl" role="dialog" aria-modal="true" aria-labelledby="vehicleModalTitle">
     <div class="modal-hd">
-      <h3 class="modal-title" id="vehicleModalTitle">Vehicle / package / products</h3>
-      <div class="modal-sub">Επιλογή category, assigned vehicle και protections / extras.</div>
+      <div>
+        <h3 class="modal-title" id="vehicleModalTitle">Vehicle selector</h3>
+        <div class="modal-sub">Search, filter, assign, clear vehicle και άνοιγμα καρτέλας οχήματος.</div>
+      </div>
     </div>
     <div class="modal-bd">
-      <div class="grid cols-4">
-        <div class="field">
-          <label>Category</label>
-          <input class="input" id="veh_categoryLabel" list="categoryList" />
-          <datalist id="categoryList"></datalist>
+      <div class="vehicle-selector-shell-pro">
+        <div class="vehicle-selector-top">
+          <div class="field">
+            <label>Search vehicle</label>
+            <input class="input" id="veh_selectorSearch" placeholder="Plate, model, category, station" />
+          </div>
+          <div class="field">
+            <label>Category</label>
+            <select class="select" id="veh_selectorCategory"></select>
+          </div>
+          <button class="btn ghost" type="button" id="btnVehicleSelectorClearSearch">Clear search</button>
+          <button class="btn ghost" type="button" id="btnVehicleSelectorRefresh">Refresh</button>
         </div>
-        <div class="field"><label>Category code</label><input class="input" id="veh_categoryCode" /></div>
-        <div class="field"><label>Assigned vehicle</label>
-          <input class="input" id="veh_vehicleSearch" list="vehicleList" placeholder="Plate ή μοντέλο" />
-          <datalist id="vehicleList"></datalist>
+
+        <div class="vehicle-selector-filters">
+          <button class="vehicle-filter-chip active" type="button" data-veh-filter="all">All</button>
+          <button class="vehicle-filter-chip" type="button" data-veh-filter="available">Available</button>
+          <button class="vehicle-filter-chip" type="button" data-veh-filter="assigned">Assigned / unavailable</button>
+          <button class="vehicle-filter-chip" type="button" data-veh-filter="service">Service / blocked</button>
         </div>
-        <div class="field"><label>Assigned label</label><input class="input" id="veh_vehicleLabel" readonly /></div>
 
-        <div class="field"><label>Plate</label><input class="input" id="veh_vehiclePlate" readonly /></div>
-        <div class="field"><label>Model</label><input class="input" id="veh_vehicleModel" readonly /></div>
-        <div class="field"><label>Selected package</label><input class="input" id="veh_package" /></div>
-        <div class="field"><label>Extras</label><input class="input" id="veh_extras" placeholder="GPS, Baby seat, ..." /></div>
-      </div>
+        <div class="vehicle-selector-summary">
+          <div class="vehicle-mini"><div class="k">Booked category</div><div class="v" id="veh_selectorBookedCategory">—</div></div>
+          <div class="vehicle-mini"><div class="k">Visible vehicles</div><div class="v" id="veh_selectorVisibleCount">0</div></div>
+          <div class="vehicle-mini"><div class="k">Available now</div><div class="v" id="veh_selectorAvailableCount">0</div></div>
+          <div class="vehicle-mini"><div class="k">Current assignment</div><div class="v" id="veh_selectorCurrentAssignment">—</div></div>
+        </div>
 
-      <div class="divider"></div>
+        <div class="vehicle-assigned-card">
+          <div class="vehicle-assigned-main">
+            <div class="vehicle-assigned-title" id="veh_selectorSelectedTitle">No vehicle selected</div>
+            <div class="vehicle-assigned-sub" id="veh_selectorSelectedSub">Επέλεξε όχημα από τον πίνακα για assign.</div>
+          </div>
+          <div class="vehicle-actions-inline">
+            <button class="btn ghost" type="button" id="btnVehicleSelectorClearAssigned">Clear assigned</button>
+            <button class="btn ghost" type="button" id="btnVehicleSelectorOpenCard">Open vehicle card</button>
+            <button class="btn primary" type="button" id="btnVehicleSelectorAssign">Assign selected</button>
+          </div>
+        </div>
 
-      <div class="grid cols-4">
-        <div class="field"><label>Rental charge</label><input class="input" id="ch_rental" type="number" step="0.01" min="0" /></div>
-        <div class="field"><label>Insurance / protection</label><input class="input" id="ch_insurance" type="number" step="0.01" min="0" /></div>
-        <div class="field"><label>Extras</label><input class="input" id="ch_options" type="number" step="0.01" min="0" /></div>
-        <div class="field"><label>Discount</label><input class="input" id="ch_discount" type="number" step="0.01" min="0" /></div>
+        <div class="vehicle-table-wrap">
+          <table class="vehicle-table">
+            <thead>
+              <tr>
+                <th>Vehicle</th>
+                <th>Category</th>
+                <th>Station</th>
+                <th>Status</th>
+                <th>Mileage</th>
+                <th>Fuel</th>
+              </tr>
+            </thead>
+            <tbody id="veh_selectorBody"></tbody>
+          </table>
+          <div class="vehicle-table-empty hidden" id="veh_selectorEmpty">No vehicles match the current category/filter.</div>
+        </div>
+
+        <input class="hidden-sync" id="veh_categoryLabel" list="categoryList" />
+        <datalist id="categoryList"></datalist>
+        <input class="hidden-sync" id="veh_categoryCode" />
+        <input class="hidden-sync" id="veh_vehicleSearch" list="vehicleList" />
+        <datalist id="vehicleList"></datalist>
+        <input class="hidden-sync" id="veh_vehicleLabel" readonly />
+        <input class="hidden-sync" id="veh_vehiclePlate" readonly />
+        <input class="hidden-sync" id="veh_vehicleModel" readonly />
+
+        <div class="divider"></div>
+
+        <div class="grid cols-4">
+          <div class="field"><label>Selected package</label><input class="input" id="veh_package" /></div>
+          <div class="field"><label>Extras</label><input class="input" id="veh_extras" placeholder="GPS, Baby seat, ..." /></div>
+          <div class="field"><label>Rental charge</label><input class="input" id="ch_rental" type="number" step="0.01" min="0" /></div>
+          <div class="field"><label>Insurance / protection</label><input class="input" id="ch_insurance" type="number" step="0.01" min="0" /></div>
+        </div>
+        <div class="grid cols-2">
+          <div class="field"><label>Extras charge</label><input class="input" id="ch_options" type="number" step="0.01" min="0" /></div>
+          <div class="field"><label>Discount</label><input class="input" id="ch_discount" type="number" step="0.01" min="0" /></div>
+        </div>
       </div>
     </div>
     <div class="modal-ft">
@@ -1588,7 +1673,7 @@
     rental: {},
     lookups: { categories: [], vehicles: [], customers: [], companies: [] },
     context: {},
-    ui: { activeModal: '', saveState: '', additionalDriversOpen: false, driverLookupDrafts: {}, companyLookupDraft: null, activeDriverSlot: 0, customerSearchTarget: 0, customerSearchSelectedIndex: -1, activeDriverTab: 'general', activeCompanyTab: 'general', activeDriverRegistryMatch: null, activeCompanyRegistryMatch: null, mainDriverCustomerId: '', selectedCompanyId: '', driverInsightsKey: '', driverInsightsLoading: false, driverInsights: null, companyInsightsKey: '', companyInsightsLoading: false, companyInsights: null }
+    ui: { activeModal: '', saveState: '', additionalDriversOpen: false, driverLookupDrafts: {}, companyLookupDraft: null, activeDriverSlot: 0, customerSearchTarget: 0, customerSearchSelectedIndex: -1, activeDriverTab: 'general', activeCompanyTab: 'general', activeDriverRegistryMatch: null, activeCompanyRegistryMatch: null, mainDriverCustomerId: '', selectedCompanyId: '', driverInsightsKey: '', driverInsightsLoading: false, driverInsights: null, companyInsightsKey: '', companyInsightsLoading: false, companyInsights: null, vehicleSelectorQuery: '', vehicleSelectorFilter: 'all', vehicleSelectorSelectedId: '', vehicleSelectorCategoryCode: '' }
   };
 
   const q = (sel, root=document) => root.querySelector(sel);
@@ -2043,12 +2128,143 @@
     toast(`Εφαρμόστηκαν στοιχεία εταιρίας: ${match.companyName || '—'}.`);
   }
 
+  function currentVehicleCategoryCode(){
+    return safe(byId('veh_categoryCode')?.value || byId('book_categoryId')?.value || state.booking?.categoryId || state.booking?.assignedCategoryCode || '').trim();
+  }
+
+  function currentVehicleCategoryLabel(){
+    return safe(byId('veh_categoryLabel')?.value || byId('book_category')?.value || state.booking?.category || '').trim();
+  }
+
+  function normalizeVehicleFilterStatus(vehicle){
+    const operational = safe(vehicle.operationalStatus || '').toLowerCase();
+    const status = safe(vehicle.status || '').toLowerCase();
+    if (['service','blocked'].includes(operational) || ['service','blocked'].includes(status)) return 'service';
+    return vehicle.available ? 'available' : 'assigned';
+  }
+
+  function getSelectedVehicleRow(){
+    const selectedId = safe(state.ui.vehicleSelectorSelectedId || '').trim();
+    if (!selectedId) return null;
+    return (state.lookups?.vehicles || []).find((v) => String(v._id) === selectedId) || null;
+  }
+
+  function hydrateVehicleSelectorFromCurrent(){
+    const currentAssignedLabel = safe(byId('veh_vehicleLabel')?.value || byId('veh_assignedLabel')?.value || state.booking?.assignedVehicleLabel || '').trim();
+    const currentAssignedPlate = safe(byId('veh_vehiclePlate')?.value || byId('veh_assignedPlate')?.value || state.booking?.assignedVehiclePlate || '').trim();
+    const currentAssignedId = safe(state.booking?.assignedVehicle || '').trim();
+    const vehicles = state.lookups?.vehicles || [];
+    const match = vehicles.find((v) => String(v._id) === currentAssignedId) || vehicles.find((v) => currentAssignedLabel && v.label === currentAssignedLabel) || vehicles.find((v) => currentAssignedPlate && v.plate === currentAssignedPlate) || null;
+    state.ui.vehicleSelectorSelectedId = match?._id || '';
+    state.ui.vehicleSelectorCategoryCode = currentVehicleCategoryCode() || match?.categoryCode || '';
+    const categorySelect = byId('veh_selectorCategory');
+    if (categorySelect) categorySelect.value = state.ui.vehicleSelectorCategoryCode || '__all__';
+  }
+
+  function applyVehicleSelectionToDraft(vehicle){
+    if (!vehicle) return;
+    state.ui.vehicleSelectorSelectedId = String(vehicle._id || '');
+    setVal('veh_vehicleSearch', vehicle.label || '');
+    setVal('veh_vehicleLabel', vehicle.label || '');
+    setVal('veh_vehiclePlate', vehicle.plate || '');
+    setVal('veh_vehicleModel', vehicle.model || '');
+    setVal('veh_assignedLabel', vehicle.label || '');
+    setVal('veh_assignedPlate', vehicle.plate || '');
+    if (vehicle.categoryCode) {
+      setVal('veh_categoryCode', vehicle.categoryCode);
+      setVal('book_categoryId', vehicle.categoryCode);
+      state.ui.vehicleSelectorCategoryCode = vehicle.categoryCode;
+    }
+    if (vehicle.categoryLabel) {
+      setVal('veh_categoryLabel', vehicle.categoryLabel);
+      setVal('book_category', vehicle.categoryLabel);
+    }
+    renderVehicleSelector();
+    renderSummary();
+    renderProductsPreview();
+  }
+
+  function clearAssignedVehicleDraft(){
+    state.ui.vehicleSelectorSelectedId = '';
+    setVal('veh_vehicleSearch', '');
+    setVal('veh_vehicleLabel', '');
+    setVal('veh_vehiclePlate', '');
+    setVal('veh_vehicleModel', '');
+    setVal('veh_assignedLabel', '');
+    setVal('veh_assignedPlate', '');
+    renderVehicleSelector();
+    renderSummary();
+  }
+
+  function renderVehicleSelector(){
+    const vehicles = state.lookups?.vehicles || [];
+    const body = byId('veh_selectorBody');
+    const empty = byId('veh_selectorEmpty');
+    if (!body || !empty) return;
+    const rawQuery = safe(byId('veh_selectorSearch')?.value || state.ui.vehicleSelectorQuery || '').trim().toLowerCase();
+    const filter = safe(state.ui.vehicleSelectorFilter || 'all').trim() || 'all';
+    const selectedCategory = safe(byId('veh_selectorCategory')?.value || state.ui.vehicleSelectorCategoryCode || '').trim();
+    const categoryCode = selectedCategory && selectedCategory !== '__all__' ? selectedCategory : (state.ui.vehicleSelectorCategoryCode || currentVehicleCategoryCode());
+    const filtered = vehicles.filter((vehicle) => {
+      if (categoryCode && vehicle.categoryCode && vehicle.categoryCode !== categoryCode) return false;
+      const kind = normalizeVehicleFilterStatus(vehicle);
+      if (filter !== 'all' && kind !== filter) return false;
+      if (!rawQuery) return true;
+      const hay = [vehicle.plate, vehicle.model, vehicle.categoryCode, vehicle.categoryLabel, vehicle.currentStationCode, vehicle.currentStationLabel, vehicle.status, vehicle.operationalStatus, vehicle.label].filter(Boolean).join(' | ').toLowerCase();
+      return hay.includes(rawQuery);
+    });
+    const availableCount = filtered.filter((v) => normalizeVehicleFilterStatus(v) === 'available').length;
+    byId('veh_selectorBookedCategory') && (byId('veh_selectorBookedCategory').textContent = currentVehicleCategoryLabel() || currentVehicleCategoryCode() || '—');
+    byId('veh_selectorVisibleCount') && (byId('veh_selectorVisibleCount').textContent = String(filtered.length));
+    byId('veh_selectorAvailableCount') && (byId('veh_selectorAvailableCount').textContent = String(availableCount));
+    byId('veh_selectorCurrentAssignment') && (byId('veh_selectorCurrentAssignment').textContent = safe(byId('veh_vehicleLabel')?.value || byId('veh_assignedLabel')?.value || '—') || '—');
+
+    const selected = getSelectedVehicleRow();
+    byId('veh_selectorSelectedTitle') && (byId('veh_selectorSelectedTitle').textContent = selected ? `${selected.plate || '—'} · ${selected.model || ''}`.trim() : 'No vehicle selected');
+    byId('veh_selectorSelectedSub') && (byId('veh_selectorSelectedSub').textContent = selected ? [selected.categoryLabel || selected.categoryCode, selected.currentStationLabel || selected.currentStationCode, selected.operationalStatus || selected.status].filter(Boolean).join(' • ') : 'Επέλεξε όχημα από τον πίνακα για assign.');
+
+    if (!filtered.length) {
+      body.innerHTML = '';
+      empty.classList.remove('hidden');
+      return;
+    }
+    empty.classList.add('hidden');
+    body.innerHTML = filtered.map((vehicle) => {
+      const active = String(vehicle._id) === String(state.ui.vehicleSelectorSelectedId || '');
+      const kind = normalizeVehicleFilterStatus(vehicle);
+      const badgeClass = kind === 'available' ? 'ok' : kind === 'service' ? 'danger' : 'warn';
+      return `<tr class="vehicle-row-btn ${active ? 'active' : ''}" data-veh-id="${escapeAttr(vehicle._id)}">
+        <td><div class="vehicle-row-main"><b>${escapeHtml(vehicle.plate || '—')}</b><span>${escapeHtml(vehicle.model || vehicle.label || '—')}</span></div></td>
+        <td>${escapeHtml(vehicle.categoryLabel || vehicle.categoryCode || '—')}</td>
+        <td>${escapeHtml(vehicle.currentStationLabel || vehicle.currentStationCode || '—')}</td>
+        <td><span class="vehicle-badge ${badgeClass}">${escapeHtml(vehicle.operationalStatus || vehicle.status || (vehicle.available ? 'available' : 'assigned'))}</span></td>
+        <td>${escapeHtml(String(vehicle.mileage || '—'))}</td>
+        <td>${escapeHtml(vehicle.fuelLevel ? `${vehicle.fuelLevel}/8` : '—')}</td>
+      </tr>`;
+    }).join('');
+    qa('[data-veh-id]').forEach((row) => {
+      row.addEventListener('click', () => { state.ui.vehicleSelectorSelectedId = row.dataset.vehId || ''; renderVehicleSelector(); });
+      row.addEventListener('dblclick', () => {
+        state.ui.vehicleSelectorSelectedId = row.dataset.vehId || '';
+        const match = getSelectedVehicleRow();
+        if (match) applyVehicleSelectionToDraft(match);
+      });
+    });
+  }
+
+  function openSelectedVehicleCard(){
+    const selected = getSelectedVehicleRow();
+    if (!selected?._id) { toast('Επίλεξε όχημα από τη λίστα.'); return; }
+    post({ type:'openVehicleCard', fleetVehicleId: selected._id });
+  }
+
   function renderLookups(){
     const categories = state.lookups?.categories || [];
     const vehicles = state.lookups?.vehicles || [];
 
     const categoryList = byId('categoryList');
     const vehicleList = byId('vehicleList');
+    const categorySelect = byId('veh_selectorCategory');
 
     if (categoryList) {
       categoryList.innerHTML = categories.map((c) => `<option value="${escapeHtml(c.label || c.code || '')}"></option>`).join('');
@@ -2056,6 +2272,11 @@
     if (vehicleList) {
       vehicleList.innerHTML = vehicles.map((v) => `<option value="${escapeHtml(v.label || '')}"></option>`).join('');
     }
+    if (categorySelect) {
+      categorySelect.innerHTML = ['<option value="__all__">All categories</option>', ...categories.map((c) => `<option value="${escapeHtml(c.code || '')}">${escapeHtml(c.label || c.code || '')}</option>`)].join('');
+      hydrateVehicleSelectorFromCurrent();
+    }
+    renderVehicleSelector();
     refreshMovementSection();
   }
 
@@ -2630,6 +2851,7 @@
   }
 
   function selectedVehicleId(){
+    if (safe(state.ui.vehicleSelectorSelectedId || '').trim()) return safe(state.ui.vehicleSelectorSelectedId || '').trim();
     const label = byId('veh_vehicleSearch')?.value || '';
     const matched = (state.lookups?.vehicles || []).find((v) => v.label === label || v.plate === label || `${v.plate} - ${v.model}` === label);
     return matched?._id || state.booking?.assignedVehicle || '';
@@ -2664,6 +2886,10 @@
       activateCompanyTab(state.ui.activeCompanyTab || 'general');
       refreshCompanyRegistryHint();
       ensureCompanyInsights();
+    }
+    if (name === 'vehicleModal') {
+      hydrateVehicleSelectorFromCurrent();
+      renderVehicleSelector();
     }
     postResize();
   }
@@ -2874,6 +3100,53 @@
     qa('.driver-slot-btn').forEach((btn) => btn.addEventListener('click', () => openAdditionalDriverModal(Number(btn.dataset.driverSlot || 1))));
     [1,2,3].forEach((index) => {
       byId(`btnAdditionalDriver${index}Lookup`)?.addEventListener('click', () => applyDriverLookup(index));
+    });
+
+
+    qa('[data-veh-filter]').forEach((btn) => btn.addEventListener('click', () => {
+      state.ui.vehicleSelectorFilter = btn.dataset.vehFilter || 'all';
+      qa('[data-veh-filter]').forEach((b) => b.classList.toggle('active', b === btn));
+      renderVehicleSelector();
+    }));
+    byId('veh_selectorSearch')?.addEventListener('input', (e) => {
+      state.ui.vehicleSelectorQuery = e.target.value || '';
+      renderVehicleSelector();
+    });
+    byId('veh_selectorCategory')?.addEventListener('change', (e) => {
+      const code = safe(e.target.value || '').trim();
+      state.ui.vehicleSelectorCategoryCode = code === '__all__' ? '' : code;
+      const match = (state.lookups?.categories || []).find((c) => c.code === state.ui.vehicleSelectorCategoryCode);
+      setVal('veh_categoryCode', state.ui.vehicleSelectorCategoryCode || '');
+      if (match) {
+        setVal('veh_categoryLabel', match.label || match.code || '');
+        setVal('book_category', match.label || match.code || '');
+        setVal('book_categoryId', match.code || '');
+      }
+      renderVehicleSelector();
+      renderSummary();
+    });
+    byId('btnVehicleSelectorClearSearch')?.addEventListener('click', () => {
+      state.ui.vehicleSelectorQuery = '';
+      setVal('veh_selectorSearch', '');
+      renderVehicleSelector();
+    });
+    byId('btnVehicleSelectorRefresh')?.addEventListener('click', () => { hydrateVehicleSelectorFromCurrent(); renderVehicleSelector(); toast('Vehicle selector refreshed.'); });
+    byId('btnVehicleSelectorAssign')?.addEventListener('click', () => {
+      const match = getSelectedVehicleRow();
+      if (!match) { toast('Επίλεξε όχημα από τη λίστα.'); return; }
+      applyVehicleSelectionToDraft(match);
+      toast(`Assigned vehicle: ${match.label || match.plate || 'Vehicle'}.`);
+    });
+    byId('btnVehicleSelectorClearAssigned')?.addEventListener('click', () => {
+      clearAssignedVehicleDraft();
+      toast('Vehicle assignment cleared.');
+    });
+    byId('btnVehicleSelectorOpenCard')?.addEventListener('click', () => openSelectedVehicleCard());
+    byId('btnVehicleDone')?.addEventListener('click', () => {
+      setVal('book_selectedPackage', byId('veh_package')?.value || '');
+      setVal('book_selectedExtras', byId('veh_extras')?.value || '');
+      renderProductsPreview();
+      renderSummary();
     });
 
     const bindDriverAutoLookup = (index) => {
