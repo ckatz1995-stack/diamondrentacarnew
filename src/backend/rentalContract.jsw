@@ -6,6 +6,8 @@ import { requireStaffAccess } from "backend/staffAccess.jsw";
 
 const FLEET_LIMIT = 1000;
 const BOOKING_LIMIT = 1000;
+const VEHICLE_CATEGORY_COLLECTION = "VehiclesNew";
+const VEHICLE_FLEET_COLLECTION = "FleetNew";
 
 // --------------------
 // Utils
@@ -231,26 +233,33 @@ async function getFleetMapByIds(ids){
   const uniq = Array.from(new Set((ids || []).filter(Boolean).map(String)));
   if (!uniq.length) return fleetMap;
 
-  const res = await wixData.query("Fleet")
-    .hasSome("_id", uniq)
-    .include("category")
-    .limit(FLEET_LIMIT)
-    .find({ suppressAuth:true });
+  const mapFromItems = (items = []) => {
+    (items || []).forEach((f) => {
+      const recordId = String(f._id || "");
+      if (!recordId) return;
+      const plate = safeText(f.plate || f.Plate).trim();
+      const model = safeText(f.model || f.Model || f.title || f.Title).trim();
+      const assignedCategoryCode = extractCode(f.categoryCode || f.categoryLabel || f.category || f.Category || f.assignedCategoryCode || "");
+      const label = safeText(f.vehicleLabel || (plate ? (model ? `${plate} - ${model}` : plate) : (model || recordId))).trim();
+      fleetMap.set(recordId, { plate, model, label, assignedCategoryCode });
+    });
+  };
 
-  (res.items || []).forEach(f => {
-    const plate = safeText(f.plate).trim();
-    const model = safeText(f.model).trim();
-    let assignedCategoryCode = "";
+  try {
+    const resNew = await wixData.query(VEHICLE_FLEET_COLLECTION).hasSome("_id", uniq).limit(FLEET_LIMIT).find({ suppressAuth:true });
+    mapFromItems(resNew.items || []);
+  } catch (_) {}
 
-    if (f.category && typeof f.category === "object") {
-      assignedCategoryCode = extractCode(f.category.category || f.category.code || f.category.title || f.category.name || "");
-    } else {
-      assignedCategoryCode = extractCode(f.category || "");
-    }
-
-    const label = plate ? (model ? `${plate} - ${model}` : plate) : (model || "");
-    fleetMap.set(String(f._id), { plate, model, label, assignedCategoryCode });
-  });
+  const remaining = uniq.filter((id) => !fleetMap.has(String(id)));
+  if (remaining.length) {
+    try {
+      const resOld = await wixData.query("Fleet").hasSome("_id", remaining).include("category").limit(FLEET_LIMIT).find({ suppressAuth:true });
+      mapFromItems((resOld.items || []).map((f) => ({
+        ...f,
+        categoryCode: (f.category && typeof f.category === "object") ? (f.category.category || f.category.code || f.category.title || f.category.name || "") : (f.category || "")
+      })));
+    } catch (_) {}
+  }
 
   return fleetMap;
 }
@@ -482,24 +491,31 @@ function applyFinancialsPayload(booking, rental, payload){
 
 async function buildContractLookups(booking = {}){
   const categoryMap = new Map();
-  const addCategory = (rawCode, rawLabel = '', title = '') => {
+  const addCategory = (rawCode, rawLabel = '', title = '', recordId = '') => {
     const code = extractCode(rawCode || rawLabel || title || '');
     if (!code) return;
     const label = buildCategoryLabel(code, rawLabel, title);
     const existing = categoryMap.get(code);
     if (!existing || (safeText(label).length > safeText(existing.label).length)) {
-      categoryMap.set(code, { code, label, title: safeText(title || rawLabel || '').trim() });
+      categoryMap.set(code, { code, label, title: safeText(title || rawLabel || '').trim(), recordId: safeText(recordId) });
     }
   };
 
   try {
-    const categoryRes = await wixData.query("Vehicles").limit(BOOKING_LIMIT).find({ suppressAuth:true });
+    const categoryRes = await wixData.query(VEHICLE_CATEGORY_COLLECTION).limit(BOOKING_LIMIT).find({ suppressAuth:true });
     for (const item of (categoryRes.items || [])) {
-      const rawCode = item.categoryId || item.category || item.label || item.name || item.title || item._id || '';
-      const rawLabel = item.category || item.label || item.name || item.title || '';
-      addCategory(rawCode, rawLabel, item.name || item.title || '');
+      addCategory(item.categoryCode || item.categoryLabel || item.categoryRecordId || item._id || '', item.categoryLabel || item.categoryCode || '', item.categoryLabel || '', item._id || item.categoryRecordId || '');
     }
-  } catch (_) {}
+  } catch (_) {
+    try {
+      const categoryRes = await wixData.query("Vehicles").limit(BOOKING_LIMIT).find({ suppressAuth:true });
+      for (const item of (categoryRes.items || [])) {
+        const rawCode = item.categoryId || item.category || item.label || item.name || item.title || item._id || '';
+        const rawLabel = item.category || item.label || item.name || item.title || '';
+        addCategory(rawCode, rawLabel, item.name || item.title || '', item._id || '');
+      }
+    } catch (_) {}
+  }
 
   const vehicles = [];
   const bookingStart = asDate(booking.pickupDateTime);
@@ -507,25 +523,36 @@ async function buildContractLookups(booking = {}){
   const busyVehicleIds = await findBusyAssignedVehicleIds(bookingStart, bookingEnd, booking._id);
 
   try {
-    let q = wixData.query("Fleet").eq("active", true).limit(FLEET_LIMIT);
-    try { q = q.include("category"); } catch (_) {}
-    const fleetRes = await q.find({ suppressAuth:true });
+    const fleetRes = await wixData.query(VEHICLE_FLEET_COLLECTION).eq("active", true).limit(FLEET_LIMIT).find({ suppressAuth:true });
     for (const item of (fleetRes.items || [])) {
-      const plate = safeText(item.plate || item.Plate || "");
-      const model = safeText(item.model || item.Model || item.title || item.Title || "");
-      const rawCategory = item.category || item.Category || item.categoryCode || item.categoryId || item.categorycode || "";
-      const categoryLabel = rawCategory && typeof rawCategory === 'object'
-        ? safeText(rawCategory.category || rawCategory.label || rawCategory.title || rawCategory.name || rawCategory.code || '')
-        : safeText(rawCategory || '');
-      const categoryCode = extractCode(categoryLabel || rawCategory);
-      addCategory(categoryCode, categoryLabel, model);
+      const recordId = String(item._id || '');
+      const plate = safeText(item.plate || "");
+      const model = safeText(item.model || "");
+      const categoryCode = extractCode(item.categoryCode || item.categoryLabel || '');
+      const categoryLabel = safeText(item.categoryLabel || categoryCode);
+      addCategory(categoryCode, categoryLabel, categoryLabel, item.categoryId || '');
+      const operationalStatus = safeText(item.operationalStatus || item.status || 'available');
+      const status = safeText(item.status || 'available');
+      const available = !busyVehicleIds.has(recordId) && !['service','blocked','inactive'].includes(operationalStatus.toLowerCase());
       vehicles.push({
-        _id: String(item._id),
+        _id: recordId,
+        fleetVehicleId: safeText(item.fleetVehicleId || ''),
         plate,
         model,
-        label: plate ? (model ? `${plate} - ${model}` : plate) : (model || String(item._id)),
+        label: safeText(item.vehicleLabel || (plate ? (model ? `${plate} - ${model}` : plate) : (model || recordId))),
         categoryCode,
-        available: !busyVehicleIds.has(String(item._id)),
+        categoryLabel,
+        currentStationCode: safeText(item.currentStationCode || ''),
+        currentStationLabel: safeText(item.currentStationLabel || ''),
+        status,
+        operationalStatus,
+        mileage: safeNum(item.mileage),
+        fuelLevel: safeNum(item.fuelLevel),
+        fuelType: safeText(item.fuelType || ''),
+        excess: safeNum(item.excess),
+        ownershipState: safeText(item.ownershipState || ''),
+        poolType: safeText(item.poolType || ''),
+        available
       });
     }
   } catch (_) {}
@@ -596,7 +623,6 @@ async function buildContractLookups(booking = {}){
 
   return { categories, vehicles, customers, companies };
 }
-
 
 export async function searchContractCustomers({ authToken, query = "", limit = 50 }) {
   await requireStaffAccess({ sessionToken: authToken, area: "rentals", action: "View" });
