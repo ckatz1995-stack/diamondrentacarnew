@@ -59,6 +59,7 @@
       padding:10px 14px;border-radius:12px;cursor:pointer;font-weight:700
     }
     .btn:hover{border-color:#8da1c1}
+    .btn:disabled{opacity:.55;cursor:not-allowed;filter:grayscale(.12)}
     .btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
     .btn.success{background:#0a7a42;color:#fff;border-color:#0a7a42}
     .btn.warn{background:#fff7ec;color:#8f5200;border-color:#f2c27c}
@@ -503,7 +504,7 @@
     .vehicle-selector-filters{display:flex;gap:8px;flex-wrap:wrap}
     .vehicle-filter-chip{appearance:none;border:1px solid var(--line-strong);background:#fff;border-radius:999px;padding:9px 12px;cursor:pointer;font-weight:700;color:#29415e}
     .vehicle-filter-chip.active{background:var(--accent);border-color:var(--accent);color:#fff}
-    .vehicle-selector-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+    .vehicle-selector-summary{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
     .vehicle-mini{background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:10px 12px}
     .vehicle-mini .k{font-size:11px;font-weight:900;color:#5f6f86;text-transform:uppercase;letter-spacing:.05em}
     .vehicle-mini .v{margin-top:6px;font-size:14px;font-weight:800;color:var(--text)}
@@ -517,11 +518,17 @@
     .vehicle-badge.ok{background:#e9f7ef;border-color:#b9e2c7;color:#0a7a42}
     .vehicle-badge.warn{background:#fff7ec;border-color:#f2c27c;color:#8f5200}
     .vehicle-badge.danger{background:#fff1f0;border-color:#f3bbb7;color:#a12f28}
+    .vehicle-badge.info{background:#eef4ff;border-color:#bdd0ef;color:#214f94}
     .vehicle-assigned-card{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;padding:12px 14px;border:1px solid var(--line);border-radius:16px;background:linear-gradient(180deg,#fff,#fbfcff)}
     .vehicle-assigned-main{display:grid;gap:4px}
     .vehicle-assigned-title{font-size:15px;font-weight:900;color:var(--text)}
     .vehicle-assigned-sub{font-size:12px;color:var(--muted)}
     .vehicle-actions-inline{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+    .vehicle-selected-facts{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin-top:10px}
+    .vehicle-fact{background:#f8fafc;border:1px solid var(--line);border-radius:12px;padding:9px 10px}
+    .vehicle-fact .k{font-size:10px;font-weight:900;color:#5f6f86;text-transform:uppercase;letter-spacing:.05em}
+    .vehicle-fact .v{margin-top:5px;font-size:13px;font-weight:800;color:var(--text)}
+    .vehicle-status-note{margin-top:4px;font-size:11px;color:var(--muted);line-height:1.35}
     .vehicle-table-empty{padding:18px;text-align:center;color:var(--muted)}
     .vehicle-row-main{display:grid;gap:2px}
     .vehicle-row-main b{font-size:13px}
@@ -1468,14 +1475,17 @@
         <div class="vehicle-selector-filters">
           <button class="vehicle-filter-chip active" type="button" data-veh-filter="all">All</button>
           <button class="vehicle-filter-chip" type="button" data-veh-filter="available">Available</button>
-          <button class="vehicle-filter-chip" type="button" data-veh-filter="assigned">Assigned / unavailable</button>
+          <button class="vehicle-filter-chip" type="button" data-veh-filter="busy">Busy / conflict</button>
+          <button class="vehicle-filter-chip" type="button" data-veh-filter="wrongStation">Wrong station</button>
           <button class="vehicle-filter-chip" type="button" data-veh-filter="service">Service / blocked</button>
+          <button class="vehicle-filter-chip" type="button" data-veh-filter="assignedThis">Assigned here</button>
         </div>
 
         <div class="vehicle-selector-summary">
           <div class="vehicle-mini"><div class="k">Booked category</div><div class="v" id="veh_selectorBookedCategory">—</div></div>
           <div class="vehicle-mini"><div class="k">Visible vehicles</div><div class="v" id="veh_selectorVisibleCount">0</div></div>
-          <div class="vehicle-mini"><div class="k">Available now</div><div class="v" id="veh_selectorAvailableCount">0</div></div>
+          <div class="vehicle-mini"><div class="k">Assignable now</div><div class="v" id="veh_selectorAvailableCount">0</div></div>
+          <div class="vehicle-mini"><div class="k">Conflicts</div><div class="v" id="veh_selectorConflictCount">0</div></div>
           <div class="vehicle-mini"><div class="k">Current assignment</div><div class="v" id="veh_selectorCurrentAssignment">—</div></div>
         </div>
 
@@ -1483,6 +1493,14 @@
           <div class="vehicle-assigned-main">
             <div class="vehicle-assigned-title" id="veh_selectorSelectedTitle">No vehicle selected</div>
             <div class="vehicle-assigned-sub" id="veh_selectorSelectedSub">Επέλεξε όχημα από τον πίνακα για assign.</div>
+            <div class="vehicle-selected-facts">
+              <div class="vehicle-fact"><div class="k">Availability</div><div class="v" id="veh_selectorSelectedAvailability">—</div></div>
+              <div class="vehicle-fact"><div class="k">Station</div><div class="v" id="veh_selectorSelectedStation">—</div></div>
+              <div class="vehicle-fact"><div class="k">Mileage</div><div class="v" id="veh_selectorSelectedMileage">—</div></div>
+              <div class="vehicle-fact"><div class="k">Fuel</div><div class="v" id="veh_selectorSelectedFuel">—</div></div>
+              <div class="vehicle-fact"><div class="k">Excess</div><div class="v" id="veh_selectorSelectedExcess">—</div></div>
+            </div>
+            <div class="vehicle-status-note" id="veh_selectorSelectedReason">—</div>
           </div>
           <div class="vehicle-actions-inline">
             <button class="btn ghost" type="button" id="btnVehicleSelectorClearAssigned">Clear assigned</button>
@@ -1516,6 +1534,13 @@
         <input class="hidden-sync" id="veh_vehicleLabel" readonly />
         <input class="hidden-sync" id="veh_vehiclePlate" readonly />
         <input class="hidden-sync" id="veh_vehicleModel" readonly />
+        <input class="hidden-sync" id="veh_assignedStationCode" readonly />
+        <input class="hidden-sync" id="veh_assignedStationLabel" readonly />
+        <input class="hidden-sync" id="veh_assignedMileage" readonly />
+        <input class="hidden-sync" id="veh_assignedFuelLevel" readonly />
+        <input class="hidden-sync" id="veh_assignedExcess" readonly />
+        <input class="hidden-sync" id="veh_assignmentStatus" readonly />
+        <input class="hidden-sync" id="veh_assignmentReason" readonly />
 
         <div class="divider"></div>
 
@@ -1922,6 +1947,16 @@
     setVal('veh_vehicleLabel', b.assignedVehicleLabel || '');
     setVal('veh_vehiclePlate', b.assignedVehiclePlate || '');
     setVal('veh_vehicleModel', b.assignedVehicleModel || '');
+    const assignedVehicleMatch = findAssignedVehicleMatch();
+    syncAssignedVehicleMetaFields(assignedVehicleMatch || {
+      currentStationCode: b.assignedVehicleStationCode || r.assignedVehicleStationCode || '',
+      currentStationLabel: b.assignedVehicleStationLabel || r.assignedVehicleStationLabel || '',
+      mileage: b.assignedVehicleMileage || r.assignedVehicleMileage || '',
+      fuelLevel: b.assignedVehicleFuelLevel || r.assignedVehicleFuelLevel || '',
+      excess: b.assignedVehicleExcess || r.assignedVehicleExcess || '',
+      selectorStatusLabel: 'Assigned',
+      selectorStatusReason: ''
+    });
 
     const lines = linesFromState();
     setVal('ch_rental', lines.rental);
@@ -2136,11 +2171,44 @@
     return safe(byId('veh_categoryLabel')?.value || byId('book_category')?.value || state.booking?.category || '').trim();
   }
 
+  
   function normalizeVehicleFilterStatus(vehicle){
-    const operational = safe(vehicle.operationalStatus || '').toLowerCase();
-    const status = safe(vehicle.status || '').toLowerCase();
-    if (['service','blocked'].includes(operational) || ['service','blocked'].includes(status)) return 'service';
-    return vehicle.available ? 'available' : 'assigned';
+    const key = safe(vehicle?.selectorStatusKey || '').trim();
+    if (key) return key;
+    const operational = safe(vehicle?.operationalStatus || '').toLowerCase();
+    const status = safe(vehicle?.status || '').toLowerCase();
+    if (['service','blocked','inactive'].includes(operational) || ['service','blocked','inactive'].includes(status)) return 'service';
+    return vehicle?.available ? 'available' : 'busy';
+  }
+
+  function vehicleStatusBadgeClass(vehicle){
+    const key = normalizeVehicleFilterStatus(vehicle);
+    if (key === 'available') return 'ok';
+    if (key === 'assignedThis') return 'info';
+    if (key === 'wrongStation') return 'warn';
+    if (key === 'service') return 'danger';
+    return 'danger';
+  }
+
+  function vehicleStatusLabel(vehicle){
+    return safe(vehicle?.selectorStatusLabel || '').trim() || safe(vehicle?.operationalStatus || vehicle?.status || '—').trim() || '—';
+  }
+
+  function formatVehicleMileage(value){
+    const raw = safe(value).trim();
+    if (!raw) return '—';
+    const n = Number(raw);
+    return Number.isFinite(n) ? String(n) : raw;
+  }
+
+  function syncAssignedVehicleMetaFields(vehicle){
+    setVal('veh_assignedStationCode', vehicle?.currentStationCode || '');
+    setVal('veh_assignedStationLabel', vehicle?.currentStationLabel || '');
+    setVal('veh_assignedMileage', vehicle && vehicle.mileage !== undefined && vehicle.mileage !== null ? vehicle.mileage : '');
+    setVal('veh_assignedFuelLevel', vehicle && vehicle.fuelLevel !== undefined && vehicle.fuelLevel !== null ? vehicle.fuelLevel : '');
+    setVal('veh_assignedExcess', vehicle && vehicle.excess !== undefined && vehicle.excess !== null ? vehicle.excess : '');
+    setVal('veh_assignmentStatus', vehicleStatusLabel(vehicle));
+    setVal('veh_assignmentReason', vehicle?.selectorStatusReason || '');
   }
 
   function getSelectedVehicleRow(){
@@ -2149,20 +2217,32 @@
     return (state.lookups?.vehicles || []).find((v) => String(v._id) === selectedId) || null;
   }
 
-  function hydrateVehicleSelectorFromCurrent(){
+  function findAssignedVehicleMatch(){
     const currentAssignedLabel = safe(byId('veh_vehicleLabel')?.value || byId('veh_assignedLabel')?.value || state.booking?.assignedVehicleLabel || '').trim();
     const currentAssignedPlate = safe(byId('veh_vehiclePlate')?.value || byId('veh_assignedPlate')?.value || state.booking?.assignedVehiclePlate || '').trim();
     const currentAssignedId = safe(state.booking?.assignedVehicle || '').trim();
     const vehicles = state.lookups?.vehicles || [];
-    const match = vehicles.find((v) => String(v._id) === currentAssignedId) || vehicles.find((v) => currentAssignedLabel && v.label === currentAssignedLabel) || vehicles.find((v) => currentAssignedPlate && v.plate === currentAssignedPlate) || null;
+    return vehicles.find((v) => String(v._id) === currentAssignedId)
+      || vehicles.find((v) => currentAssignedLabel && v.label === currentAssignedLabel)
+      || vehicles.find((v) => currentAssignedPlate && v.plate === currentAssignedPlate)
+      || null;
+  }
+
+  function hydrateVehicleSelectorFromCurrent(){
+    const match = findAssignedVehicleMatch();
     state.ui.vehicleSelectorSelectedId = match?._id || '';
     state.ui.vehicleSelectorCategoryCode = currentVehicleCategoryCode() || match?.categoryCode || '';
     const categorySelect = byId('veh_selectorCategory');
     if (categorySelect) categorySelect.value = state.ui.vehicleSelectorCategoryCode || '__all__';
+    syncAssignedVehicleMetaFields(match || null);
   }
 
   function applyVehicleSelectionToDraft(vehicle){
     if (!vehicle) return;
+    if (!vehicle.assignable && !vehicle.thisBookingAssigned) {
+      toast(vehicle.selectorStatusReason || 'Το όχημα δεν είναι διαθέσιμο για ανάθεση σε αυτό το booking.');
+      return;
+    }
     state.ui.vehicleSelectorSelectedId = String(vehicle._id || '');
     setVal('veh_vehicleSearch', vehicle.label || '');
     setVal('veh_vehicleLabel', vehicle.label || '');
@@ -2170,6 +2250,7 @@
     setVal('veh_vehicleModel', vehicle.model || '');
     setVal('veh_assignedLabel', vehicle.label || '');
     setVal('veh_assignedPlate', vehicle.plate || '');
+    syncAssignedVehicleMetaFields(vehicle);
     if (vehicle.categoryCode) {
       setVal('veh_categoryCode', vehicle.categoryCode);
       setVal('book_categoryId', vehicle.categoryCode);
@@ -2178,6 +2259,16 @@
     if (vehicle.categoryLabel) {
       setVal('veh_categoryLabel', vehicle.categoryLabel);
       setVal('book_category', vehicle.categoryLabel);
+    }
+    if (vehicle.mileage !== undefined && vehicle.mileage !== null && byId('checkoutOdometer')) {
+      byId('checkoutOdometer').value = String(vehicle.mileage);
+    }
+    if (vehicle.fuelLevel !== undefined && vehicle.fuelLevel !== null && byId('checkoutFuelLevel')) {
+      byId('checkoutFuelLevel').value = String(vehicle.fuelLevel);
+    }
+    if (!safe(byId('loc_pickuppoint')?.value || '').trim() && vehicle.currentStationLabel) {
+      setVal('loc_pickuppoint', vehicle.currentStationLabel);
+      refreshMovementSection();
     }
     renderVehicleSelector();
     renderSummary();
@@ -2192,6 +2283,7 @@
     setVal('veh_vehicleModel', '');
     setVal('veh_assignedLabel', '');
     setVal('veh_assignedPlate', '');
+    syncAssignedVehicleMetaFields(null);
     renderVehicleSelector();
     renderSummary();
   }
@@ -2210,18 +2302,35 @@
       const kind = normalizeVehicleFilterStatus(vehicle);
       if (filter !== 'all' && kind !== filter) return false;
       if (!rawQuery) return true;
-      const hay = [vehicle.plate, vehicle.model, vehicle.categoryCode, vehicle.categoryLabel, vehicle.currentStationCode, vehicle.currentStationLabel, vehicle.status, vehicle.operationalStatus, vehicle.label].filter(Boolean).join(' | ').toLowerCase();
+      const hay = [vehicle.plate, vehicle.model, vehicle.categoryCode, vehicle.categoryLabel, vehicle.currentStationCode, vehicle.currentStationLabel, vehicle.status, vehicle.operationalStatus, vehicle.label, vehicle.selectorStatusReason].filter(Boolean).join(' | ').toLowerCase();
       return hay.includes(rawQuery);
     });
-    const availableCount = filtered.filter((v) => normalizeVehicleFilterStatus(v) === 'available').length;
+
+    const assignableCount = filtered.filter((v) => !!v.assignable || !!v.thisBookingAssigned).length;
+    const conflictCount = filtered.filter((v) => ['busy','wrongStation','service'].includes(normalizeVehicleFilterStatus(v))).length;
     byId('veh_selectorBookedCategory') && (byId('veh_selectorBookedCategory').textContent = currentVehicleCategoryLabel() || currentVehicleCategoryCode() || '—');
     byId('veh_selectorVisibleCount') && (byId('veh_selectorVisibleCount').textContent = String(filtered.length));
-    byId('veh_selectorAvailableCount') && (byId('veh_selectorAvailableCount').textContent = String(availableCount));
+    byId('veh_selectorAvailableCount') && (byId('veh_selectorAvailableCount').textContent = String(assignableCount));
+    byId('veh_selectorConflictCount') && (byId('veh_selectorConflictCount').textContent = String(conflictCount));
     byId('veh_selectorCurrentAssignment') && (byId('veh_selectorCurrentAssignment').textContent = safe(byId('veh_vehicleLabel')?.value || byId('veh_assignedLabel')?.value || '—') || '—');
 
     const selected = getSelectedVehicleRow();
-    byId('veh_selectorSelectedTitle') && (byId('veh_selectorSelectedTitle').textContent = selected ? `${selected.plate || '—'} · ${selected.model || ''}`.trim() : 'No vehicle selected');
-    byId('veh_selectorSelectedSub') && (byId('veh_selectorSelectedSub').textContent = selected ? [selected.categoryLabel || selected.categoryCode, selected.currentStationLabel || selected.currentStationCode, selected.operationalStatus || selected.status].filter(Boolean).join(' • ') : 'Επέλεξε όχημα από τον πίνακα για assign.');
+    const selectedLabel = selected ? `${selected.plate || '—'} · ${selected.model || ''}`.trim() : 'No vehicle selected';
+    byId('veh_selectorSelectedTitle') && (byId('veh_selectorSelectedTitle').textContent = selectedLabel);
+    byId('veh_selectorSelectedSub') && (byId('veh_selectorSelectedSub').textContent = selected ? [selected.categoryLabel || selected.categoryCode, selected.currentStationLabel || selected.currentStationCode].filter(Boolean).join(' • ') : 'Επέλεξε όχημα από τον πίνακα για assign.');
+    byId('veh_selectorSelectedAvailability') && (byId('veh_selectorSelectedAvailability').textContent = selected ? vehicleStatusLabel(selected) : '—');
+    byId('veh_selectorSelectedStation') && (byId('veh_selectorSelectedStation').textContent = selected ? (selected.currentStationLabel || selected.currentStationCode || '—') : '—');
+    byId('veh_selectorSelectedMileage') && (byId('veh_selectorSelectedMileage').textContent = selected ? formatVehicleMileage(selected.mileage) : '—');
+    byId('veh_selectorSelectedFuel') && (byId('veh_selectorSelectedFuel').textContent = selected ? fuelLabel(selected.fuelLevel) : '—');
+    byId('veh_selectorSelectedExcess') && (byId('veh_selectorSelectedExcess').textContent = selected && Number(selected.excess || 0) ? money(selected.excess) : '—');
+    byId('veh_selectorSelectedReason') && (byId('veh_selectorSelectedReason').textContent = selected ? (selected.selectorStatusReason || 'Ready for assign.') : '—');
+
+    const assignBtn = byId('btnVehicleSelectorAssign');
+    if (assignBtn) {
+      const canAssign = !!selected && (!!selected.assignable || !!selected.thisBookingAssigned);
+      assignBtn.disabled = !canAssign;
+      assignBtn.textContent = selected?.thisBookingAssigned ? 'Already assigned' : 'Assign selected';
+    }
 
     if (!filtered.length) {
       body.innerHTML = '';
@@ -2232,13 +2341,16 @@
     body.innerHTML = filtered.map((vehicle) => {
       const active = String(vehicle._id) === String(state.ui.vehicleSelectorSelectedId || '');
       const kind = normalizeVehicleFilterStatus(vehicle);
-      const badgeClass = kind === 'available' ? 'ok' : kind === 'service' ? 'danger' : 'warn';
+      const badgeClass = vehicleStatusBadgeClass(vehicle);
+      const statusText = vehicleStatusLabel(vehicle);
+      const stationNote = vehicle.selectorStatusKey === 'wrongStation' ? `<div class="vehicle-status-note">${escapeHtml(vehicle.selectorStatusReason || '')}</div>` : '';
+      const statusNote = vehicle.selectorStatusKey !== 'wrongStation' && vehicle.selectorStatusReason ? `<div class="vehicle-status-note">${escapeHtml(vehicle.selectorStatusReason)}</div>` : '';
       return `<tr class="vehicle-row-btn ${active ? 'active' : ''}" data-veh-id="${escapeAttr(vehicle._id)}">
         <td><div class="vehicle-row-main"><b>${escapeHtml(vehicle.plate || '—')}</b><span>${escapeHtml(vehicle.model || vehicle.label || '—')}</span></div></td>
         <td>${escapeHtml(vehicle.categoryLabel || vehicle.categoryCode || '—')}</td>
-        <td>${escapeHtml(vehicle.currentStationLabel || vehicle.currentStationCode || '—')}</td>
-        <td><span class="vehicle-badge ${badgeClass}">${escapeHtml(vehicle.operationalStatus || vehicle.status || (vehicle.available ? 'available' : 'assigned'))}</span></td>
-        <td>${escapeHtml(String(vehicle.mileage || '—'))}</td>
+        <td>${escapeHtml(vehicle.currentStationLabel || vehicle.currentStationCode || '—')}${stationNote}</td>
+        <td><span class="vehicle-badge ${badgeClass}">${escapeHtml(statusText)}</span>${statusNote}</td>
+        <td>${escapeHtml(formatVehicleMileage(vehicle.mileage))}</td>
         <td>${escapeHtml(vehicle.fuelLevel ? `${vehicle.fuelLevel}/8` : '—')}</td>
       </tr>`;
     }).join('');
@@ -2253,12 +2365,12 @@
   }
 
   function openSelectedVehicleCard(){
-    const selected = getSelectedVehicleRow();
+    const selected = getSelectedVehicleRow() || findAssignedVehicleMatch();
     if (!selected?._id) { toast('Επίλεξε όχημα από τη λίστα.'); return; }
     post({ type:'openVehicleCard', fleetVehicleId: selected._id });
   }
 
-  function renderLookups(){
+function renderLookups(){
     const categories = state.lookups?.categories || [];
     const vehicles = state.lookups?.vehicles || [];
 
@@ -2386,16 +2498,20 @@
     byId('sumVehicle').textContent = [byId('veh_assignedLabel')?.value || b.assignedVehicleLabel || r.assignedVehicleLabel, byId('veh_assignedPlate')?.value || b.assignedVehiclePlate].filter(Boolean).join(' • ') || 'Not assigned';
     byId('sumDurationPackage').textContent = `${days} day(s) • ${byId('book_selectedPackage')?.value || b.selectedPackage || 'No package'}`;
     byId('sumProducts').textContent = extras.length ? extras.join(' • ') : 'No extras';
+    const assignedStationLabel = byId('veh_assignedStationLabel')?.value || b.assignedVehicleStationLabel || r.assignedVehicleStationLabel || '';
+    const assignedMileage = safe(byId('veh_assignedMileage')?.value || b.assignedVehicleMileage || r.assignedVehicleMileage || '').trim();
+    const assignedFuel = safe(byId('veh_assignedFuelLevel')?.value || b.assignedVehicleFuelLevel || r.assignedVehicleFuelLevel || '').trim();
+    const assignedExcess = safe(byId('veh_assignedExcess')?.value || b.assignedVehicleExcess || r.assignedVehicleExcess || '').trim();
     byId('veh_assignedPlateBox').textContent = byId('veh_assignedPlate')?.value || b.assignedVehiclePlate || '—';
     byId('vehAssignedDisplayMain').textContent = byId('veh_assignedLabel')?.value || b.assignedVehicleLabel || r.assignedVehicleLabel || 'Open vehicle selector';
-    byId('vehAssignedDisplaySub').textContent = (byId('veh_assignedPlate')?.value || b.assignedVehiclePlate) ? `Plate ${byId('veh_assignedPlate')?.value || b.assignedVehiclePlate}` : 'Επιλογή συγκεκριμένου οχήματος από το fleet';
+    byId('vehAssignedDisplaySub').textContent = [assignedStationLabel, assignedMileage ? `${assignedMileage} km` : '', assignedFuel ? `${fuelLabel(assignedFuel)} fuel` : '', assignedExcess && Number(assignedExcess || 0) ? `${money(assignedExcess)} excess` : ''].filter(Boolean).join(' • ') || ((byId('veh_assignedPlate')?.value || b.assignedVehiclePlate) ? `Plate ${byId('veh_assignedPlate')?.value || b.assignedVehiclePlate}` : 'Επιλογή συγκεκριμένου οχήματος από το fleet');
     byId('book_durationLabel').value = `${days} day(s)`;
     if (byId('book_originCity_vehicle') && document.activeElement !== byId('book_originCity_vehicle')) byId('book_originCity_vehicle').value = byId('book_originCity')?.value || b.originCity || '';
     if (byId('book_flightNumber_vehicle') && document.activeElement !== byId('book_flightNumber_vehicle')) byId('book_flightNumber_vehicle').value = byId('book_flightNumber')?.value || b.flightNumber || '';
-    byId('vehOutKmBox').textContent = r.outKm || b.outKm || '—';
-    byId('vehInKmBox').textContent = r.inKm || b.inKm || '—';
-    byId('vehFuelOutBox').textContent = r.fuelOut || b.fuelOut || '—';
-    byId('vehFuelInBox').textContent = r.fuelIn || b.fuelIn || '—';
+    byId('vehOutKmBox').textContent = safe(byId('checkoutOdometer')?.value || r.checkoutOdometer || assignedMileage).trim() || '—';
+    byId('vehInKmBox').textContent = safe(byId('checkinOdometer')?.value || r.checkinOdometer || '').trim() || '—';
+    byId('vehFuelOutBox').textContent = fuelLabel(byId('checkoutFuelLevel')?.value || r.checkoutFuelLevel || assignedFuel);
+    byId('vehFuelInBox').textContent = fuelLabel(byId('checkinFuelLevel')?.value || r.checkinFuelLevel || '');
     const pp = byId('productsPlaceholder'); if (pp) pp.classList.toggle('hidden', extras.length > 0);
 
     const rentalPill = byId('rentalStatePill');
@@ -2832,6 +2948,12 @@
       assignedVehicleLabel: assignedLabel,
       assignedVehiclePlate: assignedPlate,
       assignedVehicleModel: assignedModel,
+      assignedVehicleStationCode: byId('veh_assignedStationCode')?.value || '',
+      assignedVehicleStationLabel: byId('veh_assignedStationLabel')?.value || '',
+      assignedVehicleMileage: num(byId('veh_assignedMileage')?.value || 0),
+      assignedVehicleFuelLevel: num(byId('veh_assignedFuelLevel')?.value || 0),
+      assignedVehicleExcess: num(byId('veh_assignedExcess')?.value || 0),
+      assignedVehicleAvailability: byId('veh_assignmentStatus')?.value || '',
       assignedCategoryCode: byId('veh_categoryCode')?.value || byId('book_categoryId')?.value || '',
       mainDriver,
       additionalDrivers: collectExtraDrivers(),
@@ -3130,10 +3252,11 @@
       setVal('veh_selectorSearch', '');
       renderVehicleSelector();
     });
-    byId('btnVehicleSelectorRefresh')?.addEventListener('click', () => { hydrateVehicleSelectorFromCurrent(); renderVehicleSelector(); toast('Vehicle selector refreshed.'); });
+    byId('btnVehicleSelectorRefresh')?.addEventListener('click', () => { post({ type:'reloadContract' }); toast('Vehicle selector refreshed from current contract data.'); });
     byId('btnVehicleSelectorAssign')?.addEventListener('click', () => {
       const match = getSelectedVehicleRow();
       if (!match) { toast('Επίλεξε όχημα από τη λίστα.'); return; }
+      if (!match.assignable && !match.thisBookingAssigned) { toast(match.selectorStatusReason || 'Το όχημα δεν είναι διαθέσιμο για ανάθεση.'); return; }
       applyVehicleSelectionToDraft(match);
       toast(`Assigned vehicle: ${match.label || match.plate || 'Vehicle'}.`);
     });
