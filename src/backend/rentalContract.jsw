@@ -556,9 +556,10 @@ async function buildContractLookups(booking = {}){
       if (!recordId) return;
       const plate = safeText(item.plate || "");
       const model = safeText(item.model || "");
-      const categoryCode = extractCode(item.categoryCode || item.categoryLabel || '');
-      const categoryLabel = safeText(item.categoryLabel || categoryCode);
-      addCategory(categoryCode, categoryLabel, categoryLabel, item.categoryId || '');
+      const categoryObj = item.category && typeof item.category === 'object' ? item.category : null;
+      const categoryCode = extractCode(item.categoryCode || item.categoryLabel || item.category || item.Category || item.assignedCategoryCode || categoryObj?.category || categoryObj?.code || categoryObj?.title || categoryObj?.name || '');
+      const categoryLabel = safeText(item.categoryLabel || item.category || item.Category || categoryObj?.category || categoryObj?.title || categoryObj?.name || categoryCode);
+      addCategory(categoryCode, categoryLabel, categoryLabel, item.categoryId || categoryObj?._id || '');
       const operationalStatus = safeText(item.operationalStatus || item.status || 'available');
       const status = safeText(item.status || 'available');
       const activeValue = item.active;
