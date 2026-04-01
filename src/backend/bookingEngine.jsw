@@ -167,6 +167,8 @@ function cleanText(value) {
 function buildVehicleCategoryDisplayName(categoryCode = '', title = '') {
   const code = cleanText(categoryCode).toUpperCase();
   const name = cleanText(title);
+  const normalizedName = name.replace(/\s+/g, ' ').trim();
+  if (code && normalizedName && new RegExp(`^${code}\\s*-`, 'i').test(normalizedName)) return normalizedName;
   if (code && name) return `${code} - ${name}`;
   return name || code || 'Όχημα';
 }
@@ -264,6 +266,18 @@ function mapVehicleCategoryCatalogItem(item = {}) {
     item.DisplayName ||
     item.model ||
     item.Model ||
+    item.modelName ||
+    item.ModelName ||
+    item.vehicleModel ||
+    item.VehicleModel ||
+    item.representativeModel ||
+    item.RepresentativeModel ||
+    item.sampleModel ||
+    item.SampleModel ||
+    item.subtitle ||
+    item.Subtitle ||
+    item.note ||
+    item.Note ||
     ''
   ).trim();
   const photos = uniqueImageList([
@@ -290,7 +304,22 @@ function mapVehicleCategoryCatalogItem(item = {}) {
     category: categoryCode,
     categoryCode,
     label: categoryCode,
-    price: Number(item.price || item.Price || item.pricePerDay || item.dailyPrice || item.dayPrice || 0) || 0,
+    price: Number(
+      item.price ||
+      item.Price ||
+      item.pricePerDay ||
+      item.dailyPrice ||
+      item.dayPrice ||
+      item.basePrice ||
+      item.BasePrice ||
+      item.rate ||
+      item.Rate ||
+      item.priceDay ||
+      item.PriceDay ||
+      item.price_daily ||
+      item.PriceDaily ||
+      0
+    ) || 0,
     image: photos[0] ? vehicleCategoryImageUrl(photos[0]) : '',
     photos: photos.map((src) => vehicleCategoryImageUrl(src)),
     active: (item.active ?? item.Active ?? true) !== false,
