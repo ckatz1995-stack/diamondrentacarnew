@@ -2456,11 +2456,19 @@ function renderLookups(){
       vehicleList.innerHTML = vehicles.map((v) => `<option value="${escapeHtml(v.label || '')}"></option>`).join('');
     }
     if (categorySelect) {
-      categorySelect.innerHTML = ['<option value="__all__">All categories</option>', ...categories.map((c) => `<option value="${escapeHtml(c.code || '')}">${escapeHtml(c.label || c.code || '')}</option>`)].join('');
+      categorySelect.innerHTML = ['<option value="__all__">All categories</option>', ...categories.map((c) => {
+        const value = c.code || c.label || '';
+        const label = c.label || c.code || value;
+        return `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`;
+      })].join('');
       hydrateVehicleSelectorFromCurrent();
     }
     if (bookingCategorySelect) {
-      bookingCategorySelect.innerHTML = ['<option value="">Select category</option>', ...categories.map((c) => `<option value="${escapeHtml(c.code || '')}">${escapeHtml(c.label || c.code || '')}</option>`)].join('');
+      bookingCategorySelect.innerHTML = ['<option value="">Select category</option>', ...categories.map((c) => {
+        const value = c.code || c.label || '';
+        const label = c.label || c.code || value;
+        return `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`;
+      })].join('');
       bookingCategorySelect.value = currentVehicleCategoryCode() || '';
     }
     renderVehicleSelector();
@@ -3312,12 +3320,14 @@ function renderLookups(){
     byId('veh_selectorCategory')?.addEventListener('change', (e) => {
       const code = safe(e.target.value || '').trim();
       state.ui.vehicleSelectorCategoryCode = code === '__all__' ? '' : code;
-      const match = (state.lookups?.categories || []).find((c) => c.code === state.ui.vehicleSelectorCategoryCode);
+      const match = (state.lookups?.categories || []).find((c) => safe(c.code || c.label).trim() === state.ui.vehicleSelectorCategoryCode);
       setVal('veh_categoryCode', state.ui.vehicleSelectorCategoryCode || '');
       if (match) {
-        setVal('veh_categoryLabel', match.label || match.code || '');
-        setVal('book_category', match.label || match.code || '');
-        setVal('book_categoryId', match.code || '');
+        const matchedCode = match.code || match.label || '';
+        setVal('veh_categoryCode', matchedCode);
+        setVal('veh_categoryLabel', match.label || match.code || matchedCode);
+        setVal('book_category', match.label || match.code || matchedCode);
+        setVal('book_categoryId', matchedCode);
       }
       const bookingSelect = byId('book_categorySelect');
       if (bookingSelect) bookingSelect.value = state.ui.vehicleSelectorCategoryCode || '';
@@ -3326,7 +3336,7 @@ function renderLookups(){
     });
     byId('book_categorySelect')?.addEventListener('change', (e) => {
       const code = safe(e.target.value || '').trim();
-      const match = (state.lookups?.categories || []).find((c) => safe(c.code).trim() === code);
+      const match = (state.lookups?.categories || []).find((c) => safe(c.code || c.label).trim() === code);
       setVal('veh_categoryCode', code || '');
       setVal('book_categoryId', code || '');
       if (match) {
