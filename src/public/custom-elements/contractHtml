@@ -2183,7 +2183,16 @@
   }
 
   function currentVehicleCategoryCode(){
-    const raw = safe(byId('veh_categoryCode')?.value || byId('book_categoryId')?.value || state.booking?.categoryId || state.booking?.assignedCategoryCode || '').trim();
+    const raw = safe(
+      byId('veh_categoryCode')?.value ||
+      byId('book_categoryId')?.value ||
+      byId('veh_categoryLabel')?.value ||
+      byId('book_category')?.value ||
+      state.booking?.assignedCategoryCode ||
+      state.booking?.categoryId ||
+      state.booking?.category ||
+      ''
+    ).trim();
     if (!raw) return '';
     const categories = Array.isArray(state.lookups?.categories) ? state.lookups.categories : [];
     if (categories.some((c) => safe(c?.code).trim() === raw)) return raw;
@@ -2336,7 +2345,11 @@
     const rawQuery = safe(byId('veh_selectorSearch')?.value || state.ui.vehicleSelectorQuery || '').trim().toLowerCase();
     const filter = safe(state.ui.vehicleSelectorFilter || 'all').trim() || 'all';
     const selectedCategory = safe(byId('veh_selectorCategory')?.value || state.ui.vehicleSelectorCategoryCode || '').trim();
-    const categoryCode = selectedCategory && selectedCategory !== '__all__' ? selectedCategory : '';
+    const explicitAll = selectedCategory === '__all__';
+    const fallbackCategory = currentVehicleCategoryCode();
+    const categoryCode = selectedCategory && selectedCategory !== '__all__'
+      ? selectedCategory
+      : (explicitAll ? '' : (state.ui.vehicleSelectorCategoryCode || fallbackCategory || ''));
     const filtered = vehicles.filter((vehicle) => {
       if (categoryCode && vehicle.categoryCode && vehicle.categoryCode !== categoryCode) return false;
       const kind = normalizeVehicleFilterStatus(vehicle);
