@@ -1696,7 +1696,7 @@
   const state = {
     booking: {},
     rental: {},
-    lookups: { categories: [], vehicles: [], customers: [], companies: [] },
+    lookups: { categories: [], vehicles: [], customers: [], companies: [], pickupLocations: [] },
     context: {},
     ui: { activeModal: '', saveState: '', additionalDriversOpen: false, driverLookupDrafts: {}, companyLookupDraft: null, activeDriverSlot: 0, customerSearchTarget: 0, customerSearchSelectedIndex: -1, activeDriverTab: 'general', activeCompanyTab: 'general', activeDriverRegistryMatch: null, activeCompanyRegistryMatch: null, mainDriverCustomerId: '', selectedCompanyId: '', driverInsightsKey: '', driverInsightsLoading: false, driverInsights: null, companyInsightsKey: '', companyInsightsLoading: false, companyInsights: null, vehicleSelectorQuery: '', vehicleSelectorFilter: 'all', vehicleSelectorSelectedId: '', vehicleSelectorCategoryCode: '' }
   };
@@ -1725,6 +1725,18 @@
     if (value.includes('active') || value.includes('check')) return 'active';
     return 'pending';
   };
+
+  function normalizeLookups(raw){
+    const lookups = raw && typeof raw === 'object' ? raw : {};
+    const toArray = (value) => Array.isArray(value) ? value : [];
+    return {
+      categories: toArray(lookups.categories || lookups.vehicleCategories || lookups.categoryList),
+      vehicles: toArray(lookups.vehicles || lookups.fleetVehicles || lookups.fleet),
+      customers: toArray(lookups.customers || lookups.customerList),
+      companies: toArray(lookups.companies || lookups.companyList),
+      pickupLocations: toArray(lookups.pickupLocations || lookups.locations || lookups.stationLocations)
+    };
+  }
 
   function isoLocal(value){
     if (!value) return '';
@@ -1939,8 +1951,15 @@
     setVal('fin_paidNow', fin.paidNow ?? b.paidNowAmount ?? 0);
     setVal('fin_deposit', fin.deposit ?? b.depositAmount ?? 0);
 
-    setVal('veh_categoryLabel', b.category || '');
-    setVal('veh_categoryCode', b.categoryId || b.assignedCategoryCode || '');
+    const bookingCategoryMatch = resolveCategoryFromLookups(b.categoryId || b.assignedCategoryCode || b.category || '');
+    const fallbackCategoryCode = safe(bookingCategoryMatch?.code || '').trim();
+    const fallbackCategoryLabel = safe(bookingCategoryMatch?.label || bookingCategoryMatch?.title || '').trim();
+    const rawCategoryCode = safe(b.assignedCategoryCode || b.categoryId || '').trim();
+    const normalizedCategoryCode = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(rawCategoryCode)
+      ? fallbackCategoryCode
+      : (rawCategoryCode || fallbackCategoryCode);
+    setVal('veh_categoryLabel', b.category || fallbackCategoryLabel || normalizedCategoryCode || '');
+    setVal('veh_categoryCode', normalizedCategoryCode || '');
     setVal('veh_package', b.selectedPackage || '');
     setVal('veh_extras', parseExtras(b.selectedExtras).join(', '));
     setVal('veh_vehicleSearch', b.assignedVehicleLabel || '');
@@ -2164,11 +2183,32 @@
   }
 
   function currentVehicleCategoryCode(){
-    return safe(byId('veh_categoryCode')?.value || byId('book_categoryId')?.value || state.booking?.categoryId || state.booking?.assignedCategoryCode || '').trim();
+    const raw = safe(byId('veh_categoryCode')?.value || byId('book_categoryId')?.value || state.booking?.categoryId || state.booking?.assignedCategoryCode || '').trim();
+    if (!raw) return '';
+    const categories = Array.isArray(state.lookups?.categories) ? state.lookups.categories : [];
+    if (categories.some((c) => safe(c?.code).trim() === raw)) return raw;
+    const byRecordId = categories.find((c) => safe(c?.recordId).trim() === raw);
+    if (byRecordId?.code) return safe(byRecordId.code).trim();
+    const byLabel = categories.find((c) => safe(c?.label).trim() === raw || safe(c?.title).trim() === raw);
+    if (byLabel?.code) return safe(byLabel.code).trim();
+    if (/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(raw)) return '';
+    return raw;
   }
 
   function currentVehicleCategoryLabel(){
     return safe(byId('veh_categoryLabel')?.value || byId('book_category')?.value || state.booking?.category || '').trim();
+  }
+
+  function resolveCategoryFromLookups(rawValue){
+    const raw = safe(rawValue).trim();
+    if (!raw) return null;
+    const categories = Array.isArray(state.lookups?.categories) ? state.lookups.categories : [];
+    return categories.find((c) =>
+      safe(c?.code).trim() === raw ||
+      safe(c?.recordId).trim() === raw ||
+      safe(c?.label).trim() === raw ||
+      safe(c?.title).trim() === raw
+    ) || null;
   }
 
   
@@ -2296,7 +2336,7 @@
     const rawQuery = safe(byId('veh_selectorSearch')?.value || state.ui.vehicleSelectorQuery || '').trim().toLowerCase();
     const filter = safe(state.ui.vehicleSelectorFilter || 'all').trim() || 'all';
     const selectedCategory = safe(byId('veh_selectorCategory')?.value || state.ui.vehicleSelectorCategoryCode || '').trim();
-    const categoryCode = selectedCategory && selectedCategory !== '__all__' ? selectedCategory : (state.ui.vehicleSelectorCategoryCode || currentVehicleCategoryCode());
+    const categoryCode = selectedCategory && selectedCategory !== '__all__' ? selectedCategory : '';
     const filtered = vehicles.filter((vehicle) => {
       if (categoryCode && vehicle.categoryCode && vehicle.categoryCode !== categoryCode) return false;
       const kind = normalizeVehicleFilterStatus(vehicle);
@@ -4036,7 +4076,7 @@ function renderLookups(){
     if (msg.type === 'loadContractData') {
       state.booking = msg.booking || {};
       state.rental = msg.rental || {};
-      state.lookups = msg.lookups || { categories:[], vehicles:[], customers:[], companies:[], pickupLocations:[] };
+      state.lookups = normalizeLookups(msg.lookups);
       state.context = msg.context || {};
       if (!state.rental.financials) {
         state.rental.financials = {
@@ -4077,6 +4117,8 @@ function renderLookups(){
   }
 
   function init(){
+    if (window.__contractHtmlInitDone) return;
+    window.__contractHtmlInitDone = true;
     bindModalSystem();
     wireActions();
     bindMovementSection();
