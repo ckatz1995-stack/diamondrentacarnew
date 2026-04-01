@@ -2411,8 +2411,24 @@
   }
 
 function renderLookups(){
-    const categories = state.lookups?.categories || [];
+    const categoriesRaw = state.lookups?.categories || [];
     const vehicles = state.lookups?.vehicles || [];
+    const categories = categoriesRaw.length
+      ? categoriesRaw
+      : Array.from(new Map(
+          vehicles
+            .map((v) => {
+              const code = safe(v?.categoryCode).trim();
+              const label = safe(v?.categoryLabel).trim() || code;
+              if (!code && !label) return null;
+              const key = code || label;
+              return [key, { code: code || label, label }];
+            })
+            .filter(Boolean)
+        ).values()).sort((a, b) => safe(a.code).localeCompare(safe(b.code), 'el', { numeric:true, sensitivity:'base' }));
+    if (!categoriesRaw.length && categories.length) {
+      state.lookups.categories = categories;
+    }
 
     const categoryList = byId('categoryList');
     const vehicleList = byId('vehicleList');
