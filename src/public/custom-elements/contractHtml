@@ -1951,8 +1951,15 @@
     setVal('fin_paidNow', fin.paidNow ?? b.paidNowAmount ?? 0);
     setVal('fin_deposit', fin.deposit ?? b.depositAmount ?? 0);
 
-    setVal('veh_categoryLabel', b.category || '');
-    setVal('veh_categoryCode', b.categoryId || b.assignedCategoryCode || '');
+    const bookingCategoryMatch = resolveCategoryFromLookups(b.categoryId || b.assignedCategoryCode || b.category || '');
+    const fallbackCategoryCode = safe(bookingCategoryMatch?.code || '').trim();
+    const fallbackCategoryLabel = safe(bookingCategoryMatch?.label || bookingCategoryMatch?.title || '').trim();
+    const rawCategoryCode = safe(b.assignedCategoryCode || b.categoryId || '').trim();
+    const normalizedCategoryCode = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(rawCategoryCode)
+      ? fallbackCategoryCode
+      : (rawCategoryCode || fallbackCategoryCode);
+    setVal('veh_categoryLabel', b.category || fallbackCategoryLabel || normalizedCategoryCode || '');
+    setVal('veh_categoryCode', normalizedCategoryCode || '');
     setVal('veh_package', b.selectedPackage || '');
     setVal('veh_extras', parseExtras(b.selectedExtras).join(', '));
     setVal('veh_vehicleSearch', b.assignedVehicleLabel || '');
@@ -2190,6 +2197,18 @@
 
   function currentVehicleCategoryLabel(){
     return safe(byId('veh_categoryLabel')?.value || byId('book_category')?.value || state.booking?.category || '').trim();
+  }
+
+  function resolveCategoryFromLookups(rawValue){
+    const raw = safe(rawValue).trim();
+    if (!raw) return null;
+    const categories = Array.isArray(state.lookups?.categories) ? state.lookups.categories : [];
+    return categories.find((c) =>
+      safe(c?.code).trim() === raw ||
+      safe(c?.recordId).trim() === raw ||
+      safe(c?.label).trim() === raw ||
+      safe(c?.title).trim() === raw
+    ) || null;
   }
 
   
