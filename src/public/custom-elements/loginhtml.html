@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="el">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    :root{--bg1:#f6f3ee;--bg2:#efe3d2;--card:#fff;--text:#1f2937;--sub:#6b7280;--pri1:#a8844a;--pri2:#8e6d3d;--ok:#166534;--warn:#9a3412;--err:#b91c1c}
+    *{box-sizing:border-box} html,body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--text);background:linear-gradient(180deg,var(--bg1),var(--bg2));}
+    .wrap{max-width:1120px;margin:0 auto;padding:24px 16px;display:grid;grid-template-columns:minmax(320px,460px) minmax(0,1fr);gap:14px}
+    .card{background:var(--card);border:1px solid rgba(15,23,42,.08);border-radius:22px;box-shadow:0 14px 32px rgba(15,23,42,.08)}
+    .left{padding:22px;display:grid;gap:12px}
+    .title{font-size:30px;font-weight:1000;letter-spacing:-.02em}
+    .sub{font-size:14px;line-height:1.6;color:var(--sub);font-weight:700}
+    .field{display:grid;gap:6px}.field label{font-size:12px;font-weight:900;color:#374151}.field input{height:48px;border-radius:14px;border:1px solid rgba(15,23,42,.14);padding:0 13px;font-size:14px;font-weight:700}
+    .field input:focus{outline:none;border-color:var(--pri1);box-shadow:0 0 0 4px rgba(168,132,74,.14)}
+    .row{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+    .check{display:inline-flex;gap:8px;align-items:center;font-size:13px;font-weight:800;color:#374151}
+    .btn{height:46px;border:0;border-radius:14px;padding:0 16px;font-size:14px;font-weight:900;cursor:pointer}
+    .btn.primary{background:linear-gradient(135deg,var(--pri1),var(--pri2));color:#fff}
+    .btn.ghost{background:#f7f0e5;color:#6c522e}
+    .note{padding:11px 12px;border-radius:12px;background:#f8fafc;border:1px solid rgba(0,0,0,.08);font-size:13px;font-weight:700;line-height:1.45}
+    .note.ok{background:#f0fdf4;color:var(--ok)} .note.warn{background:#fff7ed;color:var(--warn)} .note.err{background:#fef2f2;color:var(--err)}
+    .hidden{display:none}
+    .right{padding:24px;background:linear-gradient(160deg,rgba(168,132,74,.12),rgba(142,109,61,.08))}
+    .heroTitle{font-size:34px;font-weight:1050;letter-spacing:-.03em;margin:0 0 8px}
+    .heroText{margin:0;color:#4b5563;line-height:1.65;font-weight:700}
+    .kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:18px}
+    .kpi{padding:12px;border-radius:14px;background:rgba(255,255,255,.78);border:1px solid rgba(15,23,42,.08)}
+    .kpiLabel{font-size:11px;font-weight:900;color:#6b7280}.kpiValue{margin-top:6px;font-size:15px;font-weight:1000}
+    @media (max-width:900px){.wrap{grid-template-columns:1fr}.heroTitle{font-size:28px}}
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="card left">
+      <div class="title">Backroom login</div>
+      <div class="sub">Σύνδεση στο private περιβάλλον. Μετά το login γίνεται μετάβαση στο αντίστοιχο workspace.</div>
+
+      <div id="notice" class="note">Έλεγχος κατάστασης σύνδεσης...</div>
+      <div id="bootstrap" class="note hidden"></div>
+
+      <div class="field"><label for="email">Email</label><input id="email" type="email" placeholder="you@company.gr" autocomplete="username" /></div>
+      <div class="field"><label for="password">Password</label><input id="password" type="password" placeholder="••••••••" autocomplete="current-password" /></div>
+
+      <div class="row">
+        <label class="check"><input id="remember" type="checkbox" /> Να με θυμάται</label>
+        <div class="row">
+          <button id="recoverBtn" class="btn ghost" type="button">Ξέχασα πρόσβαση</button>
+          <button id="loginBtn" class="btn primary" type="button">Είσοδος</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card right">
+      <h1 class="heroTitle">Diamond Backroom</h1>
+      <p class="heroText">Ξεχωριστή σελίδα login από το Myroom, για καθαρότερο flow authentication και redirect στο σωστό private route.</p>
+      <div class="kpis">
+        <div class="kpi"><div class="kpiLabel">Auth status</div><div id="statusValue" class="kpiValue">Checking…</div></div>
+        <div class="kpi"><div class="kpiLabel">Role</div><div id="roleValue" class="kpiValue">—</div></div>
+        <div class="kpi"><div class="kpiLabel">User</div><div id="userValue" class="kpiValue">Guest</div></div>
+        <div class="kpi"><div class="kpiLabel">Next path</div><div id="nextValue" class="kpiValue">/myroom-home</div></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const els = {
+      notice: $('notice'), bootstrap: $('bootstrap'), email: $('email'), password: $('password'), remember: $('remember'),
+      loginBtn: $('loginBtn'), recoverBtn: $('recoverBtn'), statusValue: $('statusValue'), roleValue: $('roleValue'), userValue: $('userValue'), nextValue: $('nextValue')
+    };
+
+    function post(type, payload = {}) { parent.postMessage({ type, ...payload }, '*'); }
+    function setNotice(msg, tone = 'note') {
+      els.notice.className = `note ${tone === 'ok' ? 'ok' : tone === 'warn' ? 'warn' : tone === 'err' ? 'err' : ''}`.trim();
+      els.notice.textContent = msg || '';
+    }
+
+    function handleAuthState(data) {
+      const authed = !!data.authenticated;
+      els.statusValue.textContent = authed ? 'Authenticated' : 'Not signed in';
+      els.roleValue.textContent = data.role || '—';
+      els.userValue.textContent = data.user || 'Guest';
+      els.nextValue.textContent = data.nextPath || '/myroom-home';
+
+      if (data.errorMessage) {
+        setNotice(data.errorMessage, authed ? 'ok' : 'err');
+      } else {
+        setNotice(authed ? 'Έχεις ενεργό session.' : 'Σύνδεση απαιτείται για πρόσβαση στο backroom.', authed ? 'ok' : 'warn');
+      }
+
+      if (data.bootstrapHelp) {
+        els.bootstrap.classList.remove('hidden');
+        els.bootstrap.textContent = data.bootstrapHelp;
+      } else {
+        els.bootstrap.classList.add('hidden');
+      }
+    }
+
+    els.loginBtn.addEventListener('click', () => {
+      post('staffLogin', { email: els.email.value.trim(), password: els.password.value, remember: !!els.remember.checked });
+    });
+    els.recoverBtn.addEventListener('click', () => {
+      post('requestAccessRecovery', { email: els.email.value.trim() });
+    });
+    els.password.addEventListener('keydown', (e) => { if (e.key === 'Enter') els.loginBtn.click(); });
+
+    window.addEventListener('message', (event) => {
+      const msg = event.data || {};
+      if (msg.type === 'authState') handleAuthState(msg);
+    });
+
+    function syncHeight() {
+      const h = Math.max(640, Math.ceil(document.documentElement.scrollHeight));
+      post('resizeShell', { height: h });
+    }
+
+    window.addEventListener('load', () => {
+      post('loginReady');
+      post('requestAuthState');
+      setTimeout(syncHeight, 40);
+      setTimeout(syncHeight, 280);
+    });
+    window.addEventListener('resize', syncHeight);
+  </script>
+</body>
+</html>
