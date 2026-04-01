@@ -3,6 +3,7 @@ import { changeOwnPassword, getPublicAuthHealth, getPublicLoginBootstrap, loginS
 import { buildUserContext, clearSessionToken, logoutBackroom, readBackroomSession, storeSessionToken } from 'public/backroomAuth';
 
 const ROUTES = {
+  login: '/home-login',
   home: '/myroom-home',
   daily: '/myroom-daily',
   fleet: '/myroom-fleetchart',
@@ -20,6 +21,11 @@ $w.onReady(async function () {
   hideOtherComponents();
   try { html.expand(); html.show(); } catch (_) {}
 
+  const initialState = await readBackroomSession({ touch: true });
+  if (!initialState?.authenticated) {
+    return redirectToLogin();
+  }
+
   html.onMessage(async (event) => {
     const msg = event.data || {};
     if (!msg.type) return;
@@ -27,8 +33,7 @@ $w.onReady(async function () {
     if (msg.type === 'navigate') {
       const state = await readBackroomSession({ touch: true });
       if (!state?.authenticated) {
-        await refreshAuthState('Συνδέσου πρώτα για να μπεις στο backroom.');
-        return;
+        return redirectToLogin();
       }
       const route = String(msg.route || '');
       if (route === 'home') return wixLocation.to(ROUTES.home);
@@ -87,6 +92,11 @@ $w.onReady(async function () {
 
   await refreshAuthState();
 });
+
+function redirectToLogin() {
+  const nextPath = wixLocation.path?.length ? `/${wixLocation.path.join('/')}` : ROUTES.home;
+  wixLocation.to(`${ROUTES.login}?next=${encodeURIComponent(nextPath)}`);
+}
 
 async function handleLogin(msg = {}) {
   const email = String(msg.email || '').trim();
