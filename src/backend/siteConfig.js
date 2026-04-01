@@ -1,8 +1,8 @@
 export const COLLECTIONS = {
-  bookings: 'Bookings',
-  fleet: 'Fleet',
-  rentals: 'Rentals',
-  vehicles: 'Vehicles'
+  bookings: 'BookingsNew',
+  fleet: 'FleetNew',
+  rentals: 'RentalsNew',
+  vehicles: 'VehiclesNew'
 };
 
 export const ROUTES = {
