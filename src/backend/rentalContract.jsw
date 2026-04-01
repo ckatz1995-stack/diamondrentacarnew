@@ -6,8 +6,8 @@ import { requireStaffAccess } from "backend/staffAccess.jsw";
 
 const FLEET_LIMIT = 1000;
 const BOOKING_LIMIT = 1000;
-const VEHICLE_CATEGORY_COLLECTION = "VehiclesNew";
-const VEHICLE_FLEET_COLLECTION = "FleetNew";
+const VEHICLE_CATEGORY_COLLECTION = "Vehicles";
+const VEHICLE_FLEET_COLLECTION = "Fleet";
 
 // --------------------
 // Utils
