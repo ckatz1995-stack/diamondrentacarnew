@@ -552,7 +552,7 @@ async function buildContractLookups(booking = {}){
   const requestedStationRaw = pickLabel(booking.pickuppoint || '');
 
   try {
-    const fleetRes = await wixData.query(VEHICLE_FLEET_COLLECTION).eq("active", true).limit(FLEET_LIMIT).find({ suppressAuth:true });
+    const fleetRes = await wixData.query(VEHICLE_FLEET_COLLECTION).limit(FLEET_LIMIT).find({ suppressAuth:true });
     for (const item of (fleetRes.items || [])) {
       const recordId = String(item._id || '');
       const plate = safeText(item.plate || "");
@@ -562,10 +562,13 @@ async function buildContractLookups(booking = {}){
       addCategory(categoryCode, categoryLabel, categoryLabel, item.categoryId || '');
       const operationalStatus = safeText(item.operationalStatus || item.status || 'available');
       const status = safeText(item.status || 'available');
+      const activeValue = item.active;
+      const activeLower = safeText(activeValue).trim().toLowerCase();
+      const activeFlag = activeValue !== false && activeLower !== 'false' && activeLower !== '0' && activeLower !== 'no';
       const currentStationCode = safeText(item.currentStationCode || '');
       const currentStationLabel = safeText(item.currentStationLabel || '');
       const assignedThis = !!currentAssignedId && currentAssignedId === recordId;
-      const serviceBlocked = ['service','blocked','inactive'].includes(operationalStatus.toLowerCase()) || ['service','blocked','inactive'].includes(status.toLowerCase());
+      const serviceBlocked = !activeFlag || ['service','blocked','inactive'].includes(operationalStatus.toLowerCase()) || ['service','blocked','inactive'].includes(status.toLowerCase());
       const hardUnavailable = ['assigned','unavailable','out'].includes(operationalStatus.toLowerCase()) || ['assigned','unavailable','out'].includes(status.toLowerCase());
       const busyConflict = !assignedThis && (busyVehicleIds.has(recordId) || hardUnavailable);
       const wrongStation = !assignedThis && !busyConflict && !serviceBlocked && !stationMatchesBooking(requestedStationRaw, currentStationCode, currentStationLabel);
