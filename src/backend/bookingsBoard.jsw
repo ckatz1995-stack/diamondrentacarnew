@@ -27,7 +27,7 @@ async function getFleetMap(ids) {
   const uniq = Array.from(new Set((ids || []).map(String).filter(Boolean)));
   const map = new Map();
   if (!uniq.length) return map;
-  let q = wixData.query("Fleet").hasSome("_id", uniq).limit(BOOKING_LIMIT);
+  let q = wixData.query("FleetNew").hasSome("_id", uniq).limit(BOOKING_LIMIT);
   try { q = q.include("category"); } catch (_) {}
   const res = await q.find({ suppressAuth: true });
   for (const item of (res.items || [])) {
@@ -129,7 +129,7 @@ export async function getBookingsBoardData({ authToken, startDate, endDate } = {
   await requireStaffAccess({ sessionToken: authToken, area: "bookings", action: "View" });
   try {
     const range = normalizeBoardRange({ startDate, endDate });
-    let query = wixData.query("Bookings")
+    let query = wixData.query("BookingsNew")
       .ge("pickupDateTime", range.start)
       .lt("pickupDateTime", range.end)
       .descending("pickupDateTime")
@@ -168,20 +168,20 @@ export async function setBookingBoardStatus({ authToken, bookingId, newStatus } 
     if (targetStatus === "Confirmed") {
       const result = await confirmAndAutoAssign({ authToken, bookingId: id });
       if (!result?.success) return { success: false, message: result?.message || "Confirm failed" };
-      const booking = await wixData.get("Bookings", id);
+      const booking = await wixData.get("BookingsNew", id);
       booking.status = "Confirmed";
       booking.confirmedAt = booking.confirmedAt || new Date();
       booking.statusChangedAt = new Date();
-      await wixData.update("Bookings", booking);
+      await wixData.update("BookingsNew", booking);
       const message = result.assigned ? "Booking confirmed & vehicle assigned" : "Booking confirmed";
       return { success: true, message };
     }
 
-    const booking = await wixData.get("Bookings", id);
+    const booking = await wixData.get("BookingsNew", id);
     booking.status = targetStatus;
     booking.statusChangedAt = new Date();
     if (targetStatus === "Canceled") booking.canceledAt = new Date();
-    await wixData.update("Bookings", booking);
+    await wixData.update("BookingsNew", booking);
     return { success: true, message: `Booking ${targetStatus.toLowerCase()}` };
   } catch (error) {
     return { success: false, message: error?.message || String(error) };

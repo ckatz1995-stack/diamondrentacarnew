@@ -1,8 +1,9 @@
 import wixLocation from 'wix-location';
-import { changeOwnPassword, getPublicAuthHealth, getPublicLoginBootstrap, loginStaff, requestAccessRecovery, revokeOwnOtherSessions } from 'backend/staffAccess.jsw';
-import { buildUserContext, clearSessionToken, logoutBackroom, readBackroomSession, storeSessionToken } from 'public/backroomAuth';
+import { getPublicAuthHealth } from 'backend/staffAccess.jsw';
+import { buildUserContext, clearSessionToken, logoutBackroom, readBackroomSession } from 'public/backroomAuth';
 
 const ROUTES = {
+  login: '/home-login',
   home: '/myroom-home',
   daily: '/myroom-daily',
   fleet: '/myroom-fleetchart',
@@ -20,6 +21,11 @@ $w.onReady(async function () {
   hideOtherComponents();
   try { html.expand(); html.show(); } catch (_) {}
 
+  const initialState = await readBackroomSession({ touch: true });
+  if (!initialState?.authenticated) {
+    return redirectToLogin();
+  }
+
   html.onMessage(async (event) => {
     const msg = event.data || {};
     if (!msg.type) return;
@@ -27,8 +33,7 @@ $w.onReady(async function () {
     if (msg.type === 'navigate') {
       const state = await readBackroomSession({ touch: true });
       if (!state?.authenticated) {
-        await refreshAuthState('Συνδέσου πρώτα για να μπεις στο backroom.');
-        return;
+        return redirectToLogin();
       }
       const route = String(msg.route || '');
       if (route === 'home') return wixLocation.to(ROUTES.home);
@@ -49,31 +54,6 @@ $w.onReady(async function () {
       return;
     }
 
-    if (msg.type === 'requestLoginBootstrap') {
-      await refreshAuthState();
-      return;
-    }
-
-    if (msg.type === 'staffLogin') {
-      await handleLogin(msg);
-      return;
-    }
-
-    if (msg.type === 'requestAccessRecovery') {
-      await handleRecoveryRequest(msg);
-      return;
-    }
-
-    if (msg.type === 'changeOwnPassword') {
-      await handleChangeOwnPassword(msg);
-      return;
-    }
-
-    if (msg.type === 'logoutOtherSessions') {
-      await handleLogoutOtherSessions();
-      return;
-    }
-
     if (msg.type === 'menuAction') {
       const action = String(msg.action || '');
       if (action === 'reload') return wixLocation.to(ROUTES.home);
@@ -88,82 +68,16 @@ $w.onReady(async function () {
   await refreshAuthState();
 });
 
-async function handleLogin(msg = {}) {
-  const email = String(msg.email || '').trim();
-  const password = String(msg.password || '');
-  const remember = !!msg.remember;
-  try {
-    const res = await loginStaff({
-      email,
-      password,
-      remember,
-      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : ''
-    });
-    storeSessionToken(res?.sessionToken || '', remember);
-    await refreshAuthState('Η σύνδεση ολοκληρώθηκε.');
-    const nextPath = String((wixLocation.query || {}).next || '').trim();
-    if (nextPath && nextPath !== ROUTES.home) {
-      wixLocation.to(nextPath);
-    }
-  } catch (err) {
-    await refreshAuthState(err?.message || 'Η σύνδεση απέτυχε.');
-  }
-}
-
-
-async function handleRecoveryRequest(msg = {}) {
-  const email = String(msg.email || '').trim();
-  try {
-    const res = await requestAccessRecovery({
-      email,
-      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : ''
-    });
-    await refreshAuthState(res?.message || 'Το αίτημα recovery καταχωρήθηκε.');
-  } catch (err) {
-    await refreshAuthState(err?.message || 'Αποτυχία καταχώρησης recovery request.');
-  }
-}
-
-async function handleChangeOwnPassword(msg = {}) {
-  const state = await readBackroomSession({ touch: true });
-  if (!state?.authenticated) {
-    await refreshAuthState('Συνδέσου πρώτα για να αλλάξεις password.');
-    return;
-  }
-  try {
-    await changeOwnPassword({
-      sessionToken: state.sessionToken,
-      currentPassword: String(msg.currentPassword || ''),
-      newPassword: String(msg.newPassword || '')
-    });
-    await refreshAuthState('Το password άλλαξε επιτυχώς.');
-  } catch (err) {
-    await refreshAuthState(err?.message || 'Αποτυχία αλλαγής password.');
-  }
-}
-
-async function handleLogoutOtherSessions() {
-  const state = await readBackroomSession({ touch: true });
-  if (!state?.authenticated) {
-    await refreshAuthState('Συνδέσου πρώτα για να ανακαλέσεις τα υπόλοιπα sessions.');
-    return;
-  }
-  try {
-    await revokeOwnOtherSessions({ sessionToken: state.sessionToken });
-    await refreshAuthState('Ανακλήθηκαν τα υπόλοιπα active sessions αυτού του χρήστη.');
-  } catch (err) {
-    await refreshAuthState(err?.message || 'Αποτυχία ανάκλησης sessions.');
-  }
+function redirectToLogin() {
+  const nextPath = wixLocation.path?.length ? `/${wixLocation.path.join('/')}` : ROUTES.home;
+  wixLocation.to(`${ROUTES.login}?next=${encodeURIComponent(nextPath)}`);
 }
 
 async function refreshAuthState(message = '') {
   const state = await readBackroomSession({ touch: true });
   const denied = String((wixLocation.query || {}).denied || '') === '1';
   const nextPath = String((wixLocation.query || {}).next || '').trim();
-  const [bootstrap, authHealth] = await Promise.all([
-    getPublicLoginBootstrap().catch(() => null),
-    getPublicAuthHealth().catch(() => null)
-  ]);
+  const authHealth = await getPublicAuthHealth().catch(() => null);
   post({
     type: 'authState',
     authenticated: !!state?.authenticated,
@@ -176,8 +90,6 @@ async function refreshAuthState(message = '') {
     nextPath,
     denied,
     errorMessage: message,
-    bootstrapHelp: bootstrap?.bootstrapPassword ? `Bootstrap password: ${bootstrap.bootstrapPassword}` : '',
-    bootstrap: bootstrap || null,
     authHealth: authHealth || null
   });
   post(buildUserContext(state));
