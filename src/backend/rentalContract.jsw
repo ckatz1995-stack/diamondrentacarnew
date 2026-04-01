@@ -280,7 +280,7 @@ async function getFleetMapByIds(ids){
   const remaining = uniq.filter((id) => !fleetMap.has(String(id)));
   if (remaining.length) {
     try {
-      const resOld = await wixData.query("Fleet").hasSome("_id", remaining).include("category").limit(FLEET_LIMIT).find({ suppressAuth:true });
+      const resOld = await wixData.query("FleetNew").hasSome("_id", remaining).include("category").limit(FLEET_LIMIT).find({ suppressAuth:true });
       mapFromItems((resOld.items || []).map((f) => ({
         ...f,
         categoryCode: (f.category && typeof f.category === "object") ? (f.category.category || f.category.code || f.category.title || f.category.name || "") : (f.category || "")
@@ -328,7 +328,7 @@ async function findBusyAssignedVehicleIds(start, end, excludeBookingId){
   const busy = new Set();
   if (!asDate(start) || !asDate(end)) return busy;
   try {
-    const res = await wixData.query("Bookings").limit(BOOKING_LIMIT).find({ suppressAuth:true });
+    const res = await wixData.query("BookingsNew").limit(BOOKING_LIMIT).find({ suppressAuth:true });
     for (const item of (res.items || [])) {
       if (!item?._id || String(item._id) === String(excludeBookingId || "")) continue;
       const vehicleId = safeText(item.assignedVehicle || "").trim();
@@ -347,7 +347,7 @@ async function findBusyAssignedVehicleIds(start, end, excludeBookingId){
 // Rentals helpers
 // --------------------
 async function getRentalByBookingId(bookingId){
-  const res = await wixData.query("Rentals")
+  const res = await wixData.query("RentalsNew")
     .eq("bookingId", String(bookingId))
     .limit(1)
     .find({ suppressAuth:true });
@@ -363,7 +363,7 @@ async function ensureRentalForBooking(booking){
   const bookedCode = extractCode(booking.categoryId || booking.category || "");
   const rentalState = safeText(booking.rentalState || "Booking") || "Booking";
 
-  rental = await wixData.insert("Rentals", {
+  rental = await wixData.insert("RentalsNew", {
     bookingId,
     rentalState,
     bookedCategoryCode: bookedCode,
@@ -442,7 +442,7 @@ async function mirrorToBooking(booking, rental){
   if (rental.checkinStage) b.checkinStage = rental.checkinStage;
   if (rental.rentalState) b.rentalState = safeText(rental.rentalState);
 
-  await wixData.update("Bookings", b, { suppressAuth:true });
+  await wixData.update("BookingsNew", b, { suppressAuth:true });
   return b;
 }
 
@@ -535,7 +535,7 @@ async function buildContractLookups(booking = {}){
     }
   } catch (_) {
     try {
-      const categoryRes = await wixData.query("Vehicles").limit(BOOKING_LIMIT).find({ suppressAuth:true });
+      const categoryRes = await wixData.query("VehiclesNew").limit(BOOKING_LIMIT).find({ suppressAuth:true });
       for (const item of (categoryRes.items || [])) {
         const rawCode = item.categoryId || item.category || item.label || item.name || item.title || item._id || '';
         const rawLabel = item.category || item.label || item.name || item.title || '';
@@ -831,16 +831,16 @@ async function collectBookingMatchesByCustomerSeeds(seeds = {}, limit = 80){
   };
 
   if (seeds.email) {
-    await collect(wixData.query('Bookings').eq('email', seeds.email));
+    await collect(wixData.query('BookingsNew').eq('email', seeds.email));
   }
   if (seeds.phone) {
-    await collect(wixData.query('Bookings').eq('phone', seeds.phoneRaw || seeds.phone));
+    await collect(wixData.query('BookingsNew').eq('phone', seeds.phoneRaw || seeds.phone));
     if (seeds.phone.length >= 6) {
-      await collect(wixData.query('Bookings').contains('phone', seeds.phone.slice(-6)));
+      await collect(wixData.query('BookingsNew').contains('phone', seeds.phone.slice(-6)));
     }
   }
   if (seeds.fullName) {
-    await collect(wixData.query('Bookings').contains('customerName', seeds.fullNameRaw || seeds.fullName));
+    await collect(wixData.query('BookingsNew').contains('customerName', seeds.fullNameRaw || seeds.fullName));
   }
 
   const filtered = Array.from(map.values()).filter((booking) => matchBookingAgainstCustomerSeeds(booking, seeds));
@@ -859,7 +859,7 @@ async function getCustomerFinancialInsightsFromBookings(bookings = []){
     for (let i = 0; i < ids.length; i += 50) {
       const chunk = ids.slice(i, i + 50);
       try {
-        const res = await wixData.query('Rentals').hasSome('bookingId', chunk).limit(1000).find({ suppressAuth:true });
+        const res = await wixData.query('RentalsNew').hasSome('bookingId', chunk).limit(1000).find({ suppressAuth:true });
         for (const item of (res.items || [])) {
           rentalMap.set(String(item.bookingId), item);
         }
@@ -941,7 +941,7 @@ async function collectBookingMatchesByCompanySeeds(seeds = {}, limit = 80){
   const safeLimit = Math.min(Math.max(Number(limit) || 80, 1), 200);
   const bookingMap = new Map();
   try {
-    const res = await wixData.query('Bookings').descending('pickupDateTime').limit(BOOKING_LIMIT).find({ suppressAuth:true });
+    const res = await wixData.query('BookingsNew').descending('pickupDateTime').limit(BOOKING_LIMIT).find({ suppressAuth:true });
     for (const item of (res.items || [])) {
       if (item?._id) bookingMap.set(String(item._id), item);
     }
@@ -953,7 +953,7 @@ async function collectBookingMatchesByCompanySeeds(seeds = {}, limit = 80){
     for (let i = 0; i < bookingIds.length; i += 50) {
       const chunk = bookingIds.slice(i, i + 50);
       try {
-        const res = await wixData.query('Rentals').hasSome('bookingId', chunk).limit(1000).find({ suppressAuth:true });
+        const res = await wixData.query('RentalsNew').hasSome('bookingId', chunk).limit(1000).find({ suppressAuth:true });
         for (const item of (res.items || [])) {
           const id = safeText(item.bookingId || '');
           if (id) rentalMap.set(id, item);
@@ -1113,7 +1113,7 @@ export async function getContract({ authToken, bookingId }) {
   try {
     if (!bookingId) return { success:false, message:"Missing bookingId" };
 
-    const booking = await wixData.get("Bookings", bookingId, { suppressAuth:true });
+    const booking = await wixData.get("BookingsNew", bookingId, { suppressAuth:true });
     if (!booking) return { success:false, message:"Booking not found" };
 
     booking.pickuppoint = pickLabel(booking.pickuppoint);
@@ -1169,7 +1169,7 @@ export async function getContract({ authToken, bookingId }) {
     if (!safeNum(rental.assignedVehicleMileage) && safeNum(booking.assignedVehicleMileage)) rental.assignedVehicleMileage = safeNum(booking.assignedVehicleMileage);
     if (!safeNum(rental.assignedVehicleFuelLevel) && safeNum(booking.assignedVehicleFuelLevel)) rental.assignedVehicleFuelLevel = safeNum(booking.assignedVehicleFuelLevel);
     if (!safeNum(rental.assignedVehicleExcess) && safeNum(booking.assignedVehicleExcess)) rental.assignedVehicleExcess = safeNum(booking.assignedVehicleExcess);
-    await wixData.update("Rentals", rental, { suppressAuth:true });
+    await wixData.update("RentalsNew", rental, { suppressAuth:true });
 
     const lookups = await buildContractLookups(booking);
     return { success:true, booking, rental, lookups };
@@ -1185,11 +1185,11 @@ export async function confirmBookingAnalysis({ authToken, bookingId }) {
     if (!bookingId) return { success:false, message:"Missing bookingId" };
     const result = await confirmAndAutoAssign({ authToken, bookingId });
     if (!result?.success) return { success:false, message: result?.message || "Confirm failed" };
-    const booking = await wixData.get("Bookings", bookingId, { suppressAuth:true });
+    const booking = await wixData.get("BookingsNew", bookingId, { suppressAuth:true });
     booking.status = "Confirmed";
     booking.confirmedAt = booking.confirmedAt || new Date();
     booking.statusChangedAt = new Date();
-    await wixData.update("Bookings", booking, { suppressAuth:true });
+    await wixData.update("BookingsNew", booking, { suppressAuth:true });
     return { success:true, assigned: !!result.assigned, message: result.assigned ? "Booking confirmed & vehicle assigned" : "Booking confirmed" };
   } catch (e) {
     return { success:false, message: e?.message || String(e) };
@@ -1201,17 +1201,17 @@ export async function confirmBookingAnalysis({ authToken, bookingId }) {
 // --------------------
 export async function startRental({ bookingId, by }) {
   if (!bookingId) return { success:false, message:"Missing bookingId" };
-  const booking = await wixData.get("Bookings", bookingId, { suppressAuth:true });
+  const booking = await wixData.get("BookingsNew", bookingId, { suppressAuth:true });
   if (!booking) return { success:false, message:"Booking not found" };
 
   const rental = await ensureRentalForBooking(booking);
   rental.rentalState = "Active Rental";
   rental.checkoutAt = rental.checkoutAt || new Date();
   rental.checkoutBy = safeText(by || rental.checkoutBy || "");
-  await wixData.update("Rentals", rental, { suppressAuth:true });
+  await wixData.update("RentalsNew", rental, { suppressAuth:true });
 
   booking.rentalState = "Active Rental";
-  await wixData.update("Bookings", booking, { suppressAuth:true });
+  await wixData.update("BookingsNew", booking, { suppressAuth:true });
   await mirrorToBooking(booking, rental);
 
   return { success:true };
@@ -1219,17 +1219,17 @@ export async function startRental({ bookingId, by }) {
 
 export async function closeRental({ bookingId, by }) {
   if (!bookingId) return { success:false, message:"Missing bookingId" };
-  const booking = await wixData.get("Bookings", bookingId, { suppressAuth:true });
+  const booking = await wixData.get("BookingsNew", bookingId, { suppressAuth:true });
   if (!booking) return { success:false, message:"Booking not found" };
 
   const rental = await ensureRentalForBooking(booking);
   rental.rentalState = "Closed Rental";
   rental.checkinAt = rental.checkinAt || new Date();
   rental.checkinBy = safeText(by || rental.checkinBy || "");
-  await wixData.update("Rentals", rental, { suppressAuth:true });
+  await wixData.update("RentalsNew", rental, { suppressAuth:true });
 
   booking.rentalState = "Closed Rental";
-  await wixData.update("Bookings", booking, { suppressAuth:true });
+  await wixData.update("BookingsNew", booking, { suppressAuth:true });
   await mirrorToBooking(booking, rental);
 
   return { success:true };
@@ -1243,7 +1243,7 @@ export async function saveContract({ authToken, bookingId, payload, stage }) {
   try {
     if (!bookingId) return { success:false, message:"Missing bookingId" };
 
-    const booking = await wixData.get("Bookings", bookingId, { suppressAuth:true });
+    const booking = await wixData.get("BookingsNew", bookingId, { suppressAuth:true });
     if (!booking) return { success:false, message:"Booking not found" };
 
     const rental = await ensureRentalForBooking(booking);
@@ -1424,8 +1424,8 @@ export async function saveContract({ authToken, bookingId, payload, stage }) {
     }
     rental.pricingReview = buildPricingReview(booking, rental);
 
-    await wixData.update("Rentals", rental, { suppressAuth:true });
-    await wixData.update("Bookings", booking, { suppressAuth:true });
+    await wixData.update("RentalsNew", rental, { suppressAuth:true });
+    await wixData.update("BookingsNew", booking, { suppressAuth:true });
     await mirrorToBooking(booking, rental);
 
     // checkout: try PDF/email but NEVER fail the save

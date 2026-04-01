@@ -8,7 +8,7 @@ export async function setRentalState({ bookingId, rentalState, note }) {
     if (!bookingId) return { success: false, message: "Missing bookingId" };
     if (!ALLOWED.has(String(rentalState))) return { success: false, message: "Invalid rentalState" };
 
-    const b = await wixData.get("Bookings", bookingId, { suppressAuth: true });
+    const b = await wixData.get("BookingsNew", bookingId, { suppressAuth: true });
     if (!b) return { success: false, message: "Booking not found" };
 
     // Δεν αλλάζουμε canceled από εδώ (ασφάλεια)
@@ -24,7 +24,7 @@ export async function setRentalState({ bookingId, rentalState, note }) {
     b.rentalStateChangedBy = userId;
     b.rentalStateNote = note ? String(note) : "";
 
-    await wixData.update("Bookings", b, { suppressAuth: true });
+    await wixData.update("BookingsNew", b, { suppressAuth: true });
     return { success: true };
   } catch (err) {
     return { success: false, message: err?.message || String(err) };

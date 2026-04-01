@@ -86,7 +86,7 @@ async function getFleetMapByIds(ids){
   const uniq = Array.from(new Set((ids || []).filter(Boolean).map(String)));
   const map = new Map();
   if (!uniq.length) return map;
-  let q = wixData.query("Fleet").hasSome("_id", uniq).limit(FLEET_LIMIT);
+  let q = wixData.query("FleetNew").hasSome("_id", uniq).limit(FLEET_LIMIT);
   try { q = q.include("category"); } catch (_) {}
   const res = await q.find({ suppressAuth:true });
   (res.items || []).forEach(f => {
@@ -101,7 +101,7 @@ async function getFleetMapByIds(ids){
   return map;
 }
 async function getFleetAll(){
-  let q = wixData.query("Fleet").limit(FLEET_LIMIT);
+  let q = wixData.query("FleetNew").limit(FLEET_LIMIT);
   try { q = q.include("category"); } catch (_) {}
   const res = await q.find({ suppressAuth:true });
   return res.items || [];
@@ -198,7 +198,7 @@ export async function getDailyOps({ authToken, startISO, endISO } = {}) {
     const start = asDate(startISO), end = asDate(endISO);
     if (!start || !end || end <= start) return { success:false, message:"Invalid range", debug:{ startISO, endISO } };
 
-    const allRes = await wixData.query("Bookings").descending("_createdDate").limit(BOOKING_LIMIT).find({ suppressAuth:true });
+    const allRes = await wixData.query("BookingsNew").descending("_createdDate").limit(BOOKING_LIMIT).find({ suppressAuth:true });
     const allBookings = allRes.items || [];
     const assignedFleetIds = Array.from(new Set(allBookings.map((b)=> safeText(b.assignedVehicle || "")).filter(Boolean)));
     const fleetMap = await getFleetMapByIds(assignedFleetIds);
