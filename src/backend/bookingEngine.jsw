@@ -246,9 +246,39 @@ function deriveFleetCategoryCode(raw) {
 }
 
 function mapVehicleCategoryCatalogItem(item = {}) {
-  const categoryCode = String(item.category || item.Category || '').trim();
-  const title = String(item.title || item.Title || '').trim();
+  const categoryCode = String(
+    item.category ||
+    item.Category ||
+    item.categoryCode ||
+    item.CategoryCode ||
+    item.code ||
+    item.Code ||
+    ''
+  ).trim();
+  const title = String(
+    item.title ||
+    item.Title ||
+    item.name ||
+    item.Name ||
+    item.displayName ||
+    item.DisplayName ||
+    item.model ||
+    item.Model ||
+    ''
+  ).trim();
+  const photos = uniqueImageList([
+    ...toImageArray(item.photos),
+    ...toImageArray(item.Photos),
+    ...toImageArray(item.images),
+    ...toImageArray(item.Images),
+    ...toImageArray(item.image),
+    ...toImageArray(item.Image)
+  ]);
   const displayName = buildVehicleCategoryDisplayName(categoryCode, title);
+  const rawAc = item.airCondition ?? item.AirCondition ?? item.ac ?? item.AC;
+  const acLabel = typeof rawAc === 'string'
+    ? (/^(yes|true|1|ναι)$/i.test(rawAc.trim()) ? 'Ναι' : 'Όχι')
+    : (rawAc ? 'Ναι' : 'Όχι');
   return {
     id: String(item._id || ''),
     itemType: 'category',
@@ -260,18 +290,19 @@ function mapVehicleCategoryCatalogItem(item = {}) {
     category: categoryCode,
     categoryCode,
     label: categoryCode,
-    price: Number(item.price || item.Price || 0) || 0,
-    image: vehicleCategoryImageUrl(item.image || item.Image || ''),
+    price: Number(item.price || item.Price || item.pricePerDay || item.dailyPrice || item.dayPrice || 0) || 0,
+    image: photos[0] ? vehicleCategoryImageUrl(photos[0]) : '',
+    photos: photos.map((src) => vehicleCategoryImageUrl(src)),
     active: (item.active ?? item.Active ?? true) !== false,
     status: String(item.status || item.Status || '').trim(),
     specs: {
-      gearbox: item.transmission || item.Transmission || '-',
+      gearbox: item.transmission || item.Transmission || item.gearbox || item.Gearbox || '-',
       fuel: item.fuelType || item.FuelType || '-',
       seats: item.seats || item.Seats || '-',
       doors: item.doors || item.Doors || '-',
-      bags: item.luggage1 || item.luggage || item.Luggage || '-',
-      luggage: item.luggage || item.Luggage || '-',
-      ac: (item.airCondition || item.AirCondition) ? 'Ναι' : 'Όχι',
+      bags: item.luggage1 || item.luggage || item.Luggage || item.bags || item.Bags || item.luggageBags || '-',
+      luggage: item.luggage || item.Luggage || item.bags || item.Bags || item.luggageBags || '-',
+      ac: acLabel,
       engineCc: item.engineCc || item.EngineCc || '-'
     }
   };
