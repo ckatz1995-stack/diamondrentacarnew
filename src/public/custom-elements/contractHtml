@@ -2164,7 +2164,16 @@
   }
 
   function currentVehicleCategoryCode(){
-    return safe(byId('veh_categoryCode')?.value || byId('book_categoryId')?.value || state.booking?.categoryId || state.booking?.assignedCategoryCode || '').trim();
+    const raw = safe(byId('veh_categoryCode')?.value || byId('book_categoryId')?.value || state.booking?.categoryId || state.booking?.assignedCategoryCode || '').trim();
+    if (!raw) return '';
+    const categories = Array.isArray(state.lookups?.categories) ? state.lookups.categories : [];
+    if (categories.some((c) => safe(c?.code).trim() === raw)) return raw;
+    const byRecordId = categories.find((c) => safe(c?.recordId).trim() === raw);
+    if (byRecordId?.code) return safe(byRecordId.code).trim();
+    const byLabel = categories.find((c) => safe(c?.label).trim() === raw || safe(c?.title).trim() === raw);
+    if (byLabel?.code) return safe(byLabel.code).trim();
+    if (/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(raw)) return '';
+    return raw;
   }
 
   function currentVehicleCategoryLabel(){
@@ -2296,7 +2305,7 @@
     const rawQuery = safe(byId('veh_selectorSearch')?.value || state.ui.vehicleSelectorQuery || '').trim().toLowerCase();
     const filter = safe(state.ui.vehicleSelectorFilter || 'all').trim() || 'all';
     const selectedCategory = safe(byId('veh_selectorCategory')?.value || state.ui.vehicleSelectorCategoryCode || '').trim();
-    const categoryCode = selectedCategory && selectedCategory !== '__all__' ? selectedCategory : (state.ui.vehicleSelectorCategoryCode || currentVehicleCategoryCode());
+    const categoryCode = selectedCategory && selectedCategory !== '__all__' ? selectedCategory : '';
     const filtered = vehicles.filter((vehicle) => {
       if (categoryCode && vehicle.categoryCode && vehicle.categoryCode !== categoryCode) return false;
       const kind = normalizeVehicleFilterStatus(vehicle);
