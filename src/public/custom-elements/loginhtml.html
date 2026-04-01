@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="el">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    :root{
+      --shellDark1:#4f3a22;
+      --shellDark2:#7a5b33;
+      --shellDark3:#9f7845;
+      --pri1:#a8844a;
+      --pri2:#8e6d3d;
+      --bg:#f6f3ed;
+      --card:#ffffff;
+      --text:#0f172a;
+      --sub:#475569;
+      --line:rgba(15,23,42,.10);
+      --ok:#166534;
+      --warn:#9a3412;
+      --err:#b91c1c;
+      --shadow:0 18px 40px rgba(15,23,42,.10);
+      --soft:0 10px 24px rgba(15,23,42,.07);
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;min-height:100%;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--text);background:radial-gradient(circle at 10% 0%, rgba(180,138,79,.10), transparent 30%),var(--bg)}
+
+    .shell{max-width:1280px;margin:0 auto;padding:18px 16px 24px}
+    .topbar{border-radius:24px;overflow:hidden;background:linear-gradient(135deg,var(--shellDark1) 0%,var(--shellDark2) 46%,var(--shellDark3) 100%);box-shadow:var(--shadow);border:1px solid rgba(0,0,0,.06)}
+    .toprow{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 16px;flex-wrap:wrap}
+    .brand{display:inline-flex;align-items:center;gap:10px;padding:10px 12px;border-radius:16px;background:linear-gradient(135deg,#8e6d3d,#b48a4f 62%,#6c522e);border:1px solid rgba(255,255,255,.12)}
+    .logo{width:36px;height:36px;border-radius:12px;display:grid;place-items:center;background:rgba(255,255,255,.16);color:#fff;font-weight:1000}
+    .brandTitle{font-size:15px;font-weight:1000;color:#fff;letter-spacing:-.02em}
+    .brandSub{font-size:11px;font-weight:900;color:rgba(255,255,255,.82)}
+    .meta{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+    .chip{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.12);font-size:12px;font-weight:900;color:#fff}
+
+    .content{display:grid;grid-template-columns:minmax(420px,520px) minmax(0,1fr);gap:14px;margin-top:14px}
+    .card{background:var(--card);border:1px solid var(--line);border-radius:24px;box-shadow:var(--soft)}
+
+    .loginCard{padding:22px;display:grid;gap:12px}
+    .loginTitle{font-size:31px;font-weight:1000;letter-spacing:-.03em;line-height:1.05;margin:0}
+    .loginSub{margin:0;color:var(--sub);font-size:14px;line-height:1.6;font-weight:750}
+
+    .note{padding:12px 13px;border-radius:13px;background:#f8fafc;border:1px solid rgba(0,0,0,.08);font-size:13px;font-weight:750;line-height:1.45}
+    .note.ok{background:#f0fdf4;color:var(--ok)}
+    .note.warn{background:#fff7ed;color:var(--warn)}
+    .note.err{background:#fef2f2;color:var(--err)}
+    .hidden{display:none!important}
+
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .field{display:flex;flex-direction:column;gap:6px}
+    .field label{font-size:12px;font-weight:900;color:#334155}
+    .field input{height:50px;width:100%;padding:0 13px;border-radius:14px;border:1px solid rgba(15,23,42,.14);font-size:14px;font-weight:800;background:#fff;color:#0f172a}
+    .field input:focus{outline:none;border-color:var(--pri1);box-shadow:0 0 0 4px rgba(168,132,74,.14)}
+
+    .actions{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+    .check{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:800;color:#334155}
+    .btns{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .btn{height:46px;border:0;border-radius:13px;padding:0 14px;font:900 13px/1 Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;cursor:pointer}
+    .btn.ghost{background:#f7f0e5;color:#6c522e}
+    .btn.primary{background:linear-gradient(135deg,var(--pri1),var(--pri2));color:#fff;box-shadow:0 10px 22px rgba(108,82,46,.20)}
+    .btn:hover{transform:translateY(-1px)}
+
+    .side{padding:22px;background:linear-gradient(165deg,rgba(180,138,79,.14),rgba(142,109,61,.08));display:grid;align-content:start;gap:12px}
+    .side h2{margin:0;font-size:34px;line-height:1.02;letter-spacing:-.03em}
+    .side p{margin:0;color:#475569;line-height:1.65;font-size:14px;font-weight:760;max-width:62ch}
+
+    .kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:2px}
+    .kpi{padding:12px;border-radius:14px;border:1px solid rgba(15,23,42,.08);background:rgba(255,255,255,.82)}
+    .kpiLabel{font-size:11px;font-weight:900;color:#64748b}
+    .kpiValue{margin-top:6px;font-size:15px;font-weight:1000;color:#0f172a;word-break:break-word}
+
+    .divider{height:1px;background:rgba(15,23,42,.08);margin:4px 0}
+
+    @media (max-width:980px){
+      .content{grid-template-columns:1fr}
+      .loginTitle{font-size:28px}
+      .side h2{font-size:28px}
+    }
+    @media (max-width:620px){
+      .shell{padding:10px}
+      .toprow{padding:12px}
+      .grid2{grid-template-columns:1fr}
+      .actions,.btns{width:100%}
+      .btn{width:100%}
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div class="toprow">
+        <div class="brand">
+          <div class="logo">D</div>
+          <div>
+            <div class="brandTitle">DIAMOND Backroom</div>
+            <div class="brandSub">Private entry · secure auth</div>
+          </div>
+        </div>
+        <div class="meta">
+          <span class="chip" id="todayChip">—</span>
+          <span class="chip">Desktop-first view · v2</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="content">
+      <section class="card loginCard">
+        <h1 class="loginTitle">Backroom login</h1>
+        <p class="loginSub">Η επίσημη είσοδος στο private περιβάλλον. Μετά το login γίνεται redirect στο σωστό route του συστήματος.</p>
+
+        <div id="notice" class="note">Έλεγχος κατάστασης σύνδεσης...</div>
+        <div id="bootstrap" class="note hidden"></div>
+
+        <div class="grid2">
+          <div class="field"><label for="email">Email</label><input id="email" type="email" placeholder="you@company.gr" autocomplete="username" /></div>
+          <div class="field"><label for="password">Password</label><input id="password" type="password" placeholder="••••••••" autocomplete="current-password" /></div>
+        </div>
+
+        <div class="actions">
+          <label class="check"><input id="remember" type="checkbox" /> Να με θυμάται</label>
+          <div class="btns">
+            <button id="recoverBtn" class="btn ghost" type="button">Ξέχασα πρόσβαση</button>
+            <button id="loginBtn" class="btn primary" type="button">Είσοδος</button>
+          </div>
+        </div>
+      </section>
+
+      <aside class="card side">
+        <h2>Diamond Backroom</h2>
+        <p>Ξεχωριστή σελίδα login από το Myroom για καθαρό flow authentication, session control και ασφαλές redirect στο `/myroom-home` ή στο ζητούμενο private route.</p>
+        <div class="divider"></div>
+
+        <div class="kpis">
+          <div class="kpi"><div class="kpiLabel">Auth status</div><div id="statusValue" class="kpiValue">Checking…</div></div>
+          <div class="kpi"><div class="kpiLabel">Role</div><div id="roleValue" class="kpiValue">—</div></div>
+          <div class="kpi"><div class="kpiLabel">User</div><div id="userValue" class="kpiValue">Guest</div></div>
+          <div class="kpi"><div class="kpiLabel">Next path</div><div id="nextValue" class="kpiValue">/myroom-home</div></div>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const els = {
+      notice: $('notice'), bootstrap: $('bootstrap'), email: $('email'), password: $('password'), remember: $('remember'),
+      loginBtn: $('loginBtn'), recoverBtn: $('recoverBtn'), statusValue: $('statusValue'), roleValue: $('roleValue'), userValue: $('userValue'), nextValue: $('nextValue'), todayChip: $('todayChip')
+    };
+
+    function post(type, payload = {}) { parent.postMessage({ type, ...payload }, '*'); }
+
+    function setNotice(msg, tone = 'note') {
+      els.notice.className = `note ${tone === 'ok' ? 'ok' : tone === 'warn' ? 'warn' : tone === 'err' ? 'err' : ''}`.trim();
+      els.notice.textContent = msg || '';
+    }
+
+    function handleAuthState(data) {
+      const authed = !!data.authenticated;
+      els.statusValue.textContent = authed ? 'Authenticated' : 'Not signed in';
+      els.roleValue.textContent = data.role || '—';
+      els.userValue.textContent = data.user || 'Guest';
+      els.nextValue.textContent = data.nextPath || '/myroom-home';
+
+      if (data.errorMessage) {
+        setNotice(data.errorMessage, authed ? 'ok' : 'err');
+      } else {
+        setNotice(authed ? 'Έχεις ενεργό session.' : 'Σύνδεση απαιτείται για πρόσβαση στο backroom.', authed ? 'ok' : 'warn');
+      }
+
+      if (data.bootstrapHelp) {
+        els.bootstrap.classList.remove('hidden');
+        els.bootstrap.textContent = data.bootstrapHelp;
+      } else {
+        els.bootstrap.classList.add('hidden');
+      }
+    }
+
+    els.loginBtn.addEventListener('click', () => {
+      post('staffLogin', { email: els.email.value.trim(), password: els.password.value, remember: !!els.remember.checked });
+    });
+
+    els.recoverBtn.addEventListener('click', () => {
+      post('requestAccessRecovery', { email: els.email.value.trim() });
+    });
+
+    els.password.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') els.loginBtn.click();
+    });
+
+    window.addEventListener('message', (event) => {
+      const msg = event.data || {};
+      if (msg.type === 'authState') handleAuthState(msg);
+    });
+
+    function syncHeight() {
+      const h = Math.max(680, Math.ceil(document.documentElement.scrollHeight));
+      post('resizeShell', { height: h });
+    }
+
+    window.addEventListener('load', () => {
+      try { els.todayChip.textContent = new Date().toLocaleDateString('el-GR', { weekday:'short', day:'2-digit', month:'2-digit', year:'numeric' }); } catch (_) {}
+      post('loginReady');
+      post('requestAuthState');
+      setTimeout(syncHeight, 40);
+      setTimeout(syncHeight, 280);
+    });
+
+    window.addEventListener('resize', syncHeight);
+  </script>
+</body>
+</html>
