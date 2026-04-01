@@ -3,10 +3,10 @@ import wixData from 'wix-data';
 import { requireStaffAccess } from 'backend/staffAccess.jsw';
 
 const COLLECTIONS = {
-  vehicles: 'VehiclesNew',
-  fleet: 'FleetNew',
-  bookings: 'BookingsNew',
-  rentals: 'RentalsNew'
+  vehicles: 'Vehicles',
+  fleet: 'Fleet',
+  bookings: 'Bookings',
+  rentals: 'Rentals'
 };
 
 function txt(v){ return String(v ?? '').trim(); }
