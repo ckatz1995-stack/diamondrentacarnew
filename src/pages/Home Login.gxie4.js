@@ -6,7 +6,7 @@ const ROUTES = {
   home: '/myroom-home'
 };
 
-const LOGIN_COMPONENT_IDS = ['#homeHtml', '#loginHtml', '#bpage1'];
+const LOGIN_COMPONENT_IDS = ['#loginHtml', '#homeHtml', '#bpage1', '#html1', '#html2', '#customElement1'];
 const MIN_HEIGHT = 640;
 const MAX_HEIGHT = 2400;
 
