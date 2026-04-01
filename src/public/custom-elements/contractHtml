@@ -1696,7 +1696,7 @@
   const state = {
     booking: {},
     rental: {},
-    lookups: { categories: [], vehicles: [], customers: [], companies: [] },
+    lookups: { categories: [], vehicles: [], customers: [], companies: [], pickupLocations: [] },
     context: {},
     ui: { activeModal: '', saveState: '', additionalDriversOpen: false, driverLookupDrafts: {}, companyLookupDraft: null, activeDriverSlot: 0, customerSearchTarget: 0, customerSearchSelectedIndex: -1, activeDriverTab: 'general', activeCompanyTab: 'general', activeDriverRegistryMatch: null, activeCompanyRegistryMatch: null, mainDriverCustomerId: '', selectedCompanyId: '', driverInsightsKey: '', driverInsightsLoading: false, driverInsights: null, companyInsightsKey: '', companyInsightsLoading: false, companyInsights: null, vehicleSelectorQuery: '', vehicleSelectorFilter: 'all', vehicleSelectorSelectedId: '', vehicleSelectorCategoryCode: '' }
   };
@@ -1725,6 +1725,18 @@
     if (value.includes('active') || value.includes('check')) return 'active';
     return 'pending';
   };
+
+  function normalizeLookups(raw){
+    const lookups = raw && typeof raw === 'object' ? raw : {};
+    const toArray = (value) => Array.isArray(value) ? value : [];
+    return {
+      categories: toArray(lookups.categories || lookups.vehicleCategories || lookups.categoryList),
+      vehicles: toArray(lookups.vehicles || lookups.fleetVehicles || lookups.fleet),
+      customers: toArray(lookups.customers || lookups.customerList),
+      companies: toArray(lookups.companies || lookups.companyList),
+      pickupLocations: toArray(lookups.pickupLocations || lookups.locations || lookups.stationLocations)
+    };
+  }
 
   function isoLocal(value){
     if (!value) return '';
@@ -4045,7 +4057,7 @@ function renderLookups(){
     if (msg.type === 'loadContractData') {
       state.booking = msg.booking || {};
       state.rental = msg.rental || {};
-      state.lookups = msg.lookups || { categories:[], vehicles:[], customers:[], companies:[], pickupLocations:[] };
+      state.lookups = normalizeLookups(msg.lookups);
       state.context = msg.context || {};
       if (!state.rental.financials) {
         state.rental.financials = {
@@ -4086,6 +4098,8 @@ function renderLookups(){
   }
 
   function init(){
+    if (window.__contractHtmlInitDone) return;
+    window.__contractHtmlInitDone = true;
     bindModalSystem();
     wireActions();
     bindMovementSection();
