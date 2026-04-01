@@ -895,7 +895,8 @@
                 <h3>Booked group / assigned unit</h3>
                 <div class="subtle">Διάλεξε κατηγορία και assigned όχημα για το συμβόλαιο.</div>
               </div>
-              <div class="grid cols-2">
+              <div class="grid cols-3">
+                <div class="field"><label>Category picker</label><select class="select" id="book_categorySelect"></select></div>
                 <div class="field"><label>Category label</label><input class="input" id="book_category" placeholder="A - Economy" /></div>
                 <div class="field"><label>Category code</label><input class="input" id="book_categoryId" placeholder="A" /></div>
               </div>
@@ -2446,6 +2447,7 @@ function renderLookups(){
     const categoryList = byId('categoryList');
     const vehicleList = byId('vehicleList');
     const categorySelect = byId('veh_selectorCategory');
+    const bookingCategorySelect = byId('book_categorySelect');
 
     if (categoryList) {
       categoryList.innerHTML = categories.map((c) => `<option value="${escapeHtml(c.label || c.code || '')}"></option>`).join('');
@@ -2456,6 +2458,10 @@ function renderLookups(){
     if (categorySelect) {
       categorySelect.innerHTML = ['<option value="__all__">All categories</option>', ...categories.map((c) => `<option value="${escapeHtml(c.code || '')}">${escapeHtml(c.label || c.code || '')}</option>`)].join('');
       hydrateVehicleSelectorFromCurrent();
+    }
+    if (bookingCategorySelect) {
+      bookingCategorySelect.innerHTML = ['<option value="">Select category</option>', ...categories.map((c) => `<option value="${escapeHtml(c.code || '')}">${escapeHtml(c.label || c.code || '')}</option>`)].join('');
+      bookingCategorySelect.value = currentVehicleCategoryCode() || '';
     }
     renderVehicleSelector();
     refreshMovementSection();
@@ -3313,6 +3319,27 @@ function renderLookups(){
         setVal('book_category', match.label || match.code || '');
         setVal('book_categoryId', match.code || '');
       }
+      const bookingSelect = byId('book_categorySelect');
+      if (bookingSelect) bookingSelect.value = state.ui.vehicleSelectorCategoryCode || '';
+      renderVehicleSelector();
+      renderSummary();
+    });
+    byId('book_categorySelect')?.addEventListener('change', (e) => {
+      const code = safe(e.target.value || '').trim();
+      const match = (state.lookups?.categories || []).find((c) => safe(c.code).trim() === code);
+      setVal('veh_categoryCode', code || '');
+      setVal('book_categoryId', code || '');
+      if (match) {
+        const label = match.label || match.code || code;
+        setVal('veh_categoryLabel', label);
+        setVal('book_category', label);
+      } else if (!code) {
+        setVal('veh_categoryLabel', '');
+        setVal('book_category', '');
+      }
+      state.ui.vehicleSelectorCategoryCode = code || '';
+      const modalCategory = byId('veh_selectorCategory');
+      if (modalCategory) modalCategory.value = code || '__all__';
       renderVehicleSelector();
       renderSummary();
     });
