@@ -9,8 +9,8 @@ import wixUsersBackend from "wix-users-backend";
  * =========================
  */
 const COLLECTIONS = {
-  Bookings: "Bookings",
-  Fleet: "Fleet",
+  Bookings: "BookingsNew",
+  Fleet: "FleetNew",
 };
 
 // Bookings fields (canonical keys used by the module)
@@ -468,7 +468,7 @@ export async function acknowledgeUnassignedInRange({ from, to } = {}) {
 async function fetchVehicleCategoryMap() {
   // Maps Vehicles._id -> Vehicles.category (A/B/...) for decoding Fleet.Category references
   try {
-    const res = await wixData.query("Vehicles").limit(1000).find();
+    const res = await wixData.query("VehiclesNew").limit(1000).find();
     const map = {};
     for (const v of (res.items || [])) {
       const id = String(v._id || "");

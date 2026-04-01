@@ -4,8 +4,8 @@ import { requireStaffAccess } from 'backend/staffAccess.jsw';
 import { getVehicleCategoriesCatalog } from 'backend/bookingEngine';
 
 const AUDIT_COLLECTION = 'StaffAuditLog';
-const VEHICLE_CATEGORIES_COLLECTION = 'Vehicles';
-const FLEET_COLLECTION = 'Fleet';
+const VEHICLE_CATEGORIES_COLLECTION = 'VehiclesNew';
+const FLEET_COLLECTION = 'FleetNew';
 
 function text(value, fallback = ''){ const out = String(value ?? '').trim(); return out || fallback; }
 function toNumber(value, fallback = 0){ const num = Number(value); return Number.isFinite(num) ? num : fallback; }

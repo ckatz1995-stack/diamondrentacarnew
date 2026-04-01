@@ -54,19 +54,19 @@ export async function getMemberPortalData(email, memberId){
   let byEmail = [];
   try{
     if (safeMemberId) {
-      const res = await wixData.query("Bookings").eq("memberId", safeMemberId).descending("createdAtApp").limit(20).find();
+      const res = await wixData.query("BookingsNew").eq("memberId", safeMemberId).descending("createdAtApp").limit(20).find();
       byMember = res.items || [];
     }
   }catch(e){}
   try{
     if (safeMemberId) {
-      const res = await wixData.query("Bookings").eq("createdBy", safeMemberId).descending("createdAtApp").limit(20).find();
+      const res = await wixData.query("BookingsNew").eq("createdBy", safeMemberId).descending("createdAtApp").limit(20).find();
       byMember = mergeUnique(byMember, res.items || []);
     }
   }catch(e){}
   try{
     if (safeEmail) {
-      const res = await wixData.query("Bookings").eq("email", safeEmail).descending("createdAtApp").limit(20).find();
+      const res = await wixData.query("BookingsNew").eq("email", safeEmail).descending("createdAtApp").limit(20).find();
       byEmail = res.items || [];
     }
   }catch(e){}
