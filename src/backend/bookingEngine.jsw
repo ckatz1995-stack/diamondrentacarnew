@@ -17,7 +17,7 @@ function billableDaysFromHours(pickup, dropoff) {
 async function generateBookingNumber() {
     const year = new Date().getFullYear();
 
-    const results = await wixData.query("Bookings")
+    const results = await wixData.query("BookingsNew")
         .startsWith("bookingNumber", `RNT-${year}-`)
         .descending("_createdDate")
         .limit(1)
@@ -35,7 +35,7 @@ async function generateBookingNumber() {
 }
 
 async function hasOverlap(vehicleId, start, end, excludeBookingId) {
-    const res = await wixData.query("Bookings")
+    const res = await wixData.query("BookingsNew")
         .eq("assignedVehicle", vehicleId)
         .ne("status", "Canceled")
         .lt("pickupDateTime", end)      // pickup < newEnd
@@ -50,7 +50,7 @@ async function hasOverlap(vehicleId, start, end, excludeBookingId) {
 async function getActiveFleetCountByCategoryKeys(categoryKeys = []) {
   const uniqueKeys = [...new Set((categoryKeys || []).map(v => String(v || '').trim()).filter(Boolean))];
   for (const key of uniqueKeys) {
-    const res = await wixData.query("Fleet")
+    const res = await wixData.query("FleetNew")
       .eq("active", true)
       .eq("category", key)
       .limit(1000)
@@ -66,7 +66,7 @@ async function countOverlappingBookingsByCategoryKeys(categoryKeys, start, end, 
   let total = 0;
 
   for (const key of uniqueKeys) {
-    let q = wixData.query("Bookings")
+    let q = wixData.query("BookingsNew")
       .eq("categoryId", key)
       .ne("status", "Canceled")
       .lt("pickupDateTime", end)
@@ -167,6 +167,8 @@ function cleanText(value) {
 function buildVehicleCategoryDisplayName(categoryCode = '', title = '') {
   const code = cleanText(categoryCode).toUpperCase();
   const name = cleanText(title);
+  const normalizedName = name.replace(/\s+/g, ' ').trim();
+  if (code && normalizedName && new RegExp(`^${code}\\s*-`, 'i').test(normalizedName)) return normalizedName;
   if (code && name) return `${code} - ${name}`;
   return name || code || 'Όχημα';
 }
@@ -743,7 +745,7 @@ vehicleCategorySpecs: mapVehicleCategoryCatalogItem(vehicle).specs,
             source: 'createBooking'
         });
 
-        const inserted = await wixData.insert("Bookings", booking);
+        const inserted = await wixData.insert("BookingsNew", booking);
         return { success: true, bookingNumber: inserted.bookingNumber, _id: inserted._id };
 
     } catch (err) {
@@ -759,7 +761,7 @@ export async function applyCalendarChange(change) {
         const { bookingId, resourceId, start, end } = change || {};
         if (!bookingId) return { success: false, message: "Missing bookingId" };
 
-        const booking = await wixData.get("Bookings", bookingId);
+        const booking = await wixData.get("BookingsNew", bookingId);
         if (!booking) return { success: false, message: "Booking not found" };
 
         if (booking.status === "Canceled") {
@@ -798,7 +800,7 @@ export async function applyCalendarChange(change) {
             booking.assignedVehicleChangedBy = userId;
         }
 
-        const saved = await wixData.update("Bookings", booking);
+        const saved = await wixData.update("BookingsNew", booking);
 
         const event = {
             id: saved._id,
