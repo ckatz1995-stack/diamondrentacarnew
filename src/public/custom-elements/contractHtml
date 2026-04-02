@@ -470,6 +470,52 @@
       border-radius:20px;
     }
 
+    /* Visual uplift v3 */
+    html,body{
+      background:
+        radial-gradient(1200px 420px at 18% -10%, rgba(51,102,204,.16), transparent 60%),
+        radial-gradient(1000px 360px at 92% -20%, rgba(15,118,110,.14), transparent 58%),
+        #eef3fb;
+    }
+    .app{padding:0 22px 28px}
+    .panel{
+      background:linear-gradient(180deg,#ffffff 0%,#f8fbff 100%);
+      border-color:#c6d6ef;
+      box-shadow:0 16px 34px rgba(17,24,39,.10);
+    }
+    .panel-hd{
+      background:linear-gradient(135deg,#163d7a 0%,#24569e 62%,#2d6ac1 100%);
+      color:#fff;
+      border-bottom:0;
+    }
+    .panel-hd h2,.panel-hd h3{color:#fff}
+    .panel-hd .sub{color:rgba(255,255,255,.78)}
+    .summary-box,.vehicle-mini,.vehicle-stat,.vehicle-info-banner{
+      background:linear-gradient(180deg,#ffffff 0%,#edf4ff 100%);
+      border-color:#c5d5ec;
+      box-shadow:0 4px 12px rgba(22,61,122,.06);
+    }
+    .station-operation-card,.vehicle-card{
+      background:linear-gradient(180deg,#ffffff 0%,#f5f9ff 100%);
+      border-color:#c6d6ef;
+      box-shadow:0 10px 22px rgba(22,61,122,.07);
+    }
+    .input,.select,.textarea{
+      background:#f7fbff;
+      border-color:#a9c0de;
+      color:#0f213b;
+    }
+    .input::placeholder,.textarea::placeholder{color:#6f84a1}
+    .wheel-btn{
+      border-color:#a9c0de;
+      background:linear-gradient(180deg,#ffffff 0%,#eaf2ff 100%);
+      color:#193457;
+    }
+    .toolbar-badge{
+      border-color:#c8d8ef;
+      background:linear-gradient(180deg,#fff 0%,#eef4ff 100%);
+    }
+
     @media (max-width: 1380px){
       .backroom-header{grid-template-columns:1fr;overflow:hidden}
       .backroom-nav{justify-content:flex-start;padding:0 12px 12px}
