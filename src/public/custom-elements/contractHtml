@@ -950,7 +950,7 @@
                 <div class="subtle">Overview info + vehicle selector για πρακτικό χειρισμό.</div>
               </div>
               <div class="vehicle-info-banners">
-                <div class="vehicle-info-banner"><span>Booked category</span><strong id="vehInfoBookedCategory">—</strong></div>
+                <div class="vehicle-info-banner"><span>Booked → Final category</span><strong id="vehInfoBookedCategory">—</strong></div>
                 <div class="vehicle-info-banner"><span>Duration</span><strong id="vehInfoDuration">—</strong></div>
                 <div class="vehicle-info-banner"><span>Insurance</span><strong id="vehInfoInsurance">—</strong></div>
                 <div class="vehicle-info-banner"><span>Extras</span><strong id="vehInfoExtras">—</strong></div>
