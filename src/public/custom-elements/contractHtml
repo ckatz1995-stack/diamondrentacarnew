@@ -779,7 +779,7 @@
             <h2>Check-out / Check-in information</h2>
             <div class="sub">Παραλαβή, παράδοση, τοποθεσίες, ημερομηνίες και στοιχεία πτήσης με δικά μας controls.</div>
           </div>
-          <div class="section-tools">
+          <div class="section-tools hidden">
             <button class="tool" type="button" data-open="rentalModal">Rental details</button>
             <button class="tool" type="button" data-open="notesModal">Operational notes</button>
           </div>
@@ -891,7 +891,7 @@
             </section>
           </div>
 
-          <div class="movement-inline-strip">
+          <div class="movement-inline-strip hidden">
             <div class="summary-box compact">
               <div class="k">Pickup</div>
               <div class="v" id="sumPickup">—</div>
@@ -918,7 +918,7 @@
             <h2>Vehicle information</h2>
             <div class="sub">Κατηγορία, assigned unit, rental duration & arrival details και αγορασμένα προϊόντα.</div>
           </div>
-          <div class="section-tools">
+          <div class="section-tools hidden">
             <button class="tool" data-open="vehicleModal">Vehicle selector</button>
             <button class="tool" data-open="chargesModal">Products & pricing</button>
           </div>
