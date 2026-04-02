@@ -2447,8 +2447,19 @@ function renderLookups(){
             })
             .filter(Boolean)
         ).values()).sort((a, b) => safe(a.code).localeCompare(safe(b.code), 'el', { numeric:true, sensitivity:'base' }));
-    const categories = normalizedCategories.length ? normalizedCategories : derivedCategories;
-    if (!normalizedCategories.length && categories.length) {
+    const categoriesMap = new Map();
+    normalizedCategories.forEach((c) => {
+      const key = safe(c.code || c.label).trim();
+      if (!key) return;
+      categoriesMap.set(key, { ...c, code: safe(c.code || c.label).trim(), label: safe(c.label || c.code).trim() || key });
+    });
+    derivedCategories.forEach((c) => {
+      const key = safe(c.code || c.label).trim();
+      if (!key) return;
+      if (!categoriesMap.has(key)) categoriesMap.set(key, c);
+    });
+    const categories = Array.from(categoriesMap.values()).sort((a, b) => safe(a.code).localeCompare(safe(b.code), 'el', { numeric:true, sensitivity:'base' }));
+    if (categories.length) {
       state.lookups.categories = categories;
     }
 
