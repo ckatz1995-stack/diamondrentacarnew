@@ -487,12 +487,12 @@
       box-shadow:0 16px 34px rgba(17,24,39,.10);
     }
     .panel-hd{
-      background:linear-gradient(135deg,#6c522e 0%,#8e6d3d 62%,#a8844a 100%);
-      color:#fff;
-      border-bottom:0;
+      background:linear-gradient(180deg,#faf2e4 0%,#f1e2c9 100%);
+      color:#4b3923;
+      border-bottom:1px solid #dbc7a5;
     }
-    .panel-hd h2,.panel-hd h3{color:#fff}
-    .panel-hd .sub{color:rgba(255,255,255,.78)}
+    .panel-hd h2,.panel-hd h3{color:#4b3923}
+    .panel-hd .sub{color:#7a6647}
     .summary-box,.vehicle-mini,.vehicle-stat,.vehicle-info-banner{
       background:linear-gradient(180deg,#ffffff 0%,#fbf4e8 100%);
       border-color:#e1d4bf;
