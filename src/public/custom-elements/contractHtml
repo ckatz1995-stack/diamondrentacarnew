@@ -282,7 +282,7 @@
       color:#3f2f1f;border-radius:10px;padding:9px 12px;font-size:12px;font-weight:800;cursor:pointer;
       box-shadow:inset 0 1px 0 rgba(255,255,255,.75);display:inline-flex;align-items:center;gap:8px;white-space:nowrap
     }
-    .wheel-btn:hover{border-color:#8ea4c7;background:linear-gradient(180deg,#fff 0%,#eef4ff 100%)}
+    .wheel-btn:hover{border-color:#b89e74;background:linear-gradient(180deg,#fff 0%,#f2e7d4 100%)}
     .wheel-btn.primary{background:linear-gradient(180deg,#8e6d3d 0%,#775729 100%);border-color:#78592e;color:#fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.18)}
     .wheel-btn.success{background:linear-gradient(180deg,#0f766e 0%,#0b5d57 100%);border-color:#0f766e;color:#fff}
     .wheel-btn.warn{background:linear-gradient(180deg,#fff7e9 0%,#f6e7c2 100%);border-color:#dfbf72;color:#8a5a00}
@@ -473,47 +473,47 @@
     /* Visual uplift v3 */
     html,body{
       background:
-        radial-gradient(1200px 420px at 18% -10%, rgba(51,102,204,.16), transparent 60%),
-        radial-gradient(1000px 360px at 92% -20%, rgba(15,118,110,.14), transparent 58%),
-        #eef3fb;
+        radial-gradient(1200px 420px at 18% -10%, rgba(142,109,61,.18), transparent 60%),
+        radial-gradient(1000px 360px at 92% -20%, rgba(168,132,74,.14), transparent 58%),
+        #f4efe6;
     }
     .app{padding:0 22px 28px}
     .panel{
-      background:linear-gradient(180deg,#ffffff 0%,#f8fbff 100%);
-      border-color:#c6d6ef;
+      background:linear-gradient(180deg,#ffffff 0%,#fcf8f1 100%);
+      border-color:#ddcfb7;
       box-shadow:0 16px 34px rgba(17,24,39,.10);
     }
     .panel-hd{
-      background:linear-gradient(135deg,#163d7a 0%,#24569e 62%,#2d6ac1 100%);
+      background:linear-gradient(135deg,#6c522e 0%,#8e6d3d 62%,#a8844a 100%);
       color:#fff;
       border-bottom:0;
     }
     .panel-hd h2,.panel-hd h3{color:#fff}
     .panel-hd .sub{color:rgba(255,255,255,.78)}
     .summary-box,.vehicle-mini,.vehicle-stat,.vehicle-info-banner{
-      background:linear-gradient(180deg,#ffffff 0%,#edf4ff 100%);
-      border-color:#c5d5ec;
-      box-shadow:0 4px 12px rgba(22,61,122,.06);
+      background:linear-gradient(180deg,#ffffff 0%,#fbf4e8 100%);
+      border-color:#e1d4bf;
+      box-shadow:0 4px 12px rgba(108,82,46,.06);
     }
     .station-operation-card,.vehicle-card{
-      background:linear-gradient(180deg,#ffffff 0%,#f5f9ff 100%);
-      border-color:#c6d6ef;
-      box-shadow:0 10px 22px rgba(22,61,122,.07);
+      background:linear-gradient(180deg,#ffffff 0%,#fbf6ed 100%);
+      border-color:#ddcfb7;
+      box-shadow:0 10px 22px rgba(108,82,46,.08);
     }
     .input,.select,.textarea{
-      background:#f7fbff;
-      border-color:#a9c0de;
-      color:#0f213b;
+      background:#fffdf9;
+      border-color:#d4c3a8;
+      color:#2f2416;
     }
-    .input::placeholder,.textarea::placeholder{color:#6f84a1}
+    .input::placeholder,.textarea::placeholder{color:#8b7962}
     .wheel-btn{
-      border-color:#a9c0de;
-      background:linear-gradient(180deg,#ffffff 0%,#eaf2ff 100%);
-      color:#193457;
+      border-color:#cfbea2;
+      background:linear-gradient(180deg,#ffffff 0%,#f6efe2 100%);
+      color:#5b4426;
     }
     .toolbar-badge{
-      border-color:#c8d8ef;
-      background:linear-gradient(180deg,#fff 0%,#eef4ff 100%);
+      border-color:#d8c9b0;
+      background:linear-gradient(180deg,#fff 0%,#f8f0e3 100%);
     }
 
     @media (max-width: 1380px){
