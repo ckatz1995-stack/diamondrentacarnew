@@ -212,12 +212,17 @@
     .summary-box.compact{padding:10px 12px}
     .vehicle-pro-shell{display:grid;gap:14px}
     .vehicle-top-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
-    .vehicle-workspace{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(300px,.92fr);gap:14px}
+    .vehicle-workspace{display:grid;grid-template-columns:1fr;gap:14px}
     .vehicle-card{border:1px solid var(--line);border-radius:18px;background:linear-gradient(180deg,#fff 0%,#fbfcff 100%);padding:14px;display:grid;gap:12px}
     .vehicle-card h3{margin:0;font-size:16px}
     .vehicle-card .subtle{font-size:12px;color:var(--muted)}
+    .vehicle-info-banners{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+    .vehicle-info-banner{border:1px solid var(--line);border-radius:12px;background:#f8fbff;padding:10px 12px;display:grid;gap:6px}
+    .vehicle-info-banner span{font-size:11px;font-weight:900;color:#5f6f86;text-transform:uppercase;letter-spacing:.05em}
+    .vehicle-info-banner strong{font-size:15px;color:#10243d;line-height:1.3}
+    .vehicle-main-row{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(320px,.9fr);gap:12px;align-items:start}
     .vehicle-section-label{font-size:11px;font-weight:900;color:#54657d;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
-    .vehicle-selector-shell{display:grid;grid-template-columns:110px minmax(0,1fr);gap:10px;align-items:start}
+    .vehicle-selector-shell{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;align-items:start}
     .vehicle-plate-box{min-height:48px;border:1px solid var(--line-strong);border-radius:12px;background:#f8fafc;display:grid;place-items:center;font-weight:800}
     .vehicle-quick-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
     .vehicle-stat{border:1px solid var(--line);border-radius:12px;background:#fff;padding:10px 12px}
@@ -417,6 +422,54 @@
     .driver-inline-toolbar .field-inline-actions{justify-content:flex-end}
     .driver-registry-note{font-size:12px;color:#7b6b54}
 
+    /* UI refresh */
+    .layout{gap:18px}
+    .panel{
+      border-color:#cfd8e6;
+      border-radius:22px;
+      box-shadow:0 14px 36px rgba(15,23,42,.07);
+      overflow:hidden;
+    }
+    .panel-hd{
+      background:linear-gradient(180deg,#ffffff 0%,#f7faff 100%);
+      border-bottom:1px solid #d9e2ef;
+      padding:16px 18px;
+    }
+    .panel-hd h2{font-size:24px;letter-spacing:-.02em}
+    .panel-bd{padding:18px}
+    .field label{font-size:11px;color:#334a68}
+    .input,.select,.textarea{
+      min-height:48px;
+      border-radius:14px;
+      border-color:#b9c8dd;
+      background:#fff;
+    }
+    .input:focus,.select:focus,.textarea:focus{
+      box-shadow:0 0 0 4px rgba(31,75,143,.12);
+    }
+    .station-operation-card,.vehicle-card{
+      border-color:#cfd8e6;
+      box-shadow:0 8px 20px rgba(15,23,42,.05);
+    }
+    .summary-box,.vehicle-mini,.vehicle-stat{
+      border-color:#d4deec;
+      background:linear-gradient(180deg,#ffffff 0%,#f8fbff 100%);
+    }
+    .contract-toolbar{
+      background:linear-gradient(180deg,#ffffff 0%,#f7faff 100%);
+      border:1px solid #d4deec;
+      border-radius:20px;
+      padding:10px;
+      box-shadow:0 10px 24px rgba(15,23,42,.05);
+    }
+    .wheel-btn,.toolbar-link{
+      border-radius:12px;
+      border-color:#b9c8dd;
+    }
+    .rail .panel{
+      border-radius:20px;
+    }
+
     @media (max-width: 1380px){
       .backroom-header{grid-template-columns:1fr;overflow:hidden}
       .backroom-nav{justify-content:flex-start;padding:0 12px 12px}
@@ -429,6 +482,7 @@
     }
     @media (max-width: 900px){
       .grid.cols-4,.grid.cols-3,.grid.cols-2,.summary-row{grid-template-columns:1fr}
+      .vehicle-info-banners,.vehicle-main-row,.vehicle-quick-stats{grid-template-columns:1fr}
       .customer-lookup{grid-template-columns:1fr}
       .driver-card .row{grid-template-columns:1fr}
       .quick-actions{grid-template-columns:1fr}
@@ -870,7 +924,7 @@
           </div>
         </div>
         <div class="panel-bd vehicle-pro-shell">
-          <div class="vehicle-top-summary">
+          <div class="vehicle-top-summary hidden">
             <div class="summary-box compact">
               <div class="k">Booked group</div>
               <div class="v" id="sumCategory">—</div>
@@ -893,50 +947,47 @@
             <section class="vehicle-card">
               <div>
                 <h3>Booked group / assigned unit</h3>
-                <div class="subtle">Διάλεξε κατηγορία και assigned όχημα για το συμβόλαιο.</div>
+                <div class="subtle">Overview info + vehicle selector για πρακτικό χειρισμό.</div>
               </div>
-              <div class="grid cols-2">
-                <div class="field"><label>Category label</label><input class="input" id="book_category" placeholder="A - Economy" /></div>
-                <div class="field"><label>Category code</label><input class="input" id="book_categoryId" placeholder="A" /></div>
+              <div class="vehicle-info-banners">
+                <div class="vehicle-info-banner"><span>Booked category</span><strong id="vehInfoBookedCategory">—</strong></div>
+                <div class="vehicle-info-banner"><span>Duration</span><strong id="vehInfoDuration">—</strong></div>
+                <div class="vehicle-info-banner"><span>Insurance</span><strong id="vehInfoInsurance">—</strong></div>
+                <div class="vehicle-info-banner"><span>Extras</span><strong id="vehInfoExtras">—</strong></div>
               </div>
-              <div>
-                <div class="vehicle-section-label">Vehicle selector</div>
-                <div class="vehicle-selector-shell">
-                  <div class="vehicle-plate-box" id="veh_assignedPlateBox">—</div>
-                  <button class="picker-trigger" type="button" data-open="vehicleModal" id="btnVehicleWorkspaceOpen">
-                    <span class="picker-value-main" id="vehAssignedDisplayMain">Open vehicle selector</span>
-                    <span class="picker-value-sub" id="vehAssignedDisplaySub">Επιλογή συγκεκριμένου οχήματος από το fleet</span>
-                  </button>
+              <input class="hidden-sync" id="book_category" />
+              <input class="hidden-sync" id="book_categoryId" />
+              <input class="hidden-sync" id="book_durationLabel" />
+              <input class="hidden-sync" id="book_selectedPackage" />
+              <input class="hidden-sync" id="book_selectedExtras" />
+              <input class="hidden-sync" id="book_voucherNumber" />
+              <input class="hidden-sync" id="book_confirmationNumber" />
+              <input class="hidden-sync" id="book_originCity_vehicle" />
+              <input class="hidden-sync" id="book_flightNumber_vehicle" />
+              <div class="vehicle-main-row">
+                <div>
+                  <div class="vehicle-section-label">Vehicle selector</div>
+                  <div class="vehicle-selector-shell">
+                    <div class="vehicle-plate-box hidden" id="veh_assignedPlateBox">—</div>
+                    <button class="picker-trigger" type="button" data-open="vehicleModal" id="btnVehicleWorkspaceOpen">
+                      <span class="picker-value-main" id="vehAssignedDisplayMain">Open vehicle selector</span>
+                      <span class="picker-value-sub" id="vehAssignedDisplaySub">Επιλογή συγκεκριμένου οχήματος από το fleet</span>
+                    </button>
+                  </div>
+                  <input class="hidden-sync" id="veh_assignedLabel" readonly />
+                  <input class="hidden-sync" id="veh_assignedPlate" readonly />
                 </div>
-                <input class="hidden-sync" id="veh_assignedLabel" readonly />
-                <input class="hidden-sync" id="veh_assignedPlate" readonly />
+                <div class="vehicle-quick-stats">
+                  <div class="vehicle-stat"><div class="k">Out km</div><div class="v" id="vehOutKmBox">—</div></div>
+                  <div class="vehicle-stat"><div class="k">In km</div><div class="v" id="vehInKmBox">—</div></div>
+                  <div class="vehicle-stat"><div class="k">Fuel out</div><div class="v" id="vehFuelOutBox">—</div></div>
+                  <div class="vehicle-stat"><div class="k">Fuel in</div><div class="v" id="vehFuelInBox">—</div></div>
+                </div>
               </div>
-              <div class="vehicle-quick-stats">
-                <div class="vehicle-stat"><div class="k">Out km</div><div class="v" id="vehOutKmBox">—</div></div>
-                <div class="vehicle-stat"><div class="k">In km</div><div class="v" id="vehInKmBox">—</div></div>
-                <div class="vehicle-stat"><div class="k">Fuel out</div><div class="v" id="vehFuelOutBox">—</div></div>
-                <div class="vehicle-stat"><div class="k">Fuel in</div><div class="v" id="vehFuelInBox">—</div></div>
-              </div>
-            </section>
-
-            <section class="vehicle-card">
-              <div>
-                <h3>Rental duration & arrival details</h3>
-                <div class="subtle">Στοιχεία ταξιδιού και reference για τη συγκεκριμένη κράτηση.</div>
-              </div>
-              <div class="grid cols-2">
-                <div class="field"><label>Duration</label><input class="input" id="book_durationLabel" readonly /></div>
-                <div class="field"><label>Origin city</label><input class="input" id="book_originCity_vehicle" /></div>
-                <div class="field"><label>Flight number</label><input class="input" id="book_flightNumber_vehicle" /></div>
-                <div class="field"><label>Voucher number</label><input class="input" id="book_voucherNumber" /></div>
-                <div class="field"><label>Confirmation</label><input class="input" id="book_confirmationNumber" /></div>
-                <div class="field"><label>Selected package</label><input class="input" id="book_selectedPackage" placeholder="Standard / Full / OTA package" /></div>
-              </div>
-              <div class="field"><label>Extras (comma separated)</label><input class="input" id="book_selectedExtras" placeholder="booster, gps, snow chains" /></div>
             </section>
           </div>
 
-          <section class="vehicle-card products-strip">
+          <section class="vehicle-card products-strip hidden">
             <div>
               <h3>Purchased products</h3>
               <div class="subtle">Προστασίες, extras και άλλα προϊόντα που έχουν περαστεί στην κράτηση.</div>
@@ -1696,7 +1747,7 @@
   const state = {
     booking: {},
     rental: {},
-    lookups: { categories: [], vehicles: [], customers: [], companies: [] },
+    lookups: { categories: [], vehicles: [], customers: [], companies: [], pickupLocations: [] },
     context: {},
     ui: { activeModal: '', saveState: '', additionalDriversOpen: false, driverLookupDrafts: {}, companyLookupDraft: null, activeDriverSlot: 0, customerSearchTarget: 0, customerSearchSelectedIndex: -1, activeDriverTab: 'general', activeCompanyTab: 'general', activeDriverRegistryMatch: null, activeCompanyRegistryMatch: null, mainDriverCustomerId: '', selectedCompanyId: '', driverInsightsKey: '', driverInsightsLoading: false, driverInsights: null, companyInsightsKey: '', companyInsightsLoading: false, companyInsights: null, vehicleSelectorQuery: '', vehicleSelectorFilter: 'all', vehicleSelectorSelectedId: '', vehicleSelectorCategoryCode: '' }
   };
@@ -1725,6 +1776,18 @@
     if (value.includes('active') || value.includes('check')) return 'active';
     return 'pending';
   };
+
+  function normalizeLookups(raw){
+    const lookups = raw && typeof raw === 'object' ? raw : {};
+    const toArray = (value) => Array.isArray(value) ? value : [];
+    return {
+      categories: toArray(lookups.categories || lookups.vehicleCategories || lookups.categoryList),
+      vehicles: toArray(lookups.vehicles || lookups.fleetVehicles || lookups.fleet),
+      customers: toArray(lookups.customers || lookups.customerList),
+      companies: toArray(lookups.companies || lookups.companyList),
+      pickupLocations: toArray(lookups.pickupLocations || lookups.locations || lookups.stationLocations)
+    };
+  }
 
   function isoLocal(value){
     if (!value) return '';
@@ -1883,7 +1946,7 @@
     setVal('book_flightNumber_vehicle', b.flightNumber || '');
 
     setVal('book_category', b.category || '');
-    setVal('book_categoryId', b.categoryId || b.assignedCategoryCode || '');
+    setVal('book_categoryId', b.categoryId || '');
     setVal('veh_assignedLabel', b.assignedVehicleLabel || r.assignedVehicleLabel || '');
     setVal('veh_assignedPlate', b.assignedVehiclePlate || '');
     setVal('book_selectedPackage', b.selectedPackage || '');
@@ -1939,8 +2002,15 @@
     setVal('fin_paidNow', fin.paidNow ?? b.paidNowAmount ?? 0);
     setVal('fin_deposit', fin.deposit ?? b.depositAmount ?? 0);
 
-    setVal('veh_categoryLabel', b.category || '');
-    setVal('veh_categoryCode', b.categoryId || b.assignedCategoryCode || '');
+    const bookingCategoryMatch = resolveCategoryFromLookups(b.categoryId || b.assignedCategoryCode || b.category || '');
+    const fallbackCategoryCode = safe(bookingCategoryMatch?.code || '').trim();
+    const fallbackCategoryLabel = safe(bookingCategoryMatch?.label || bookingCategoryMatch?.title || '').trim();
+    const rawCategoryCode = safe(b.assignedCategoryCode || b.categoryId || '').trim();
+    const normalizedCategoryCode = /^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(rawCategoryCode)
+      ? fallbackCategoryCode
+      : (rawCategoryCode || fallbackCategoryCode);
+    setVal('veh_categoryLabel', b.category || fallbackCategoryLabel || normalizedCategoryCode || '');
+    setVal('veh_categoryCode', normalizedCategoryCode || '');
     setVal('veh_package', b.selectedPackage || '');
     setVal('veh_extras', parseExtras(b.selectedExtras).join(', '));
     setVal('veh_vehicleSearch', b.assignedVehicleLabel || '');
@@ -2164,11 +2234,41 @@
   }
 
   function currentVehicleCategoryCode(){
-    return safe(byId('veh_categoryCode')?.value || byId('book_categoryId')?.value || state.booking?.categoryId || state.booking?.assignedCategoryCode || '').trim();
+    const raw = safe(
+      byId('veh_categoryCode')?.value ||
+      byId('book_categoryId')?.value ||
+      byId('veh_categoryLabel')?.value ||
+      byId('book_category')?.value ||
+      state.booking?.assignedCategoryCode ||
+      state.booking?.categoryId ||
+      state.booking?.category ||
+      ''
+    ).trim();
+    if (!raw) return '';
+    const categories = Array.isArray(state.lookups?.categories) ? state.lookups.categories : [];
+    if (categories.some((c) => safe(c?.code).trim() === raw)) return raw;
+    const byRecordId = categories.find((c) => safe(c?.recordId).trim() === raw);
+    if (byRecordId?.code) return safe(byRecordId.code).trim();
+    const byLabel = categories.find((c) => safe(c?.label).trim() === raw || safe(c?.title).trim() === raw);
+    if (byLabel?.code) return safe(byLabel.code).trim();
+    if (/^[a-f0-9]{8}-[a-f0-9]{4}-[1-5][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(raw)) return '';
+    return raw;
   }
 
   function currentVehicleCategoryLabel(){
     return safe(byId('veh_categoryLabel')?.value || byId('book_category')?.value || state.booking?.category || '').trim();
+  }
+
+  function resolveCategoryFromLookups(rawValue){
+    const raw = safe(rawValue).trim();
+    if (!raw) return null;
+    const categories = Array.isArray(state.lookups?.categories) ? state.lookups.categories : [];
+    return categories.find((c) =>
+      safe(c?.code).trim() === raw ||
+      safe(c?.recordId).trim() === raw ||
+      safe(c?.label).trim() === raw ||
+      safe(c?.title).trim() === raw
+    ) || null;
   }
 
   
@@ -2253,12 +2353,10 @@
     syncAssignedVehicleMetaFields(vehicle);
     if (vehicle.categoryCode) {
       setVal('veh_categoryCode', vehicle.categoryCode);
-      setVal('book_categoryId', vehicle.categoryCode);
       state.ui.vehicleSelectorCategoryCode = vehicle.categoryCode;
     }
     if (vehicle.categoryLabel) {
       setVal('veh_categoryLabel', vehicle.categoryLabel);
-      setVal('book_category', vehicle.categoryLabel);
     }
     if (vehicle.mileage !== undefined && vehicle.mileage !== null && byId('checkoutOdometer')) {
       byId('checkoutOdometer').value = String(vehicle.mileage);
@@ -2296,7 +2394,11 @@
     const rawQuery = safe(byId('veh_selectorSearch')?.value || state.ui.vehicleSelectorQuery || '').trim().toLowerCase();
     const filter = safe(state.ui.vehicleSelectorFilter || 'all').trim() || 'all';
     const selectedCategory = safe(byId('veh_selectorCategory')?.value || state.ui.vehicleSelectorCategoryCode || '').trim();
-    const categoryCode = selectedCategory && selectedCategory !== '__all__' ? selectedCategory : (state.ui.vehicleSelectorCategoryCode || currentVehicleCategoryCode());
+    const explicitAll = selectedCategory === '__all__';
+    const fallbackCategory = currentVehicleCategoryCode();
+    const categoryCode = selectedCategory && selectedCategory !== '__all__'
+      ? selectedCategory
+      : (explicitAll ? '' : (state.ui.vehicleSelectorCategoryCode || fallbackCategory || ''));
     const filtered = vehicles.filter((vehicle) => {
       if (categoryCode && vehicle.categoryCode && vehicle.categoryCode !== categoryCode) return false;
       const kind = normalizeVehicleFilterStatus(vehicle);
@@ -2371,8 +2473,43 @@
   }
 
 function renderLookups(){
-    const categories = state.lookups?.categories || [];
+    const categoriesRaw = state.lookups?.categories || [];
     const vehicles = state.lookups?.vehicles || [];
+    const normalizedCategories = categoriesRaw
+      .map((c) => {
+        const code = safe(c?.code).trim();
+        const label = safe(c?.label || c?.title).trim();
+        const value = code || label;
+        if (!value) return null;
+        return { ...c, code: value, label: label || value };
+      })
+      .filter(Boolean);
+    const derivedCategories = Array.from(new Map(
+          vehicles
+            .map((v) => {
+              const code = safe(v?.categoryCode).trim();
+              const label = safe(v?.categoryLabel).trim() || code;
+              if (!code && !label) return null;
+              const key = code || label;
+              return [key, { code: code || label, label }];
+            })
+            .filter(Boolean)
+        ).values()).sort((a, b) => safe(a.code).localeCompare(safe(b.code), 'el', { numeric:true, sensitivity:'base' }));
+    const categoriesMap = new Map();
+    normalizedCategories.forEach((c) => {
+      const key = safe(c.code || c.label).trim();
+      if (!key) return;
+      categoriesMap.set(key, { ...c, code: safe(c.code || c.label).trim(), label: safe(c.label || c.code).trim() || key });
+    });
+    derivedCategories.forEach((c) => {
+      const key = safe(c.code || c.label).trim();
+      if (!key) return;
+      if (!categoriesMap.has(key)) categoriesMap.set(key, c);
+    });
+    const categories = Array.from(categoriesMap.values()).sort((a, b) => safe(a.code).localeCompare(safe(b.code), 'el', { numeric:true, sensitivity:'base' }));
+    if (categories.length) {
+      state.lookups.categories = categories;
+    }
 
     const categoryList = byId('categoryList');
     const vehicleList = byId('vehicleList');
@@ -2385,7 +2522,11 @@ function renderLookups(){
       vehicleList.innerHTML = vehicles.map((v) => `<option value="${escapeHtml(v.label || '')}"></option>`).join('');
     }
     if (categorySelect) {
-      categorySelect.innerHTML = ['<option value="__all__">All categories</option>', ...categories.map((c) => `<option value="${escapeHtml(c.code || '')}">${escapeHtml(c.label || c.code || '')}</option>`)].join('');
+      categorySelect.innerHTML = ['<option value="__all__">All categories</option>', ...categories.map((c) => {
+        const value = c.code || c.label || '';
+        const label = c.label || c.code || value;
+        return `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`;
+      })].join('');
       hydrateVehicleSelectorFromCurrent();
     }
     renderVehicleSelector();
@@ -2498,6 +2639,16 @@ function renderLookups(){
     byId('sumVehicle').textContent = [byId('veh_assignedLabel')?.value || b.assignedVehicleLabel || r.assignedVehicleLabel, byId('veh_assignedPlate')?.value || b.assignedVehiclePlate].filter(Boolean).join(' • ') || 'Not assigned';
     byId('sumDurationPackage').textContent = `${days} day(s) • ${byId('book_selectedPackage')?.value || b.selectedPackage || 'No package'}`;
     byId('sumProducts').textContent = extras.length ? extras.join(' • ') : 'No extras';
+    const bookedCategoryLabel = b.category || '';
+    const bookedCategoryCode = b.categoryId || '';
+    const finalCategoryLabel = byId('veh_categoryLabel')?.value || b.assignedCategoryLabel || '';
+    const finalCategoryCode = byId('veh_categoryCode')?.value || b.assignedCategoryCode || '';
+    const bookedCompact = [bookedCategoryLabel, bookedCategoryCode].filter(Boolean).join(' • ') || '—';
+    const finalCompact = [finalCategoryLabel, finalCategoryCode].filter(Boolean).join(' • ') || '—';
+    byId('vehInfoBookedCategory') && (byId('vehInfoBookedCategory').textContent = `${bookedCompact} → ${finalCompact}`);
+    byId('vehInfoDuration') && (byId('vehInfoDuration').textContent = `${days} day(s)`);
+    byId('vehInfoInsurance') && (byId('vehInfoInsurance').textContent = byId('book_selectedPackage')?.value || b.selectedPackage || '—');
+    byId('vehInfoExtras') && (byId('vehInfoExtras').textContent = extras.length ? extras.join(' • ') : '—');
     const assignedStationLabel = byId('veh_assignedStationLabel')?.value || b.assignedVehicleStationLabel || r.assignedVehicleStationLabel || '';
     const assignedMileage = safe(byId('veh_assignedMileage')?.value || b.assignedVehicleMileage || r.assignedVehicleMileage || '').trim();
     const assignedFuel = safe(byId('veh_assignedFuelLevel')?.value || b.assignedVehicleFuelLevel || r.assignedVehicleFuelLevel || '').trim();
@@ -2515,8 +2666,10 @@ function renderLookups(){
     const pp = byId('productsPlaceholder'); if (pp) pp.classList.toggle('hidden', extras.length > 0);
 
     const rentalPill = byId('rentalStatePill');
-    rentalPill.textContent = r.rentalState || b.rentalState || 'Draft';
-    rentalPill.className = `status-pill ${statusClass(r.rentalState || b.rentalState || '')}`;
+    if (rentalPill) {
+      rentalPill.textContent = r.rentalState || b.rentalState || 'Draft';
+      rentalPill.className = `status-pill ${statusClass(r.rentalState || b.rentalState || '')}`;
+    }
   }
 
   function renderChargeRail(){
@@ -3237,12 +3390,12 @@ function renderLookups(){
     byId('veh_selectorCategory')?.addEventListener('change', (e) => {
       const code = safe(e.target.value || '').trim();
       state.ui.vehicleSelectorCategoryCode = code === '__all__' ? '' : code;
-      const match = (state.lookups?.categories || []).find((c) => c.code === state.ui.vehicleSelectorCategoryCode);
+      const match = (state.lookups?.categories || []).find((c) => safe(c.code || c.label).trim() === state.ui.vehicleSelectorCategoryCode);
       setVal('veh_categoryCode', state.ui.vehicleSelectorCategoryCode || '');
       if (match) {
-        setVal('veh_categoryLabel', match.label || match.code || '');
-        setVal('book_category', match.label || match.code || '');
-        setVal('book_categoryId', match.code || '');
+        const matchedCode = match.code || match.label || '';
+        setVal('veh_categoryCode', matchedCode);
+        setVal('veh_categoryLabel', match.label || match.code || matchedCode);
       }
       renderVehicleSelector();
       renderSummary();
@@ -3342,7 +3495,6 @@ function renderLookups(){
         setVal('veh_assignedPlate', match.plate || '');
         if (match.categoryCode) {
           setVal('veh_categoryCode', match.categoryCode);
-          setVal('book_categoryId', match.categoryCode);
         }
       }
     }
@@ -3350,8 +3502,6 @@ function renderLookups(){
       const match = (state.lookups?.categories || []).find((c) => c.label === el.value || c.code === el.value);
       if (match) {
         setVal('veh_categoryCode', match.code || '');
-        setVal('book_categoryId', match.code || '');
-        setVal('book_category', match.label || match.code || '');
       }
     }
   }
@@ -4036,7 +4186,7 @@ function renderLookups(){
     if (msg.type === 'loadContractData') {
       state.booking = msg.booking || {};
       state.rental = msg.rental || {};
-      state.lookups = msg.lookups || { categories:[], vehicles:[], customers:[], companies:[], pickupLocations:[] };
+      state.lookups = normalizeLookups(msg.lookups);
       state.context = msg.context || {};
       if (!state.rental.financials) {
         state.rental.financials = {
@@ -4077,6 +4227,8 @@ function renderLookups(){
   }
 
   function init(){
+    if (window.__contractHtmlInitDone) return;
+    window.__contractHtmlInitDone = true;
     bindModalSystem();
     wireActions();
     bindMovementSection();
