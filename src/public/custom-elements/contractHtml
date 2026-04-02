@@ -417,6 +417,54 @@
     .driver-inline-toolbar .field-inline-actions{justify-content:flex-end}
     .driver-registry-note{font-size:12px;color:#7b6b54}
 
+    /* UI refresh */
+    .layout{gap:18px}
+    .panel{
+      border-color:#cfd8e6;
+      border-radius:22px;
+      box-shadow:0 14px 36px rgba(15,23,42,.07);
+      overflow:hidden;
+    }
+    .panel-hd{
+      background:linear-gradient(180deg,#ffffff 0%,#f7faff 100%);
+      border-bottom:1px solid #d9e2ef;
+      padding:16px 18px;
+    }
+    .panel-hd h2{font-size:24px;letter-spacing:-.02em}
+    .panel-bd{padding:18px}
+    .field label{font-size:11px;color:#334a68}
+    .input,.select,.textarea{
+      min-height:48px;
+      border-radius:14px;
+      border-color:#b9c8dd;
+      background:#fff;
+    }
+    .input:focus,.select:focus,.textarea:focus{
+      box-shadow:0 0 0 4px rgba(31,75,143,.12);
+    }
+    .station-operation-card,.vehicle-card{
+      border-color:#cfd8e6;
+      box-shadow:0 8px 20px rgba(15,23,42,.05);
+    }
+    .summary-box,.vehicle-mini,.vehicle-stat{
+      border-color:#d4deec;
+      background:linear-gradient(180deg,#ffffff 0%,#f8fbff 100%);
+    }
+    .contract-toolbar{
+      background:linear-gradient(180deg,#ffffff 0%,#f7faff 100%);
+      border:1px solid #d4deec;
+      border-radius:20px;
+      padding:10px;
+      box-shadow:0 10px 24px rgba(15,23,42,.05);
+    }
+    .wheel-btn,.toolbar-link{
+      border-radius:12px;
+      border-color:#b9c8dd;
+    }
+    .rail .panel{
+      border-radius:20px;
+    }
+
     @media (max-width: 1380px){
       .backroom-header{grid-template-columns:1fr;overflow:hidden}
       .backroom-nav{justify-content:flex-start;padding:0 12px 12px}
