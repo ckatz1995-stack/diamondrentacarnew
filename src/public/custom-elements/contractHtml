@@ -515,6 +515,22 @@
       border-color:#d8c9b0;
       background:linear-gradient(180deg,#fff 0%,#f8f0e3 100%);
     }
+    .contract-toolbar{border-radius:16px;margin-bottom:12px}
+    .contract-toolbar-row{padding:8px 10px;gap:8px}
+    .wheel-btn{padding:7px 10px;font-size:11px;border-radius:9px}
+    .wheel-btn.slim{padding:6px 9px;font-size:10px}
+    .toolbar-badge{min-width:104px;padding:6px 8px;border-radius:10px}
+    .toolbar-badge .k{font-size:9px}
+    .toolbar-badge .v{font-size:12px}
+    .toolbar-group{gap:6px}
+
+    .movement-cards-grid{align-items:stretch}
+    .station-operation-card{height:100%}
+    .station-grid{grid-template-rows:repeat(4,minmax(0,1fr))}
+    .station-row{min-height:64px}
+    .station-value .input{height:46px}
+    .station-operation-sub{font-size:11px}
+    .station-label{font-size:11px}
 
     @media (max-width: 1380px){
       .backroom-header{grid-template-columns:1fr;overflow:hidden}
