@@ -483,6 +483,12 @@
     .rail .panel{
       border-radius:20px;
     }
+    .rail .vehicle-info-banners{
+      grid-template-columns:1fr;
+      gap:8px;
+      margin-bottom:12px;
+    }
+    .rail .vehicle-info-banner strong{font-size:14px}
 
     /* Visual uplift v3 */
     html,body{
@@ -735,7 +741,7 @@
     </div>
   </header>
 
-  
+  <section class="workspace-shell">
   <section class="contract-toolbar">
     <div class="contract-toolbar-row top">
       <div class="toolbar-group">
@@ -785,8 +791,6 @@
     </div>
   </section>
 
-
-  <section class="workspace-shell">
   <div class="layout">
     <main class="stack">
       <div class="hidden">
@@ -1034,12 +1038,6 @@
                 <h3>Booked group / assigned unit</h3>
                 <div class="subtle">Overview info + vehicle selector για πρακτικό χειρισμό.</div>
               </div>
-              <div class="vehicle-info-banners">
-                <div class="vehicle-info-banner"><span>Booked → Final category</span><strong id="vehInfoBookedCategory">—</strong></div>
-                <div class="vehicle-info-banner"><span>Duration</span><strong id="vehInfoDuration">—</strong></div>
-                <div class="vehicle-info-banner"><span>Insurance</span><strong id="vehInfoInsurance">—</strong></div>
-                <div class="vehicle-info-banner"><span>Extras</span><strong id="vehInfoExtras">—</strong></div>
-              </div>
               <input class="hidden-sync" id="book_category" />
               <input class="hidden-sync" id="book_categoryId" />
               <input class="hidden-sync" id="book_durationLabel" />
@@ -1093,6 +1091,12 @@
           </div>
         </div>
         <div class="panel-bd">
+          <div class="vehicle-info-banners">
+            <div class="vehicle-info-banner"><span>Booked → Final category</span><strong id="vehInfoBookedCategory">—</strong></div>
+            <div class="vehicle-info-banner"><span>Duration</span><strong id="vehInfoDuration">—</strong></div>
+            <div class="vehicle-info-banner"><span>Insurance</span><strong id="vehInfoInsurance">—</strong></div>
+            <div class="vehicle-info-banner"><span>Extras</span><strong id="vehInfoExtras">—</strong></div>
+          </div>
           <div class="quick-actions">
             <button class="btn" data-open="chargesModal">Pricing</button>
             <button class="btn" data-open="billingModal">Payments</button>
