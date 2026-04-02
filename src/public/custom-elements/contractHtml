@@ -2605,6 +2605,7 @@ function renderLookups(){
     const categoryList = byId('categoryList');
     const vehicleList = byId('vehicleList');
     const categorySelect = byId('veh_selectorCategory');
+    const bookingCategorySelect = byId('book_categorySelect');
 
     if (categoryList) {
       categoryList.innerHTML = categories.map((c) => `<option value="${escapeHtml(categoryCodeOnly(c.code || c.label) || c.code || c.label || '')}"></option>`).join('');
@@ -2619,6 +2620,14 @@ function renderLookups(){
         return `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`;
       })].join('');
       hydrateVehicleSelectorFromCurrent();
+    }
+    if (bookingCategorySelect) {
+      bookingCategorySelect.innerHTML = ['<option value="">Select category</option>', ...categories.map((c) => {
+        const value = c.code || c.label || '';
+        const label = c.label || c.code || value;
+        return `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`;
+      })].join('');
+      bookingCategorySelect.value = currentVehicleCategoryCode() || '';
     }
     renderVehicleSelector();
     refreshMovementSection();
@@ -3488,6 +3497,9 @@ function renderLookups(){
         setVal('veh_categoryCode', matchedCode);
         setVal('veh_categoryLabel', match.label || match.code || matchedCode);
       }
+      state.ui.vehicleSelectorCategoryCode = code || '';
+      const modalCategory = byId('veh_selectorCategory');
+      if (modalCategory) modalCategory.value = code || '__all__';
       renderVehicleSelector();
       renderSummary();
     });
