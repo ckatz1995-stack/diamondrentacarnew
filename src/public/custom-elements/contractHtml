@@ -2617,8 +2617,10 @@ function renderLookups(){
     const pp = byId('productsPlaceholder'); if (pp) pp.classList.toggle('hidden', extras.length > 0);
 
     const rentalPill = byId('rentalStatePill');
-    rentalPill.textContent = r.rentalState || b.rentalState || 'Draft';
-    rentalPill.className = `status-pill ${statusClass(r.rentalState || b.rentalState || '')}`;
+    if (rentalPill) {
+      rentalPill.textContent = r.rentalState || b.rentalState || 'Draft';
+      rentalPill.className = `status-pill ${statusClass(r.rentalState || b.rentalState || '')}`;
+    }
   }
 
   function renderChargeRail(){
