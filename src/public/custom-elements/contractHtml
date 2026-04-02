@@ -483,7 +483,6 @@
       margin-bottom:12px;
     }
     .rail .vehicle-info-banner strong{font-size:14px}
-    .rail .toolbar-badge{width:100%}
 
     /* Visual uplift v3 */
     html,body{
