@@ -746,25 +746,6 @@
         <button class="wheel-btn slim" id="btnOpenBookings">Bookings</button>
       </div>
 
-      <div class="toolbar-group grow" style="justify-content:center">
-        <div class="toolbar-badge">
-          <div class="k">Booking number</div>
-          <div class="v" id="tbBookingNo">—</div>
-        </div>
-        <div class="toolbar-badge">
-          <div class="k">Created date</div>
-          <div class="v" id="tbCreatedDate">—</div>
-        </div>
-        <div class="toolbar-badge">
-          <div class="k">Source</div>
-          <div class="v" id="tbSource">—</div>
-        </div>
-        <div class="toolbar-badge">
-          <div class="k">Created by</div>
-          <div class="v" id="tbCreatedBy">—</div>
-        </div>
-      </div>
-
       <div class="toolbar-group">
         <button class="wheel-btn primary" id="btnSave">Save draft</button>
         <button class="wheel-btn success" id="btnStartRental">Start rental</button>
@@ -1091,6 +1072,24 @@
           </div>
         </div>
         <div class="panel-bd">
+          <div class="vehicle-info-banners">
+            <div class="toolbar-badge">
+              <div class="k">Booking number</div>
+              <div class="v" id="tbBookingNo">—</div>
+            </div>
+            <div class="toolbar-badge">
+              <div class="k">Created date</div>
+              <div class="v" id="tbCreatedDate">—</div>
+            </div>
+            <div class="toolbar-badge">
+              <div class="k">Source</div>
+              <div class="v" id="tbSource">—</div>
+            </div>
+            <div class="toolbar-badge">
+              <div class="k">Created by</div>
+              <div class="v" id="tbCreatedBy">—</div>
+            </div>
+          </div>
           <div class="quick-actions">
             <button class="btn" data-open="chargesModal">Pricing</button>
             <button class="btn" data-open="billingModal">Payments</button>
@@ -2605,6 +2604,7 @@ function renderLookups(){
     const categoryList = byId('categoryList');
     const vehicleList = byId('vehicleList');
     const categorySelect = byId('veh_selectorCategory');
+    const bookingCategorySelect = byId('book_categorySelect');
 
     if (categoryList) {
       categoryList.innerHTML = categories.map((c) => `<option value="${escapeHtml(categoryCodeOnly(c.code || c.label) || c.code || c.label || '')}"></option>`).join('');
@@ -2619,6 +2619,14 @@ function renderLookups(){
         return `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`;
       })].join('');
       hydrateVehicleSelectorFromCurrent();
+    }
+    if (bookingCategorySelect) {
+      bookingCategorySelect.innerHTML = ['<option value="">Select category</option>', ...categories.map((c) => {
+        const value = c.code || c.label || '';
+        const label = c.label || c.code || value;
+        return `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`;
+      })].join('');
+      bookingCategorySelect.value = currentVehicleCategoryCode() || '';
     }
     renderVehicleSelector();
     refreshMovementSection();
@@ -3488,6 +3496,9 @@ function renderLookups(){
         setVal('veh_categoryCode', matchedCode);
         setVal('veh_categoryLabel', match.label || match.code || matchedCode);
       }
+      state.ui.vehicleSelectorCategoryCode = code || '';
+      const modalCategory = byId('veh_selectorCategory');
+      if (modalCategory) modalCategory.value = code || '__all__';
       renderVehicleSelector();
       renderSummary();
     });
