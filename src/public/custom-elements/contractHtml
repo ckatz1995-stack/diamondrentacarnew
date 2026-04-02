@@ -291,13 +291,23 @@
     .toolbar-group{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
     .toolbar-group.grow{flex:1 1 auto}
     .toolbar-group.meta{
-      display:grid;
-      grid-template-columns:repeat(4,minmax(105px,1fr));
+      display:flex;
+      flex-wrap:nowrap;
       gap:8px;
-      align-items:stretch;
-      max-width:560px;
+      align-items:center;
       margin:0 auto;
     }
+    .toolbar-group.meta .toolbar-badge{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      min-width:0;
+      height:40px;
+      padding:0 12px;
+      border-radius:10px;
+    }
+    .toolbar-group.meta .toolbar-badge .k{font-size:10px}
+    .toolbar-group.meta .toolbar-badge .v{font-size:12px}
     .wheel-btn{
       appearance:none;border:1px solid #cfc0a8;background:linear-gradient(180deg,#fff 0%,#f2ebe0 100%);
       color:#3f2f1f;border-radius:10px;padding:10px 13px;font-size:12px;font-weight:800;cursor:pointer;
@@ -485,6 +495,7 @@
     .rail .panel{
       border-radius:20px;
     }
+    .rail .toolbar-badge{display:none!important}
     /* Visual uplift v3 */
     html,body{
       background:
@@ -545,7 +556,6 @@
     .toolbar-badge .k{font-size:9px}
     .toolbar-badge .v{font-size:12px}
     .toolbar-group{gap:6px}
-    .toolbar-group.meta{grid-template-columns:repeat(2,minmax(120px,1fr));max-width:420px}
 
     .movement-cards-grid{align-items:stretch}
     .station-operation-card{height:100%}
