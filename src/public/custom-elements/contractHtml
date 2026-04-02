@@ -2427,9 +2427,16 @@
 function renderLookups(){
     const categoriesRaw = state.lookups?.categories || [];
     const vehicles = state.lookups?.vehicles || [];
-    const categories = categoriesRaw.length
-      ? categoriesRaw
-      : Array.from(new Map(
+    const normalizedCategories = categoriesRaw
+      .map((c) => {
+        const code = safe(c?.code).trim();
+        const label = safe(c?.label || c?.title).trim();
+        const value = code || label;
+        if (!value) return null;
+        return { ...c, code: value, label: label || value };
+      })
+      .filter(Boolean);
+    const derivedCategories = Array.from(new Map(
           vehicles
             .map((v) => {
               const code = safe(v?.categoryCode).trim();
@@ -2440,7 +2447,8 @@ function renderLookups(){
             })
             .filter(Boolean)
         ).values()).sort((a, b) => safe(a.code).localeCompare(safe(b.code), 'el', { numeric:true, sensitivity:'base' }));
-    if (!categoriesRaw.length && categories.length) {
+    const categories = normalizedCategories.length ? normalizedCategories : derivedCategories;
+    if (!normalizedCategories.length && categories.length) {
       state.lookups.categories = categories;
     }
 
