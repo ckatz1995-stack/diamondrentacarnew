@@ -73,6 +73,9 @@
       background:var(--surface);border:1px solid var(--line);border-radius:20px;
       box-shadow:var(--shadow);overflow:hidden
     }
+    #panelCustomer{order:1}
+    #panelVehicle{order:2}
+    #panelMovement{order:3}
     .panel-hd{
       padding:14px 16px;border-bottom:1px solid var(--line);
       display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap
