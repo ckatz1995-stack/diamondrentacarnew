@@ -2259,6 +2259,13 @@
     return safe(byId('veh_categoryLabel')?.value || byId('book_category')?.value || state.booking?.category || '').trim();
   }
 
+  function categoryCodeOnly(value){
+    const raw = safe(value).trim();
+    if (!raw) return '';
+    if (raw.includes(' - ')) return raw.split(' - ')[0].trim();
+    return raw;
+  }
+
   function resolveCategoryFromLookups(rawValue){
     const raw = safe(rawValue).trim();
     if (!raw) return null;
@@ -2410,7 +2417,7 @@
 
     const assignableCount = filtered.filter((v) => !!v.assignable || !!v.thisBookingAssigned).length;
     const conflictCount = filtered.filter((v) => ['busy','wrongStation','service'].includes(normalizeVehicleFilterStatus(v))).length;
-    byId('veh_selectorBookedCategory') && (byId('veh_selectorBookedCategory').textContent = currentVehicleCategoryLabel() || currentVehicleCategoryCode() || '—');
+    byId('veh_selectorBookedCategory') && (byId('veh_selectorBookedCategory').textContent = categoryCodeOnly(currentVehicleCategoryCode() || currentVehicleCategoryLabel()) || '—');
     byId('veh_selectorVisibleCount') && (byId('veh_selectorVisibleCount').textContent = String(filtered.length));
     byId('veh_selectorAvailableCount') && (byId('veh_selectorAvailableCount').textContent = String(assignableCount));
     byId('veh_selectorConflictCount') && (byId('veh_selectorConflictCount').textContent = String(conflictCount));
@@ -2449,7 +2456,7 @@
       const statusNote = vehicle.selectorStatusKey !== 'wrongStation' && vehicle.selectorStatusReason ? `<div class="vehicle-status-note">${escapeHtml(vehicle.selectorStatusReason)}</div>` : '';
       return `<tr class="vehicle-row-btn ${active ? 'active' : ''}" data-veh-id="${escapeAttr(vehicle._id)}">
         <td><div class="vehicle-row-main"><b>${escapeHtml(vehicle.plate || '—')}</b><span>${escapeHtml(vehicle.model || vehicle.label || '—')}</span></div></td>
-        <td>${escapeHtml(vehicle.categoryLabel || vehicle.categoryCode || '—')}</td>
+        <td>${escapeHtml(categoryCodeOnly(vehicle.categoryCode || vehicle.categoryLabel) || '—')}</td>
         <td>${escapeHtml(vehicle.currentStationLabel || vehicle.currentStationCode || '—')}${stationNote}</td>
         <td><span class="vehicle-badge ${badgeClass}">${escapeHtml(statusText)}</span>${statusNote}</td>
         <td>${escapeHtml(formatVehicleMileage(vehicle.mileage))}</td>
@@ -2517,7 +2524,7 @@ function renderLookups(){
     const bookingCategorySelect = byId('book_categorySelect');
 
     if (categoryList) {
-      categoryList.innerHTML = categories.map((c) => `<option value="${escapeHtml(c.label || c.code || '')}"></option>`).join('');
+      categoryList.innerHTML = categories.map((c) => `<option value="${escapeHtml(categoryCodeOnly(c.code || c.label) || c.code || c.label || '')}"></option>`).join('');
     }
     if (vehicleList) {
       vehicleList.innerHTML = vehicles.map((v) => `<option value="${escapeHtml(v.label || '')}"></option>`).join('');
@@ -2525,7 +2532,7 @@ function renderLookups(){
     if (categorySelect) {
       categorySelect.innerHTML = ['<option value="__all__">All categories</option>', ...categories.map((c) => {
         const value = c.code || c.label || '';
-        const label = c.label || c.code || value;
+        const label = categoryCodeOnly(c.code || c.label || value) || value;
         return `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`;
       })].join('');
       hydrateVehicleSelectorFromCurrent();
@@ -2653,7 +2660,7 @@ function renderLookups(){
     const finalCategoryLabel = byId('veh_categoryLabel')?.value || b.assignedCategoryLabel || '';
     const finalCategoryCode = byId('veh_categoryCode')?.value || b.assignedCategoryCode || '';
     const bookedShort = bookedCategoryCode || (bookedCategoryLabel.includes(' - ') ? bookedCategoryLabel.split(' - ')[0].trim() : bookedCategoryLabel) || '—';
-    const finalShort = safe(finalCategoryLabel).trim() || safe(finalCategoryCode).trim() || '—';
+    const finalShort = categoryCodeOnly(finalCategoryCode || finalCategoryLabel) || '—';
     byId('vehInfoBookedCategory') && (byId('vehInfoBookedCategory').textContent = `${bookedShort} → ${finalShort}`);
     byId('vehInfoDuration') && (byId('vehInfoDuration').textContent = `${days} day(s)`);
     byId('vehInfoInsurance') && (byId('vehInfoInsurance').textContent = byId('book_selectedPackage')?.value || b.selectedPackage || '—');
