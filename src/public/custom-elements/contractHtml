@@ -284,9 +284,9 @@
     .quick-app-icon{width:34px;height:34px;border-radius:12px;display:grid;place-items:center;background:rgba(255,255,255,.08);font-size:15px}
     .top-icon-group{display:flex;align-items:center;gap:8px;flex:0 0 auto}
     .top-icon-btn .dot{width:8px;height:8px;border-radius:999px;background:#22c55e;box-shadow:0 0 0 4px rgba(34,197,94,.18)}
-    .contract-toolbar{display:grid;gap:0;background:linear-gradient(180deg,#ffffff 0%,#f7faff 100%);border:1px solid #d4deec;border-radius:20px;box-shadow:0 12px 28px rgba(15,23,42,.07);margin:0 0 16px;overflow:hidden}
-    .contract-toolbar-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 14px}
-    .contract-toolbar-row.top{background:linear-gradient(180deg,#ffffff 0%,#f5f9ff 100%);border-bottom:0}
+    .contract-toolbar{display:grid;gap:8px;background:transparent;border:0;border-radius:0;box-shadow:none;margin:0 0 14px;overflow:visible;padding:0}
+    .contract-toolbar-row{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:0}
+    .contract-toolbar-row.top{background:transparent;border-bottom:0}
     .contract-toolbar-row.bottom{display:none}
     .toolbar-group{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
     .toolbar-group.grow{flex:1 1 auto}
@@ -469,13 +469,7 @@
       border-color:#d4deec;
       background:linear-gradient(180deg,#ffffff 0%,#f8fbff 100%);
     }
-    .contract-toolbar{
-      background:linear-gradient(180deg,#ffffff 0%,#f7faff 100%);
-      border:1px solid #d4deec;
-      border-radius:20px;
-      padding:10px;
-      box-shadow:0 10px 24px rgba(15,23,42,.05);
-    }
+    .contract-toolbar{background:transparent;border:0;border-radius:0;padding:0;box-shadow:none}
     .wheel-btn,.toolbar-link{
       border-radius:12px;
       border-color:#b9c8dd;
@@ -543,8 +537,8 @@
       border-color:#d8c9b0;
       background:linear-gradient(180deg,#fff 0%,#f8f0e3 100%);
     }
-    .contract-toolbar{border-radius:16px;margin-bottom:12px}
-    .contract-toolbar-row{padding:8px 10px;gap:8px}
+    .contract-toolbar{margin-bottom:10px}
+    .contract-toolbar-row{padding:0;gap:8px}
     .wheel-btn{padding:7px 10px;font-size:11px;border-radius:9px}
     .wheel-btn.slim{padding:6px 9px;font-size:10px}
     .toolbar-badge{min-width:104px;padding:6px 8px;border-radius:10px}
