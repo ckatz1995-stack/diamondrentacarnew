@@ -292,7 +292,7 @@
     .toolbar-group.grow{flex:1 1 auto}
     .wheel-btn{
       appearance:none;border:1px solid #cfc0a8;background:linear-gradient(180deg,#fff 0%,#f2ebe0 100%);
-      color:#3f2f1f;border-radius:10px;padding:9px 12px;font-size:12px;font-weight:800;cursor:pointer;
+      color:#3f2f1f;border-radius:10px;padding:10px 13px;font-size:12px;font-weight:800;cursor:pointer;
       box-shadow:inset 0 1px 0 rgba(255,255,255,.75);display:inline-flex;align-items:center;gap:8px;white-space:nowrap
     }
     .wheel-btn:hover{border-color:#b89e74;background:linear-gradient(180deg,#fff 0%,#f2e7d4 100%)}
@@ -300,7 +300,7 @@
     .wheel-btn.success{background:linear-gradient(180deg,#0f766e 0%,#0b5d57 100%);border-color:#0f766e;color:#fff}
     .wheel-btn.warn{background:linear-gradient(180deg,#fff7e9 0%,#f6e7c2 100%);border-color:#dfbf72;color:#8a5a00}
     .wheel-btn.danger{background:linear-gradient(180deg,#fff2f1 0%,#f7ddda 100%);border-color:#e2b2ae;color:#a12f28}
-    .wheel-btn.slim{padding:8px 10px;font-size:11px;border-radius:9px}
+    .wheel-btn.slim{padding:9px 11px;font-size:11px;border-radius:9px}
     .toolbar-badge{
       display:grid;gap:3px;min-width:120px;padding:8px 10px;border:1px solid #dbcdb8;border-radius:12px;
       background:linear-gradient(180deg,#fff 0%,#f7f3eb 100%)
@@ -539,8 +539,8 @@
     }
     .contract-toolbar{margin-bottom:10px}
     .contract-toolbar-row{padding:0;gap:8px}
-    .wheel-btn{padding:7px 10px;font-size:11px;border-radius:9px}
-    .wheel-btn.slim{padding:6px 9px;font-size:10px}
+    .wheel-btn{padding:9px 12px;font-size:12px;border-radius:10px}
+    .wheel-btn.slim{padding:8px 11px;font-size:11px}
     .toolbar-badge{min-width:104px;padding:6px 8px;border-radius:10px}
     .toolbar-badge .k{font-size:9px}
     .toolbar-badge .v{font-size:12px}
