@@ -870,7 +870,7 @@
           </div>
         </div>
         <div class="panel-bd vehicle-pro-shell">
-          <div class="vehicle-top-summary">
+          <div class="vehicle-top-summary hidden">
             <div class="summary-box compact">
               <div class="k">Booked group</div>
               <div class="v" id="sumCategory">—</div>
@@ -895,15 +895,15 @@
                 <h3>Booked group / assigned unit</h3>
                 <div class="subtle">Διάλεξε κατηγορία και assigned όχημα για το συμβόλαιο.</div>
               </div>
-              <div class="grid cols-3">
+              <div class="grid cols-1">
                 <div class="field"><label>Category picker</label><select class="select" id="book_categorySelect"></select></div>
-                <div class="field"><label>Category label</label><input class="input" id="book_category" placeholder="A - Economy" /></div>
-                <div class="field"><label>Category code</label><input class="input" id="book_categoryId" placeholder="A" /></div>
               </div>
+              <input class="hidden-sync" id="book_category" />
+              <input class="hidden-sync" id="book_categoryId" />
               <div>
                 <div class="vehicle-section-label">Vehicle selector</div>
                 <div class="vehicle-selector-shell">
-                  <div class="vehicle-plate-box" id="veh_assignedPlateBox">—</div>
+                  <div class="vehicle-plate-box hidden" id="veh_assignedPlateBox">—</div>
                   <button class="picker-trigger" type="button" data-open="vehicleModal" id="btnVehicleWorkspaceOpen">
                     <span class="picker-value-main" id="vehAssignedDisplayMain">Open vehicle selector</span>
                     <span class="picker-value-sub" id="vehAssignedDisplaySub">Επιλογή συγκεκριμένου οχήματος από το fleet</span>
@@ -927,17 +927,17 @@
               </div>
               <div class="grid cols-2">
                 <div class="field"><label>Duration</label><input class="input" id="book_durationLabel" readonly /></div>
-                <div class="field"><label>Origin city</label><input class="input" id="book_originCity_vehicle" /></div>
-                <div class="field"><label>Flight number</label><input class="input" id="book_flightNumber_vehicle" /></div>
                 <div class="field"><label>Voucher number</label><input class="input" id="book_voucherNumber" /></div>
                 <div class="field"><label>Confirmation</label><input class="input" id="book_confirmationNumber" /></div>
                 <div class="field"><label>Selected package</label><input class="input" id="book_selectedPackage" placeholder="Standard / Full / OTA package" /></div>
               </div>
+              <input class="hidden-sync" id="book_originCity_vehicle" />
+              <input class="hidden-sync" id="book_flightNumber_vehicle" />
               <div class="field"><label>Extras (comma separated)</label><input class="input" id="book_selectedExtras" placeholder="booster, gps, snow chains" /></div>
             </section>
           </div>
 
-          <section class="vehicle-card products-strip">
+          <section class="vehicle-card products-strip hidden">
             <div>
               <h3>Purchased products</h3>
               <div class="subtle">Προστασίες, extras και άλλα προϊόντα που έχουν περαστεί στην κράτηση.</div>
