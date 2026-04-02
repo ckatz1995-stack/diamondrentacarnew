@@ -943,9 +943,6 @@
                 <h3>Booked group / assigned unit</h3>
                 <div class="subtle">Διάλεξε κατηγορία και assigned όχημα για το συμβόλαιο.</div>
               </div>
-              <div class="grid cols-1">
-                <div class="field"><label>Category picker</label><select class="select" id="book_categorySelect"></select></div>
-              </div>
               <input class="hidden-sync" id="book_category" />
               <input class="hidden-sync" id="book_categoryId" />
               <div>
@@ -3397,24 +3394,6 @@ function renderLookups(){
         setVal('veh_categoryLabel', match.label || match.code || matchedCode);
         setVal('book_category', match.label || match.code || matchedCode);
         setVal('book_categoryId', matchedCode);
-      }
-      const bookingSelect = byId('book_categorySelect');
-      if (bookingSelect) bookingSelect.value = state.ui.vehicleSelectorCategoryCode || '';
-      renderVehicleSelector();
-      renderSummary();
-    });
-    byId('book_categorySelect')?.addEventListener('change', (e) => {
-      const code = safe(e.target.value || '').trim();
-      const match = (state.lookups?.categories || []).find((c) => safe(c.code || c.label).trim() === code);
-      setVal('veh_categoryCode', code || '');
-      setVal('book_categoryId', code || '');
-      if (match) {
-        const label = match.label || match.code || code;
-        setVal('veh_categoryLabel', label);
-        setVal('book_category', label);
-      } else if (!code) {
-        setVal('veh_categoryLabel', '');
-        setVal('book_category', '');
       }
       state.ui.vehicleSelectorCategoryCode = code || '';
       const modalCategory = byId('veh_selectorCategory');
