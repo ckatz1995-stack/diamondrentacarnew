@@ -290,6 +290,14 @@
     .contract-toolbar-row.bottom{display:none}
     .toolbar-group{display:flex;align-items:center;gap:8px;flex-wrap:wrap;min-width:0}
     .toolbar-group.grow{flex:1 1 auto}
+    .toolbar-group.meta{
+      display:grid;
+      grid-template-columns:repeat(4,minmax(105px,1fr));
+      gap:8px;
+      align-items:stretch;
+      max-width:560px;
+      margin:0 auto;
+    }
     .wheel-btn{
       appearance:none;border:1px solid #cfc0a8;background:linear-gradient(180deg,#fff 0%,#f2ebe0 100%);
       color:#3f2f1f;border-radius:10px;padding:10px 13px;font-size:12px;font-weight:800;cursor:pointer;
@@ -537,6 +545,7 @@
     .toolbar-badge .k{font-size:9px}
     .toolbar-badge .v{font-size:12px}
     .toolbar-group{gap:6px}
+    .toolbar-group.meta{grid-template-columns:repeat(2,minmax(120px,1fr));max-width:420px}
 
     .movement-cards-grid{align-items:stretch}
     .station-operation-card{height:100%}
@@ -737,6 +746,25 @@
         <button class="wheel-btn slim" id="btnOpenDaily">Pickup Daily</button>
         <button class="wheel-btn slim" id="btnOpenFleet">Fleet chart</button>
         <button class="wheel-btn slim" id="btnOpenBookings">Bookings</button>
+      </div>
+
+      <div class="toolbar-group grow meta">
+        <div class="toolbar-badge">
+          <div class="k">Booking number</div>
+          <div class="v" id="tbBookingNo">—</div>
+        </div>
+        <div class="toolbar-badge">
+          <div class="k">Created date</div>
+          <div class="v" id="tbCreatedDate">—</div>
+        </div>
+        <div class="toolbar-badge">
+          <div class="k">Source</div>
+          <div class="v" id="tbSource">—</div>
+        </div>
+        <div class="toolbar-badge">
+          <div class="k">Created by</div>
+          <div class="v" id="tbCreatedBy">—</div>
+        </div>
       </div>
 
       <div class="toolbar-group">
