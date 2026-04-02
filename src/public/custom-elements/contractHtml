@@ -212,10 +212,15 @@
     .summary-box.compact{padding:10px 12px}
     .vehicle-pro-shell{display:grid;gap:14px}
     .vehicle-top-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
-    .vehicle-workspace{display:grid;grid-template-columns:minmax(0,1.08fr) minmax(300px,.92fr);gap:14px}
+    .vehicle-workspace{display:grid;grid-template-columns:1fr;gap:14px}
     .vehicle-card{border:1px solid var(--line);border-radius:18px;background:linear-gradient(180deg,#fff 0%,#fbfcff 100%);padding:14px;display:grid;gap:12px}
     .vehicle-card h3{margin:0;font-size:16px}
     .vehicle-card .subtle{font-size:12px;color:var(--muted)}
+    .vehicle-info-banners{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+    .vehicle-info-banner{border:1px solid var(--line);border-radius:12px;background:#f8fbff;padding:10px 12px;display:grid;gap:6px}
+    .vehicle-info-banner span{font-size:11px;font-weight:900;color:#5f6f86;text-transform:uppercase;letter-spacing:.05em}
+    .vehicle-info-banner strong{font-size:15px;color:#10243d;line-height:1.3}
+    .vehicle-main-row{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(320px,.9fr);gap:12px;align-items:start}
     .vehicle-section-label{font-size:11px;font-weight:900;color:#54657d;text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px}
     .vehicle-selector-shell{display:grid;grid-template-columns:minmax(0,1fr);gap:10px;align-items:start}
     .vehicle-plate-box{min-height:48px;border:1px solid var(--line-strong);border-radius:12px;background:#f8fafc;display:grid;place-items:center;font-weight:800}
@@ -477,6 +482,7 @@
     }
     @media (max-width: 900px){
       .grid.cols-4,.grid.cols-3,.grid.cols-2,.summary-row{grid-template-columns:1fr}
+      .vehicle-info-banners,.vehicle-main-row,.vehicle-quick-stats{grid-template-columns:1fr}
       .customer-lookup{grid-template-columns:1fr}
       .driver-card .row{grid-template-columns:1fr}
       .quick-actions{grid-template-columns:1fr}
@@ -941,44 +947,43 @@
             <section class="vehicle-card">
               <div>
                 <h3>Booked group / assigned unit</h3>
-                <div class="subtle">Διάλεξε κατηγορία και assigned όχημα για το συμβόλαιο.</div>
+                <div class="subtle">Overview info + vehicle selector για πρακτικό χειρισμό.</div>
+              </div>
+              <div class="vehicle-info-banners">
+                <div class="vehicle-info-banner"><span>Booked category</span><strong id="vehInfoBookedCategory">—</strong></div>
+                <div class="vehicle-info-banner"><span>Duration</span><strong id="vehInfoDuration">—</strong></div>
+                <div class="vehicle-info-banner"><span>Insurance</span><strong id="vehInfoInsurance">—</strong></div>
+                <div class="vehicle-info-banner"><span>Extras</span><strong id="vehInfoExtras">—</strong></div>
               </div>
               <input class="hidden-sync" id="book_category" />
               <input class="hidden-sync" id="book_categoryId" />
-              <div>
-                <div class="vehicle-section-label">Vehicle selector</div>
-                <div class="vehicle-selector-shell">
-                  <div class="vehicle-plate-box hidden" id="veh_assignedPlateBox">—</div>
-                  <button class="picker-trigger" type="button" data-open="vehicleModal" id="btnVehicleWorkspaceOpen">
-                    <span class="picker-value-main" id="vehAssignedDisplayMain">Open vehicle selector</span>
-                    <span class="picker-value-sub" id="vehAssignedDisplaySub">Επιλογή συγκεκριμένου οχήματος από το fleet</span>
-                  </button>
-                </div>
-                <input class="hidden-sync" id="veh_assignedLabel" readonly />
-                <input class="hidden-sync" id="veh_assignedPlate" readonly />
-              </div>
-              <div class="vehicle-quick-stats">
-                <div class="vehicle-stat"><div class="k">Out km</div><div class="v" id="vehOutKmBox">—</div></div>
-                <div class="vehicle-stat"><div class="k">In km</div><div class="v" id="vehInKmBox">—</div></div>
-                <div class="vehicle-stat"><div class="k">Fuel out</div><div class="v" id="vehFuelOutBox">—</div></div>
-                <div class="vehicle-stat"><div class="k">Fuel in</div><div class="v" id="vehFuelInBox">—</div></div>
-              </div>
-            </section>
-
-            <section class="vehicle-card">
-              <div>
-                <h3>Rental duration & arrival details</h3>
-                <div class="subtle">Στοιχεία ταξιδιού και reference για τη συγκεκριμένη κράτηση.</div>
-              </div>
-              <div class="grid cols-2">
-                <div class="field"><label>Duration</label><input class="input" id="book_durationLabel" readonly /></div>
-                <div class="field"><label>Voucher number</label><input class="input" id="book_voucherNumber" /></div>
-                <div class="field"><label>Confirmation</label><input class="input" id="book_confirmationNumber" /></div>
-                <div class="field"><label>Selected package</label><input class="input" id="book_selectedPackage" placeholder="Standard / Full / OTA package" /></div>
-              </div>
+              <input class="hidden-sync" id="book_durationLabel" />
+              <input class="hidden-sync" id="book_selectedPackage" />
+              <input class="hidden-sync" id="book_selectedExtras" />
+              <input class="hidden-sync" id="book_voucherNumber" />
+              <input class="hidden-sync" id="book_confirmationNumber" />
               <input class="hidden-sync" id="book_originCity_vehicle" />
               <input class="hidden-sync" id="book_flightNumber_vehicle" />
-              <div class="field"><label>Extras (comma separated)</label><input class="input" id="book_selectedExtras" placeholder="booster, gps, snow chains" /></div>
+              <div class="vehicle-main-row">
+                <div>
+                  <div class="vehicle-section-label">Vehicle selector</div>
+                  <div class="vehicle-selector-shell">
+                    <div class="vehicle-plate-box hidden" id="veh_assignedPlateBox">—</div>
+                    <button class="picker-trigger" type="button" data-open="vehicleModal" id="btnVehicleWorkspaceOpen">
+                      <span class="picker-value-main" id="vehAssignedDisplayMain">Open vehicle selector</span>
+                      <span class="picker-value-sub" id="vehAssignedDisplaySub">Επιλογή συγκεκριμένου οχήματος από το fleet</span>
+                    </button>
+                  </div>
+                  <input class="hidden-sync" id="veh_assignedLabel" readonly />
+                  <input class="hidden-sync" id="veh_assignedPlate" readonly />
+                </div>
+                <div class="vehicle-quick-stats">
+                  <div class="vehicle-stat"><div class="k">Out km</div><div class="v" id="vehOutKmBox">—</div></div>
+                  <div class="vehicle-stat"><div class="k">In km</div><div class="v" id="vehInKmBox">—</div></div>
+                  <div class="vehicle-stat"><div class="k">Fuel out</div><div class="v" id="vehFuelOutBox">—</div></div>
+                  <div class="vehicle-stat"><div class="k">Fuel in</div><div class="v" id="vehFuelInBox">—</div></div>
+                </div>
+              </div>
             </section>
           </div>
 
@@ -2645,6 +2650,10 @@ function renderLookups(){
     byId('sumVehicle').textContent = [byId('veh_assignedLabel')?.value || b.assignedVehicleLabel || r.assignedVehicleLabel, byId('veh_assignedPlate')?.value || b.assignedVehiclePlate].filter(Boolean).join(' • ') || 'Not assigned';
     byId('sumDurationPackage').textContent = `${days} day(s) • ${byId('book_selectedPackage')?.value || b.selectedPackage || 'No package'}`;
     byId('sumProducts').textContent = extras.length ? extras.join(' • ') : 'No extras';
+    byId('vehInfoBookedCategory') && (byId('vehInfoBookedCategory').textContent = [byId('book_category')?.value || b.category, byId('book_categoryId')?.value || b.categoryId || b.assignedCategoryCode].filter(Boolean).join(' • ') || '—');
+    byId('vehInfoDuration') && (byId('vehInfoDuration').textContent = `${days} day(s)`);
+    byId('vehInfoInsurance') && (byId('vehInfoInsurance').textContent = byId('book_selectedPackage')?.value || b.selectedPackage || '—');
+    byId('vehInfoExtras') && (byId('vehInfoExtras').textContent = extras.length ? extras.join(' • ') : '—');
     const assignedStationLabel = byId('veh_assignedStationLabel')?.value || b.assignedVehicleStationLabel || r.assignedVehicleStationLabel || '';
     const assignedMileage = safe(byId('veh_assignedMileage')?.value || b.assignedVehicleMileage || r.assignedVehicleMileage || '').trim();
     const assignedFuel = safe(byId('veh_assignedFuelLevel')?.value || b.assignedVehicleFuelLevel || r.assignedVehicleFuelLevel || '').trim();
