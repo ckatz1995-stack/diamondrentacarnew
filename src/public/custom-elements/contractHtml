@@ -782,6 +782,10 @@
           <div class="k">Created by</div>
           <div class="v" id="tbCreatedBy">—</div>
         </div>
+        <div class="toolbar-badge">
+          <div class="k">Reservation state</div>
+          <div class="v" id="tbLifecycleState">—</div>
+        </div>
       </div>
 
       <div class="toolbar-group">
@@ -1897,6 +1901,29 @@
     if (value.includes('active') || value.includes('check')) return 'active';
     return 'pending';
   };
+  const reservationLifecycleLabel = (bookingStatus, rentalState) => {
+    const b = safe(bookingStatus).toLowerCase();
+    const r = safe(rentalState).toLowerCase();
+    if (r.includes('closed') || r.includes('complete') || r.includes('completed')) return 'Closed rental';
+    if (r.includes('pre check') || r.includes('pre-check') || r.includes('precheck')) return 'Pre check-in';
+    if (r.includes('active') || r.includes('in progress') || r.includes('on rent')) return 'Active rental';
+    if (b.includes('cancel')) return 'Canceled booking';
+    if (b.includes('confirm')) return 'Booking';
+    if (b.includes('pending') || b.includes('unconfirm')) return 'Unconfirmed booking';
+    return 'Unconfirmed booking';
+  };
+
+  function normalizeLookups(raw){
+    const lookups = raw && typeof raw === 'object' ? raw : {};
+    const toArray = (value) => Array.isArray(value) ? value : [];
+    return {
+      categories: toArray(lookups.categories || lookups.vehicleCategories || lookups.categoryList),
+      vehicles: toArray(lookups.vehicles || lookups.fleetVehicles || lookups.fleet),
+      customers: toArray(lookups.customers || lookups.customerList),
+      companies: toArray(lookups.companies || lookups.companyList),
+      pickupLocations: toArray(lookups.pickupLocations || lookups.locations || lookups.stationLocations)
+    };
+  }
 
   function normalizeLookups(raw){
     const lookups = raw && typeof raw === 'object' ? raw : {};
@@ -2741,6 +2768,7 @@ function renderLookups(){
     byId('tbCreatedDate') && (byId('tbCreatedDate').textContent = bookingCreatedDateLabel(b) || '—');
     byId('tbSource') && (byId('tbSource').textContent = bookingSourceLabel(b) || '—');
     byId('tbCreatedBy') && (byId('tbCreatedBy').textContent = bookingCreatedByLabel(b) || '');
+    byId('tbLifecycleState') && (byId('tbLifecycleState').textContent = reservationLifecycleLabel(bookingStatus, rentalState));
     byId('tbUser') && (byId('tbUser').textContent = operatorName);
     byId('chipReturnRoute') && (byId('chipReturnRoute').textContent = state.context?.from || 'daily');
     byId('chipMode') && (byId('chipMode').textContent = String(state.context?.mode || 'ops').toUpperCase());
