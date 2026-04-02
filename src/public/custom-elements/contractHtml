@@ -489,6 +489,7 @@
       margin-bottom:12px;
     }
     .rail .vehicle-info-banner strong{font-size:14px}
+    .rail .toolbar-badge{width:100%}
 
     /* Visual uplift v3 */
     html,body{
@@ -750,25 +751,6 @@
         <button class="wheel-btn slim" id="btnOpenDaily">Pickup Daily</button>
         <button class="wheel-btn slim" id="btnOpenFleet">Fleet chart</button>
         <button class="wheel-btn slim" id="btnOpenBookings">Bookings</button>
-      </div>
-
-      <div class="toolbar-group grow" style="justify-content:center">
-        <div class="toolbar-badge">
-          <div class="k">Booking number</div>
-          <div class="v" id="tbBookingNo">—</div>
-        </div>
-        <div class="toolbar-badge">
-          <div class="k">Created date</div>
-          <div class="v" id="tbCreatedDate">—</div>
-        </div>
-        <div class="toolbar-badge">
-          <div class="k">Source</div>
-          <div class="v" id="tbSource">—</div>
-        </div>
-        <div class="toolbar-badge">
-          <div class="k">Created by</div>
-          <div class="v" id="tbCreatedBy">—</div>
-        </div>
       </div>
 
       <div class="toolbar-group">
@@ -1038,6 +1020,12 @@
                 <h3>Booked group / assigned unit</h3>
                 <div class="subtle">Overview info + vehicle selector για πρακτικό χειρισμό.</div>
               </div>
+              <div class="vehicle-info-banners">
+                <div class="vehicle-info-banner"><span>Booked → Final category</span><strong id="vehInfoBookedCategory">—</strong></div>
+                <div class="vehicle-info-banner"><span>Duration</span><strong id="vehInfoDuration">—</strong></div>
+                <div class="vehicle-info-banner"><span>Insurance</span><strong id="vehInfoInsurance">—</strong></div>
+                <div class="vehicle-info-banner"><span>Extras</span><strong id="vehInfoExtras">—</strong></div>
+              </div>
               <input class="hidden-sync" id="book_category" />
               <input class="hidden-sync" id="book_categoryId" />
               <input class="hidden-sync" id="book_durationLabel" />
@@ -1092,10 +1080,22 @@
         </div>
         <div class="panel-bd">
           <div class="vehicle-info-banners">
-            <div class="vehicle-info-banner"><span>Booked → Final category</span><strong id="vehInfoBookedCategory">—</strong></div>
-            <div class="vehicle-info-banner"><span>Duration</span><strong id="vehInfoDuration">—</strong></div>
-            <div class="vehicle-info-banner"><span>Insurance</span><strong id="vehInfoInsurance">—</strong></div>
-            <div class="vehicle-info-banner"><span>Extras</span><strong id="vehInfoExtras">—</strong></div>
+            <div class="toolbar-badge">
+              <div class="k">Booking number</div>
+              <div class="v" id="tbBookingNo">—</div>
+            </div>
+            <div class="toolbar-badge">
+              <div class="k">Created date</div>
+              <div class="v" id="tbCreatedDate">—</div>
+            </div>
+            <div class="toolbar-badge">
+              <div class="k">Source</div>
+              <div class="v" id="tbSource">—</div>
+            </div>
+            <div class="toolbar-badge">
+              <div class="k">Created by</div>
+              <div class="v" id="tbCreatedBy">—</div>
+            </div>
           </div>
           <div class="quick-actions">
             <button class="btn" data-open="chargesModal">Pricing</button>
