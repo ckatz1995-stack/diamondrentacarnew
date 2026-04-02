@@ -491,7 +491,7 @@
       color:#4b3923;
       border-bottom:1px solid #dbc7a5;
     }
-    .panel-hd h2,.panel-hd h3{color:#4b3923}
+    .panel-hd h2,.panel-hd h3{color:#4b3923;letter-spacing:.01em}
     .panel-hd .sub{color:#7a6647}
     .summary-box,.vehicle-mini,.vehicle-stat,.vehicle-info-banner{
       background:linear-gradient(180deg,#ffffff 0%,#fbf4e8 100%);
