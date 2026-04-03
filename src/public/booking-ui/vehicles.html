@@ -21,7 +21,7 @@
   --gold-soft:#f4dfa0;
   --shadow:0 16px 34px rgba(34,21,6,.12);
   --shadow-soft:0 10px 22px rgba(34,21,6,.08);
-  --container:1180px;
+  --container:100vw;
   --radius-xl:28px;
   --radius-lg:22px;
   --radius-md:16px;
@@ -40,6 +40,16 @@ html,body{
 body{overflow-x:hidden}
 a{text-decoration:none;color:inherit}
 button,input,select,textarea{font:inherit}
+a,button,input,select,textarea{
+  transition:box-shadow .2s ease,transform .15s ease,background-color .2s ease,border-color .2s ease;
+}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{
+  outline:2px solid rgba(45,96,114,.72);
+  outline-offset:2px;
+}
+button:hover,.cta:hover,.header-phone:hover{
+  transform:translateY(-1px);
+}
 .site-header{background:rgba(171,133,74,.82);border-bottom:1px solid rgba(255,255,255,.12);backdrop-filter:blur(8px)}
 .header-inner,.page{
   width:min(var(--container), calc(100vw - 24px));
@@ -356,7 +366,7 @@ button,input,select,textarea{font:inherit}
 }
 
 
-:root{--container:1080px}
+:root{--container:100vw}
 .header-inner{padding:10px 14px}
 .header-nav a{font-size:13px;padding:9px 12px}
 .header-phone{padding:10px 15px;font-size:14px}

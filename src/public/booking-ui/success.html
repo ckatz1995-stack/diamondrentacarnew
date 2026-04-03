@@ -5,8 +5,11 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Diamond Rent A Car | Επιτυχία</title>
 <style>
-:root{--bg:#a8844a;--bg2:#8e6d3d;--panel:#ead7ab;--panel2:#f3e4bf;--line:rgba(72,51,17,.14);--text:#1f1a13;--muted:#655437;--accent:#3f748a;--accent2:#2d6072;--gold:#e7bf69;--gold2:#f6e19f;--soft:0 12px 28px rgba(0,0,0,.10);--container:1180px}
+:root{--bg:#a8844a;--bg2:#8e6d3d;--panel:#ead7ab;--panel2:#f3e4bf;--line:rgba(72,51,17,.14);--text:#1f1a13;--muted:#655437;--accent:#3f748a;--accent2:#2d6072;--gold:#e7bf69;--gold2:#f6e19f;--soft:0 12px 28px rgba(0,0,0,.10);--container:100vw}
 *{box-sizing:border-box} html,body{margin:0;padding:0;font-family:Inter,Arial,Helvetica,sans-serif;color:var(--text);background:radial-gradient(circle at top left, rgba(255,255,255,.08), transparent 26%),linear-gradient(180deg,var(--bg),var(--bg2))}
+a,button,input,select,textarea{transition:box-shadow .2s ease,transform .15s ease,background-color .2s ease,border-color .2s ease}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid rgba(45,96,114,.72);outline-offset:2px}
+button:hover,.btn:hover,.header-phone:hover{transform:translateY(-1px)}
 .page{max-width:var(--container);margin:0 auto;padding:16px 14px 40px}.site-header{position:sticky;top:0;z-index:30;backdrop-filter:blur(10px);background:rgba(168,132,74,.82);border-bottom:1px solid rgba(255,255,255,.12)}
 .header-inner{max-width:var(--container);margin:0 auto;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:16px}.brand{display:flex;align-items:center;gap:12px;color:#fff;text-decoration:none}.brand-mark{width:42px;height:42px;border-radius:14px;background:linear-gradient(180deg,#f0d28e,#d7aa46);color:#4a3816;display:flex;align-items:center;justify-content:center;font-weight:900;box-shadow:var(--soft)}.brand-text strong{display:block;font-size:18px;line-height:1;letter-spacing:-.03em}.brand-text span{display:block;font-size:11px;opacity:.9;text-transform:uppercase;letter-spacing:.12em;margin-top:4px}.header-nav{display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center}.header-nav a{color:#fff;text-decoration:none;font-weight:800;font-size:14px;padding:10px 14px;border-radius:999px;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.12)}.header-phone{color:#4a3816;text-decoration:none;font-weight:900;background:linear-gradient(180deg,var(--gold2),var(--gold));padding:12px 18px;border-radius:999px;box-shadow:var(--soft);white-space:nowrap}
 .wrap{display:grid;gap:16px}.hero,.summary,.next{background:linear-gradient(180deg,rgba(245,232,194,.97),rgba(229,206,146,.97));border:1px solid var(--line);border-radius:28px;box-shadow:var(--soft)}
@@ -17,7 +20,7 @@
 @media (max-width:980px){.hero{grid-template-columns:1fr}.summary-grid{grid-template-columns:1fr}.info-grid{grid-template-columns:1fr 1fr}}@media (max-width:620px){.page{padding:12px 10px 30px}.header-inner{padding:10px 12px;flex-wrap:wrap}.header-nav{order:3;width:100%;justify-content:center}.header-phone{width:100%;text-align:center}.hero,.summary,.next{border-radius:24px;padding:16px}.hero h1{font-size:32px}.booking-no{font-size:26px}.info-grid{grid-template-columns:1fr}.actions,.btn{width:100%}}
 
 body{overflow-x:hidden}
-.page{max-width:1080px;padding:16px 14px 30px}
+.page{max-width:var(--container);padding:16px 14px 30px}
 .hero h1{font-size:36px}.booking-no{font-size:28px}.summary-grid{grid-template-columns:220px 1fr}
 @media (max-width:860px){.header-inner{flex-wrap:wrap}.header-nav{order:3;width:100%;justify-content:center}.header-phone{width:100%;text-align:center}.hero,.summary,.next{border-radius:24px;padding:16px}.hero h1{font-size:32px}.summary-grid{grid-template-columns:1fr}.info-grid{grid-template-columns:1fr 1fr}}
 @media (max-width:620px){.page{padding:12px 10px 26px}.header-inner{padding:10px 12px}.info-grid{grid-template-columns:1fr}.actions{flex-direction:column}.btn{width:100%;min-width:0}}
