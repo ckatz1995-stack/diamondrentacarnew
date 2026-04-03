@@ -1084,10 +1084,10 @@
                   <input class="hidden-sync" id="veh_assignedPlate" readonly />
                 </div>
                 <div class="vehicle-quick-stats">
-                  <div class="vehicle-stat"><div class="k">Out km</div><div class="v" id="vehOutKmBox">—</div></div>
-                  <div class="vehicle-stat"><div class="k">In km</div><div class="v" id="vehInKmBox">—</div></div>
-                  <div class="vehicle-stat"><div class="k">Fuel out</div><div class="v" id="vehFuelOutBox">—</div></div>
-                  <div class="vehicle-stat"><div class="k">Fuel in</div><div class="v" id="vehFuelInBox">—</div></div>
+                  <div class="vehicle-stat" id="statOutKm"><div class="k">Out km</div><div class="v" id="vehOutKmBox">—</div></div>
+                  <div class="vehicle-stat" id="statInKm"><div class="k">In km</div><div class="v" id="vehInKmBox">—</div></div>
+                  <div class="vehicle-stat" id="statFuelOut"><div class="k">Fuel out</div><div class="v" id="vehFuelOutBox">—</div></div>
+                  <div class="vehicle-stat" id="statFuelIn"><div class="k">Fuel in</div><div class="v" id="vehFuelInBox">—</div></div>
                 </div>
               </div>
             </section>
@@ -1912,18 +1912,18 @@
     if (b.includes('pending') || b.includes('unconfirm')) return 'Unconfirmed booking';
     return 'Unconfirmed booking';
   };
+  const applyVehicleStatVisibility = (lifecycleLabel) => {
+    const life = safe(lifecycleLabel).toLowerCase();
+    const showOut = life.includes('active rental') || life.includes('pre check-in') || life.includes('closed rental');
+    const showFuelOut = life.includes('active rental') || life.includes('pre check-in') || life.includes('closed rental');
+    const showIn = life.includes('pre check-in') || life.includes('closed rental');
+    const showFuelIn = life.includes('pre check-in') || life.includes('closed rental');
 
-  function normalizeLookups(raw){
-    const lookups = raw && typeof raw === 'object' ? raw : {};
-    const toArray = (value) => Array.isArray(value) ? value : [];
-    return {
-      categories: toArray(lookups.categories || lookups.vehicleCategories || lookups.categoryList),
-      vehicles: toArray(lookups.vehicles || lookups.fleetVehicles || lookups.fleet),
-      customers: toArray(lookups.customers || lookups.customerList),
-      companies: toArray(lookups.companies || lookups.companyList),
-      pickupLocations: toArray(lookups.pickupLocations || lookups.locations || lookups.stationLocations)
-    };
-  }
+    byId('statOutKm')?.classList.toggle('hidden', !showOut);
+    byId('statFuelOut')?.classList.toggle('hidden', !showFuelOut);
+    byId('statInKm')?.classList.toggle('hidden', !showIn);
+    byId('statFuelIn')?.classList.toggle('hidden', !showFuelIn);
+  };
 
   function normalizeLookups(raw){
     const lookups = raw && typeof raw === 'object' ? raw : {};
@@ -2768,7 +2768,9 @@ function renderLookups(){
     byId('tbCreatedDate') && (byId('tbCreatedDate').textContent = bookingCreatedDateLabel(b) || '—');
     byId('tbSource') && (byId('tbSource').textContent = bookingSourceLabel(b) || '—');
     byId('tbCreatedBy') && (byId('tbCreatedBy').textContent = bookingCreatedByLabel(b) || '');
-    byId('tbLifecycleState') && (byId('tbLifecycleState').textContent = reservationLifecycleLabel(bookingStatus, rentalState));
+    const lifecycleState = reservationLifecycleLabel(bookingStatus, rentalState);
+    byId('tbLifecycleState') && (byId('tbLifecycleState').textContent = lifecycleState);
+    applyVehicleStatVisibility(lifecycleState);
     byId('tbUser') && (byId('tbUser').textContent = operatorName);
     byId('chipReturnRoute') && (byId('chipReturnRoute').textContent = state.context?.from || 'daily');
     byId('chipMode') && (byId('chipMode').textContent = String(state.context?.mode || 'ops').toUpperCase());
