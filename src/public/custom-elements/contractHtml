@@ -981,8 +981,8 @@
                 <div class="station-row" id="checkoutFlightOriginRow">
                   <div class="station-label">Flight / Origin</div>
                   <div class="station-value dual-inline-fields">
-                    <div class="mini-field"><span>Flight number</span><input class="input" id="book_flightNumber" placeholder="TK1893" /></div>
-                    <div class="mini-field"><span>Origin city</span><input class="input" id="book_originCity" placeholder="Athens" /></div>
+                    <div class="mini-field"><span id="pickupContextLabelA">Flight number</span><input class="input" id="book_flightNumber" placeholder="TK1893" /></div>
+                    <div class="mini-field"><span id="pickupContextLabelB">Origin city</span><input class="input" id="book_originCity" placeholder="Athens" /></div>
                   </div>
                 </div>
               </div>
@@ -1019,14 +1019,6 @@
                       <span class="picker-value-sub" id="dropoffFeeSub">Περιγραφή station fee</span>
                     </button>
                     <div class="fee-amount-box" id="dropoffFeeAmount">0,00 €</div>
-                  </div>
-                </div>
-
-                <div class="station-row hidden" id="checkinFlightOriginRow">
-                  <div class="station-label">Flight / Origin</div>
-                  <div class="station-value dual-inline-fields">
-                    <div class="mini-field"><span>Flight number</span><input class="input" id="book_dropoffFlightNumber" placeholder="A3 124" /></div>
-                    <div class="mini-field"><span>Origin city</span><input class="input" id="book_dropoffOriginCity" placeholder="Heraklion" /></div>
                   </div>
                 </div>
 
@@ -2878,7 +2870,6 @@ function renderLookups(){
     byId('sumDropoff').textContent = `${humanDateTime(byId('book_dropoffDateTime')?.value || b.dropoffDateTime)} @ ${byId('loc_dropoffpoint')?.value || b.dropoffpoint || '—'}`;
     byId('sumFlightVoucher').textContent = [
       byId('book_flightNumber')?.value || b.flightNumber,
-      byId('book_dropoffFlightNumber')?.value || b.dropoffFlightNumber,
       byId('book_voucherNumber')?.value || b.voucherNumber,
       byId('book_confirmationNumber')?.value || b.confirmationNumber
     ].filter(Boolean).join(' • ') || '—';
@@ -3083,6 +3074,22 @@ function renderLookups(){
     const v = safe(value).toLowerCase();
     return /airport|air port|aerodrome|αεροδρ/.test(v);
   }
+  function pickupContextConfig(label=''){
+    const v = safe(label).toLowerCase();
+    if (isAirportPointLabel(v)) {
+      return { a:'Flight number', b:'Origin city', pa:'TK1893', pb:'Athens' };
+    }
+    if (/port|harbor|λιμάνι/.test(v)) {
+      return { a:'Vessel / ferry', b:'Origin port', pa:'Blue Star 2', pb:'Heraklion' };
+    }
+    if (/hotel|resort|villa/.test(v)) {
+      return { a:'Hotel / booking ref', b:'Guest name', pa:'Booking ref', pb:'Guest full name' };
+    }
+    if (/center|city|downtown|κέντρο|πόλη/.test(v)) {
+      return { a:'Meeting point', b:'Area / landmark', pa:'Square / address', pb:'Landmark' };
+    }
+    return { a:'Reference', b:'Details', pa:'Reference info', pb:'Additional details' };
+  }
 
   function getPickupLocationRows(kind='pickup'){
     const rows = Array.isArray(state.lookups?.pickupLocations) ? state.lookups.pickupLocations : [];
@@ -3147,11 +3154,15 @@ function renderLookups(){
     setText('dropoffFeeDisplay', dropoffRow?.label || dropoffLabel || 'Τοποθεσία / Fee');
     setText('dropoffFeeSub', dropoffRow ? 'Χρέωση βάσει εταιρικών location settings' : 'Περιγραφή station fee');
     setText('dropoffFeeAmount', formatEuro(dropoffRow?.extraFee || 0));
-    const pickupAirport = isAirportPointLabel(pickupStationLabel || pickupLabel);
-    const dropoffAirport = isAirportPointLabel(dropoffStationLabel || dropoffLabel);
-    byId('checkoutFlightOriginRow')?.classList.toggle('hidden', !pickupAirport);
-    byId('checkinFlightOriginRow')?.classList.toggle('hidden', !dropoffAirport);
-    byId('checkinRemarksRow')?.classList.toggle('hidden', dropoffAirport);
+    const pickupContext = pickupContextConfig(pickupStationLabel || pickupLabel);
+    setText('pickupContextLabelA', pickupContext.a);
+    setText('pickupContextLabelB', pickupContext.b);
+    const pickupMainInput = byId('book_flightNumber');
+    const pickupAuxInput = byId('book_originCity');
+    if (pickupMainInput) pickupMainInput.placeholder = pickupContext.pa;
+    if (pickupAuxInput) pickupAuxInput.placeholder = pickupContext.pb;
+    byId('checkoutFlightOriginRow')?.classList.remove('hidden');
+    byId('checkinRemarksRow')?.classList.remove('hidden');
     const dropMemo = byId('dropoffMemoInline');
     if (dropMemo && document.activeElement !== dropMemo) dropMemo.value = byId('loc_dropoffComment')?.value || state.booking?.dropoffComment || state.booking?.dropoffLocationNote || '';
   }
