@@ -38,6 +38,16 @@
         linear-gradient(180deg,var(--bg),var(--bg-deep));
     }
     button,input,select,textarea{font:inherit}
+    a,button,input,select,textarea{
+      transition:box-shadow .2s ease,transform .15s ease,background-color .2s ease,border-color .2s ease;
+    }
+    a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{
+      outline:2px solid rgba(45,96,114,.72);
+      outline-offset:2px;
+    }
+    button:hover,.continue-btn:hover,.header-phone:hover{
+      transform:translateY(-1px);
+    }
     .site-header{
       position:sticky;top:0;z-index:40;
       backdrop-filter:blur(10px);
