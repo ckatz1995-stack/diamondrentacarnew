@@ -476,7 +476,6 @@ function stripLeadingCategory(name, label){
 function buildVehicleHeading(name, label){
   const cleanLabel = extractCategoryCode(label);
   const cleanName = stripLeadingCategory(name, cleanLabel);
-  if(cleanLabel && cleanName) return `${cleanLabel} - ${cleanName}`;
   return cleanName || cleanLabel || 'Όχημα';
 }
 
