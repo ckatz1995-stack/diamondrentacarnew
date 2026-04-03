@@ -22,6 +22,9 @@
 *{box-sizing:border-box}
 html,body{margin:0;padding:0;font-family:Inter,Arial,Helvetica,sans-serif;color:var(--text);background:radial-gradient(circle at top left, rgba(255,255,255,.08), transparent 26%),linear-gradient(180deg,var(--bg),var(--bg2));overflow-x:hidden}
 button,input,select,textarea{font:inherit}
+a,button,input,select,textarea{transition:box-shadow .2s ease,transform .15s ease,background-color .2s ease,border-color .2s ease}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid rgba(45,96,114,.72);outline-offset:2px}
+button:hover,.btn:hover,.header-phone:hover{transform:translateY(-1px)}
 .page{width:min(var(--container), calc(100vw - 12px));max-width:var(--container);margin:0 auto;padding:14px 0 28px;overflow-x:clip}
 .form-shell,.form-card,.invoice-box,.grid,.grid-4,.field,.choice,.actions,.summary-main,.meta-grid,.summary-grid{min-width:0}
 .site-header{position:sticky;top:0;z-index:30;backdrop-filter:blur(10px);background:rgba(168,132,74,.82);border-bottom:1px solid rgba(255,255,255,.12)}
@@ -177,7 +180,8 @@ button,input,select,textarea{font:inherit}
 .calendar-jump-menu{display:none;position:absolute;top:calc(100% + 8px);left:0;z-index:90;background:#fff!important;border:1px solid rgba(70,50,16,.14);border-radius:16px;box-shadow:0 16px 34px rgba(21,18,14,.16);padding:10px;min-width:220px;color:var(--text,#1f1a13)}
 .calendar-jump.open .calendar-jump-menu{display:grid}
 .calendar-jump-menu.month-menu{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-.calendar-jump-menu.year-menu{display:block;max-height:240px;overflow:auto;min-width:132px}
+.calendar-jump-menu.year-menu{max-height:240px;overflow:auto;min-width:132px}
+.calendar-jump.open .calendar-jump-menu.year-menu{display:block}
 .calendar-jump-option{border:0;border-radius:10px;background:rgba(245,232,194,.72)!important;padding:10px 8px;font-size:13px;font-weight:800;color:var(--text,#1f1a13)!important;cursor:pointer;-webkit-appearance:none;appearance:none}
 .calendar-jump-option.is-selected{background:rgba(63,116,138,.14);color:var(--accent2,#2d6072)}
 .calendar-jump-menu.year-menu .calendar-jump-option{display:block;width:100%;text-align:left;margin-bottom:6px}
@@ -476,7 +480,6 @@ function stripLeadingCategory(name, label){
 function buildVehicleHeading(name, label){
   const cleanLabel = extractCategoryCode(label);
   const cleanName = stripLeadingCategory(name, cleanLabel);
-  if(cleanLabel && cleanName) return `${cleanLabel} - ${cleanName}`;
   return cleanName || cleanLabel || 'Όχημα';
 }
 
@@ -691,6 +694,18 @@ function toDateInputValue(value){
 
 const storedSearch = safeRead(BOOKING_STORAGE_KEY) || safeRead('diamond_booking_search_v1') || {};
 const storedOptions = safeRead(OPTIONS_STORAGE_KEY) || {};
+const storedDays = Number(storedOptions?.days || diffDays(storedOptions?.pickup, storedOptions?.dropoff) || 1);
+
+function storedExtrasFallbackTotal() {
+  const rows = Array.isArray(storedOptions?.extras) ? storedOptions.extras : [];
+  if (!rows.length) return 0;
+  return rows.reduce((sum, item) => {
+    const mode = String(item?.mode || 'perDay').trim().toLowerCase();
+    const unit = Number(item?.price ?? item?.pricePerDay ?? 0);
+    if (!Number.isFinite(unit)) return sum;
+    return sum + (mode === 'perbooking' ? unit : unit * storedDays);
+  }, 0);
+}
 
 const state = {
   vehicleId: qp('vehicle') || storedOptions.vehicleId || storedOptions?.vehicle?.id || '',
@@ -705,7 +720,7 @@ const state = {
   insuranceCost: Number(qp('insuranceCost', (storedOptions?.insurance?.pricePerDay || 0) * (storedOptions?.days || 1))),
   extras: qp('extras', Array.isArray(storedOptions?.extras) ? storedOptions.extras.map(x => x.label).join(', ') : ''),
   extrasKeys: (qp('extrasKeys', Array.isArray(storedOptions?.extras) ? storedOptions.extras.map(x => x.key).join(',') : '')).split(',').filter(Boolean),
-  extrasCost: Number(qp('extrasCost', Array.isArray(storedOptions?.extras) ? storedOptions.extras.reduce((sum, x) => sum + Number(x.pricePerDay || 0) * Number(storedOptions.days || 1), 0) : 0)),
+  extrasCost: Number(qp('extrasCost', storedExtrasFallbackTotal())),
   ageFee: Number(qp('ageFee', storedOptions.ageFee || 0)),
   nightFee: Number(qp('nightFee', storedOptions.nightFee || 0)),
   locationFee: Number(qp('locationFee', storedOptions.locationFee || 0)),
@@ -1236,6 +1251,13 @@ function initPageOwnedControls(configs){
         if (kind === 'year') ctrl.monthRef = new Date(Number(btn.dataset.jumpValue || viewDate.getFullYear()), viewDate.getMonth(), 1);
         else ctrl.monthRef = new Date(viewDate.getFullYear(), Number(btn.dataset.jumpValue || viewDate.getMonth()), 1);
         renderCalendar(ctrl);
+        if (kind === 'year') {
+          setTimeout(() => {
+            try {
+              ctrl.panel.querySelectorAll('.calendar-jump').forEach((item) => item.classList.remove('open'));
+            } catch (_) {}
+          }, 0);
+        }
       });
     });
     ctrl.panel.querySelectorAll('.custom-calendar-nav').forEach((btn) => {

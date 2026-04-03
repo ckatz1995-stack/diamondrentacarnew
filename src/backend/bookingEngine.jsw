@@ -520,7 +520,8 @@ export async function createBooking(data) {
             pickupLocationFee,
             dropoffLocationFee,
             locationFee,
-            total
+            total,
+            source
         } = data || {};
 
         if (!vehicleId || !categoryId || !pickupDateTime || !dropoffDateTime || !customerName || !email || !phone) {
@@ -752,6 +753,7 @@ vehicleCategorySpecs: mapVehicleCategoryCatalogItem(vehicle).specs,
 
             memberId: userId || "",
             createdBy: userId,
+            source: cleanText(source || data?.channel || "Website"),
             createdAtApp: new Date()
         };
 
