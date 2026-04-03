@@ -86,6 +86,7 @@
     #panelCustomer{order:1}
     #panelVehicle{order:2}
     #panelMovement{order:3}
+    #panelBookingRemarks{order:4}
     .panel-hd{
       padding:14px 16px;border-bottom:1px solid var(--line);
       display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap
@@ -618,7 +619,38 @@
     .booking-remarks-head{font-size:12px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;color:#6b5638}
     .booking-remarks-grid{display:grid;grid-template-columns:1.4fr .8fr;gap:12px}
     .booking-remarks-grid .textarea{min-height:84px}
-    .booking-remarks-grid input[type=\"file\"]{padding:10px 12px;min-height:44px}
+    .attachments-dropzone{
+      border:1px dashed #cfb890;
+      border-radius:12px;
+      background:#fffaf1;
+      min-height:88px;
+      display:grid;
+      gap:4px;
+      align-content:center;
+      justify-items:start;
+      padding:10px 12px;
+      cursor:pointer;
+    }
+    .attachments-dropzone input[type=\"file\"]{
+      position:absolute;
+      opacity:0;
+      width:1px;
+      height:1px;
+      pointer-events:none;
+    }
+    .attachments-dropzone strong{font-size:13px;color:#5c4120}
+    .attachments-dropzone span{font-size:11px;color:#7d6546}
+    .attachments-list{
+      margin-top:8px;
+      border:1px solid #e7d7bf;
+      border-radius:10px;
+      background:#fff;
+      min-height:42px;
+      padding:8px 10px;
+      font-size:12px;
+      color:#6a5843;
+      line-height:1.4;
+    }
     .station-grid{display:grid;gap:12px}
     .station-row{display:grid;grid-template-columns:118px minmax(0,1fr);gap:12px;align-items:start}
     .station-label{padding-top:10px;font-size:12px;font-weight:800;color:#41516a;text-transform:uppercase;letter-spacing:.04em}
@@ -999,20 +1031,6 @@
             </section>
           </div>
 
-          <section class="booking-remarks-card">
-            <div class="booking-remarks-head">Booking remarks &amp; attachments</div>
-            <div class="booking-remarks-grid">
-              <div class="field">
-                <label>Booking remarks</label>
-                <textarea class="textarea" id="book_bookingRemarks" placeholder="Γράψε σχόλια για την κράτηση..."></textarea>
-              </div>
-              <div class="field">
-                <label>Attachments</label>
-                <input class="input" id="book_bookingAttachments" type="file" multiple />
-              </div>
-            </div>
-          </section>
-
           <div class="movement-inline-strip hidden">
             <div class="summary-box compact">
               <div class="k">Pickup</div>
@@ -1031,6 +1049,34 @@
               <div class="v" id="sumOperational">—</div>
             </div>
           </div>
+        </div>
+      </section>
+
+      <section class="panel" id="panelBookingRemarks">
+        <div class="panel-hd">
+          <div>
+            <h2>Booking remarks &amp; attachments</h2>
+            <div class="sub">Σχόλια κράτησης και συνοδευτικά αρχεία.</div>
+          </div>
+        </div>
+        <div class="panel-bd">
+          <section class="booking-remarks-card">
+            <div class="booking-remarks-grid">
+              <div class="field">
+                <label>Booking remarks</label>
+                <textarea class="textarea" id="book_bookingRemarks" placeholder="Γράψε σχόλια για την κράτηση..."></textarea>
+              </div>
+              <div class="field">
+                <label>Attachments</label>
+                <label class="attachments-dropzone" for="book_bookingAttachments">
+                  <input class="input" id="book_bookingAttachments" type="file" multiple />
+                  <strong>Drop files here ή πάτα για επιλογή</strong>
+                  <span>PDF, images ή docs από booking email.</span>
+                </label>
+                <div class="attachments-list" id="bookingAttachmentsList">Δεν έχουν προστεθεί αρχεία.</div>
+              </div>
+            </div>
+          </section>
         </div>
       </section>
 
@@ -2100,6 +2146,7 @@
     setVal('loc_dropoffpoint', b.dropoffpoint || '');
     setVal('loc_pickupComment', b.pickupComment || b.pickupLocationNote || '');
     setVal('loc_dropoffComment', b.dropoffComment || b.dropoffLocationNote || '');
+    setVal('book_bookingRemarks', b.bookingRemarks || r.internalMemo || '');
 
     setVal('book_customerName', b.customerName || '');
     setVal('book_phone', b.phone || '');
@@ -3225,6 +3272,18 @@ function renderLookups(){
     closeModal('movementLocationModal');
   }
 
+  function renderBookingAttachmentList(){
+    const input = byId('book_bookingAttachments');
+    const list = byId('bookingAttachmentsList');
+    if (!input || !list) return;
+    const files = Array.from(input.files || []);
+    if (!files.length) {
+      list.textContent = 'Δεν έχουν προστεθεί αρχεία.';
+      return;
+    }
+    list.innerHTML = files.map((file) => `<div>• ${escapeHtml(file.name)} <small>(${Math.max(1, Math.round((file.size || 0) / 1024))} KB)</small></div>`).join('');
+  }
+
   function bindMovementSection(){
     byId('btnPickupDateTime')?.addEventListener('click', () => openMovementDateTime('pickup'));
     byId('btnDropoffDateTime')?.addEventListener('click', () => openMovementDateTime('dropoff'));
@@ -3260,6 +3319,8 @@ function renderLookups(){
     byId('book_flightNumber_vehicle')?.addEventListener('input', ()=>{ const v = byId('book_flightNumber_vehicle')?.value || ''; setVal('book_flightNumber', v); renderSummary(); });
     byId('book_originCity')?.addEventListener('input', ()=>{ const v = byId('book_originCity')?.value || ''; setVal('book_originCity_vehicle', v); renderSummary(); });
     byId('book_originCity_vehicle')?.addEventListener('input', ()=>{ const v = byId('book_originCity_vehicle')?.value || ''; setVal('book_originCity', v); renderSummary(); });
+    byId('book_bookingAttachments')?.addEventListener('change', renderBookingAttachmentList);
+    renderBookingAttachmentList();
   }
 
   function collectPayload(){
@@ -3298,6 +3359,7 @@ function renderLookups(){
       dropoffpoint: byId('loc_dropoffpoint')?.value || '',
       pickupComment: byId('loc_pickupComment')?.value || '',
       dropoffComment: byId('loc_dropoffComment')?.value || '',
+      bookingRemarks: byId('book_bookingRemarks')?.value || '',
       selectedPackage: byId('book_selectedPackage')?.value || '',
       selectedExtras: parseExtras(byId('book_selectedExtras')?.value || ''),
       assignedVehicle: selectedVehicleId(),
