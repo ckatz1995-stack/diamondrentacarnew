@@ -979,7 +979,7 @@
                 </div>
 
                 <div class="station-row" id="checkoutFlightOriginRow">
-                  <div class="station-label">Flight / Origin</div>
+                  <div class="station-label" id="pickupContextRowTitle">Flight / Origin</div>
                   <div class="station-value dual-inline-fields">
                     <div class="mini-field"><span id="pickupContextLabelA">Flight number</span><input class="input" id="book_flightNumber" placeholder="TK1893" /></div>
                     <div class="mini-field"><span id="pickupContextLabelB">Origin city</span><input class="input" id="book_originCity" placeholder="Athens" /></div>
@@ -3155,6 +3155,7 @@ function renderLookups(){
     setText('dropoffFeeSub', dropoffRow ? 'Χρέωση βάσει εταιρικών location settings' : 'Περιγραφή station fee');
     setText('dropoffFeeAmount', formatEuro(dropoffRow?.extraFee || 0));
     const pickupContext = pickupContextConfig(pickupStationLabel || pickupLabel);
+    setText('pickupContextRowTitle', `${pickupContext.a} / ${pickupContext.b}`);
     setText('pickupContextLabelA', pickupContext.a);
     setText('pickupContextLabelB', pickupContext.b);
     const pickupMainInput = byId('book_flightNumber');
