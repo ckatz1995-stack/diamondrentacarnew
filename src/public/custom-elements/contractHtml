@@ -607,6 +607,18 @@
     .station-operation-card{border:0;border-radius:0;background:transparent;padding:0;display:grid;gap:12px;box-shadow:none}
     .station-operation-head h3{margin:0;font-size:18px}
     .station-operation-sub{margin-top:4px;color:var(--muted);font-size:12px}
+    .booking-remarks-card{
+      border:1px solid #ddcfb7;
+      border-radius:14px;
+      background:linear-gradient(180deg,#fff 0%,#fbf5ea 100%);
+      padding:12px;
+      display:grid;
+      gap:10px;
+    }
+    .booking-remarks-head{font-size:12px;font-weight:900;letter-spacing:.06em;text-transform:uppercase;color:#6b5638}
+    .booking-remarks-grid{display:grid;grid-template-columns:1.4fr .8fr;gap:12px}
+    .booking-remarks-grid .textarea{min-height:84px}
+    .booking-remarks-grid input[type=\"file\"]{padding:10px 12px;min-height:44px}
     .station-grid{display:grid;gap:12px}
     .station-row{display:grid;grid-template-columns:118px minmax(0,1fr);gap:12px;align-items:start}
     .station-label{padding-top:10px;font-size:12px;font-weight:800;color:#41516a;text-transform:uppercase;letter-spacing:.04em}
@@ -652,7 +664,7 @@
     .location-main strong{display:block;font-size:14px}
     .location-main span{display:block;margin-top:2px;color:var(--muted);font-size:12px}
     .location-fee-pill{min-width:94px;height:42px;border-radius:12px;border:1px solid #efd3a1;background:#fff7e8;color:#8b5200;display:flex;align-items:center;justify-content:center;font-weight:900;padding:0 10px}
-    @media (max-width: 1100px){.movement-cards-grid,.movement-inline-strip,.movement-dt-shell{grid-template-columns:1fr}.station-row{grid-template-columns:1fr}.station-label{padding-top:0}.location-fee-shell,.station-select-shell,.dual-inline-fields,.time-chip-grid{grid-template-columns:1fr 1fr}.time-chip-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+    @media (max-width: 1100px){.movement-cards-grid,.movement-inline-strip,.movement-dt-shell,.booking-remarks-grid{grid-template-columns:1fr}.station-row{grid-template-columns:1fr}.station-label{padding-top:0}.location-fee-shell,.station-select-shell,.dual-inline-fields,.time-chip-grid{grid-template-columns:1fr 1fr}.time-chip-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
   
     /* Vehicle selector modal */
@@ -900,11 +912,6 @@
 
           <div class="movement-cards-grid">
             <section class="station-operation-card" id="checkoutCard">
-              <div class="station-operation-head">
-                <h3>Check-out information</h3>
-                <div class="station-operation-sub">Σημείο και ώρα παραλαβής του πελάτη.</div>
-              </div>
-
               <div class="station-grid">
                 <div class="station-row">
                   <div class="station-label required">Date / time</div>
@@ -949,11 +956,6 @@
             </section>
 
             <section class="station-operation-card" id="checkinCard">
-              <div class="station-operation-head">
-                <h3>Check-in information</h3>
-                <div class="station-operation-sub">Σημείο και ώρα επιστροφής του οχήματος.</div>
-              </div>
-
               <div class="station-grid">
                 <div class="station-row">
                   <div class="station-label required">Date / time</div>
@@ -988,14 +990,28 @@
                 </div>
 
                 <div class="station-row">
-                  <div class="station-label">Memo</div>
+                  <div class="station-label">Remarks</div>
                   <div class="station-value">
-                    <input class="input" id="dropoffMemoInline" placeholder="Σημείωση επιστροφής" />
+                    <input class="input" id="dropoffMemoInline" placeholder="Remarks επιστροφής" />
                   </div>
                 </div>
               </div>
             </section>
           </div>
+
+          <section class="booking-remarks-card">
+            <div class="booking-remarks-head">Booking remarks &amp; attachments</div>
+            <div class="booking-remarks-grid">
+              <div class="field">
+                <label>Booking remarks</label>
+                <textarea class="textarea" id="book_bookingRemarks" placeholder="Γράψε σχόλια για την κράτηση..."></textarea>
+              </div>
+              <div class="field">
+                <label>Attachments</label>
+                <input class="input" id="book_bookingAttachments" type="file" multiple />
+              </div>
+            </div>
+          </section>
 
           <div class="movement-inline-strip hidden">
             <div class="summary-box compact">
@@ -1051,10 +1067,6 @@
 
           <div class="vehicle-workspace">
             <section class="vehicle-card">
-              <div>
-                <h3>Booked group / assigned unit</h3>
-                <div class="subtle">Overview info + vehicle selector για πρακτικό χειρισμό.</div>
-              </div>
               <div class="vehicle-info-banners">
                 <div class="vehicle-info-banner"><span>Booked → Final category</span><strong id="vehInfoBookedCategory">—</strong></div>
                 <div class="vehicle-info-banner"><span>Duration</span><strong id="vehInfoDuration">—</strong></div>
