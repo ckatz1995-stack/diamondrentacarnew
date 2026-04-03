@@ -424,6 +424,7 @@ button:hover,.cta:hover,.header-phone:hover{
 
 .process-list{
   display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
   gap:14px;
   padding:24px 28px 30px
 }
@@ -517,6 +518,7 @@ button:hover,.cta:hover,.header-phone:hover{
 @media (max-width:1100px){
   .company-grid{grid-template-columns:1fr}
   .services-grid{grid-template-columns:1fr 1fr}
+  .process-list{grid-template-columns:1fr 1fr}
   .footer-grid{grid-template-columns:1fr 1fr}
   .wordmark-copy h1{font-size:56px}
 }
@@ -529,7 +531,7 @@ button:hover,.cta:hover,.header-phone:hover{
   .intro-tagline{font-size:24px}
   .intro-text{font-size:16px}
   .grid,.grid-2{grid-template-columns:1fr}
-  .company-points,.services-grid,.footer-grid{grid-template-columns:1fr}
+  .company-points,.services-grid,.process-list,.footer-grid{grid-template-columns:1fr}
   .process-step{grid-template-columns:58px 1fr}
 }
 @media (max-width:620px){
@@ -934,9 +936,7 @@ button:hover,.cta:hover,.header-phone:hover{
         <div class="process-step"><div class="num">6</div><div><h4>Επιβεβαίωση κράτησης</h4><p>Μετά τον έλεγχο της ομάδας μας, η κράτηση επιβεβαιώνεται και δίνονται οι σχετικές οδηγίες.</p></div></div>
       </div>
     </section>
-  </div>
-  </div>
-	
+
     <section class="section-card">
       <div class="section-head">
         <h3>Σημεία εξυπηρέτησης</h3>
@@ -951,7 +951,7 @@ button:hover,.cta:hover,.header-phone:hover{
         <div class="service-card"><h4>Κατόπιν συνεννόησης</h4><p>Για ειδικά αιτήματα παραλαβής ή επιστροφής, η ομάδα μας εξετάζει τη διαθεσιμότητα και σου επιβεβαιώνει την καλύτερη λύση.</p></div>
       </div>
     </section>
-
+  </div>
 
   <footer class="footer">
     <div class="footer-grid">
