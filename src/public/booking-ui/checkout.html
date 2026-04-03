@@ -1247,6 +1247,13 @@ function initPageOwnedControls(configs){
         if (kind === 'year') ctrl.monthRef = new Date(Number(btn.dataset.jumpValue || viewDate.getFullYear()), viewDate.getMonth(), 1);
         else ctrl.monthRef = new Date(viewDate.getFullYear(), Number(btn.dataset.jumpValue || viewDate.getMonth()), 1);
         renderCalendar(ctrl);
+        if (kind === 'year') {
+          setTimeout(() => {
+            try {
+              ctrl.panel.querySelectorAll('.calendar-jump').forEach((item) => item.classList.remove('open'));
+            } catch (_) {}
+          }, 0);
+        }
       });
     });
     ctrl.panel.querySelectorAll('.custom-calendar-nav').forEach((btn) => {
