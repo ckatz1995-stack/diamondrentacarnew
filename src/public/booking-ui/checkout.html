@@ -177,7 +177,8 @@ button,input,select,textarea{font:inherit}
 .calendar-jump-menu{display:none;position:absolute;top:calc(100% + 8px);left:0;z-index:90;background:#fff!important;border:1px solid rgba(70,50,16,.14);border-radius:16px;box-shadow:0 16px 34px rgba(21,18,14,.16);padding:10px;min-width:220px;color:var(--text,#1f1a13)}
 .calendar-jump.open .calendar-jump-menu{display:grid}
 .calendar-jump-menu.month-menu{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-.calendar-jump-menu.year-menu{display:block;max-height:240px;overflow:auto;min-width:132px}
+.calendar-jump-menu.year-menu{max-height:240px;overflow:auto;min-width:132px}
+.calendar-jump.open .calendar-jump-menu.year-menu{display:block}
 .calendar-jump-option{border:0;border-radius:10px;background:rgba(245,232,194,.72)!important;padding:10px 8px;font-size:13px;font-weight:800;color:var(--text,#1f1a13)!important;cursor:pointer;-webkit-appearance:none;appearance:none}
 .calendar-jump-option.is-selected{background:rgba(63,116,138,.14);color:var(--accent2,#2d6072)}
 .calendar-jump-menu.year-menu .calendar-jump-option{display:block;width:100%;text-align:left;margin-bottom:6px}
