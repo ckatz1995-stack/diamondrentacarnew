@@ -551,21 +551,24 @@ async function buildContractLookups(booking = {}){
   const currentAssignedId = safeText(booking.assignedVehicle || '').trim();
   const requestedStationRaw = pickLabel(booking.pickuppoint || '');
 
-  try {
-    const fleetRes = await wixData.query(VEHICLE_FLEET_COLLECTION).eq("active", true).limit(FLEET_LIMIT).find({ suppressAuth:true });
-    for (const item of (fleetRes.items || [])) {
+  const pushVehicleRow = (item = {}) => {
       const recordId = String(item._id || '');
+      if (!recordId) return;
       const plate = safeText(item.plate || "");
       const model = safeText(item.model || "");
-      const categoryCode = extractCode(item.categoryCode || item.categoryLabel || '');
-      const categoryLabel = safeText(item.categoryLabel || categoryCode);
-      addCategory(categoryCode, categoryLabel, categoryLabel, item.categoryId || '');
+      const categoryObj = item.category && typeof item.category === 'object' ? item.category : null;
+      const categoryCode = extractCode(item.categoryCode || item.categoryLabel || item.category || item.Category || item.assignedCategoryCode || categoryObj?.category || categoryObj?.code || categoryObj?.title || categoryObj?.name || '');
+      const categoryLabel = safeText(item.categoryLabel || item.category || item.Category || categoryObj?.category || categoryObj?.title || categoryObj?.name || categoryCode);
+      addCategory(categoryCode, categoryLabel, categoryLabel, item.categoryId || categoryObj?._id || '');
       const operationalStatus = safeText(item.operationalStatus || item.status || 'available');
       const status = safeText(item.status || 'available');
+      const activeValue = item.active;
+      const activeLower = safeText(activeValue).trim().toLowerCase();
+      const activeFlag = activeValue !== false && activeLower !== 'false' && activeLower !== '0' && activeLower !== 'no';
       const currentStationCode = safeText(item.currentStationCode || '');
       const currentStationLabel = safeText(item.currentStationLabel || '');
       const assignedThis = !!currentAssignedId && currentAssignedId === recordId;
-      const serviceBlocked = ['service','blocked','inactive'].includes(operationalStatus.toLowerCase()) || ['service','blocked','inactive'].includes(status.toLowerCase());
+      const serviceBlocked = !activeFlag || ['service','blocked','inactive'].includes(operationalStatus.toLowerCase()) || ['service','blocked','inactive'].includes(status.toLowerCase());
       const hardUnavailable = ['assigned','unavailable','out'].includes(operationalStatus.toLowerCase()) || ['assigned','unavailable','out'].includes(status.toLowerCase());
       const busyConflict = !assignedThis && (busyVehicleIds.has(recordId) || hardUnavailable);
       const wrongStation = !assignedThis && !busyConflict && !serviceBlocked && !stationMatchesBooking(requestedStationRaw, currentStationCode, currentStationLabel);
@@ -628,8 +631,37 @@ async function buildContractLookups(booking = {}){
         selectorTone,
         selectorStatusReason
       });
-    }
+  };
+
+  try {
+    const fleetRes = await wixData.query(VEHICLE_FLEET_COLLECTION).limit(FLEET_LIMIT).find({ suppressAuth:true });
+    for (const item of (fleetRes.items || [])) pushVehicleRow(item);
   } catch (_) {}
+
+  if (!vehicles.length) {
+    try {
+      const fleetLegacyRes = await wixData.query("FleetNew").include("category").limit(FLEET_LIMIT).find({ suppressAuth:true });
+      for (const rawItem of (fleetLegacyRes.items || [])) {
+        const categoryObj = rawItem.category && typeof rawItem.category === 'object' ? rawItem.category : null;
+        pushVehicleRow({
+          ...rawItem,
+          categoryCode: rawItem.categoryCode || rawItem.Category || categoryObj?.category || categoryObj?.code || categoryObj?.title || categoryObj?.name || '',
+          categoryLabel: rawItem.categoryLabel || categoryObj?.category || categoryObj?.title || categoryObj?.name || '',
+          categoryId: rawItem.categoryId || categoryObj?._id || '',
+          plate: rawItem.plate || rawItem.Plate || '',
+          model: rawItem.model || rawItem.Model || rawItem.title || rawItem.Title || '',
+          vehicleLabel: rawItem.vehicleLabel || rawItem.label || rawItem.title || rawItem.Title || '',
+          currentStationCode: rawItem.currentStationCode || rawItem.stationCode || '',
+          currentStationLabel: rawItem.currentStationLabel || rawItem.stationLabel || rawItem.station || '',
+          operationalStatus: rawItem.operationalStatus || rawItem.status || rawItem.vehicleStatus || '',
+          status: rawItem.status || rawItem.operationalStatus || '',
+          mileage: rawItem.mileage || rawItem.kilometers || rawItem.km || 0,
+          fuelLevel: rawItem.fuelLevel || rawItem.fuel || 0,
+          excess: rawItem.excess || rawItem.excessAmount || 0
+        });
+      }
+    } catch (_) {}
+  }
 
   if (!categoryMap.size && booking) {
     const fallbackCode = bookingCategoryCode(booking);
