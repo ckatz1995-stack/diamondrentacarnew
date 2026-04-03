@@ -17,7 +17,7 @@
   --gold2:#f6e19f;
   --shadow:0 24px 54px rgba(0,0,0,.16);
   --soft:0 12px 26px rgba(0,0,0,.10);
-  --container:1180px;
+  --container:100vw;
 }
 *{box-sizing:border-box}
 html,body{
@@ -32,6 +32,16 @@ html,body{
 }
 a{text-decoration:none;color:inherit}
 button,input,select,textarea{font:inherit}
+a,button,input,select,textarea{
+  transition:box-shadow .2s ease,transform .15s ease,background-color .2s ease,border-color .2s ease;
+}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{
+  outline:2px solid rgba(45,96,114,.72);
+  outline-offset:2px;
+}
+button:hover,.cta:hover,.header-phone:hover{
+  transform:translateY(-1px);
+}
 .page{max-width:var(--container);margin:0 auto;padding:18px 16px 56px}
 
 .site-header{
