@@ -476,7 +476,6 @@ function stripLeadingCategory(name, label){
 function buildVehicleHeading(name, label){
   const cleanLabel = extractCategoryCode(label);
   const cleanName = stripLeadingCategory(name, cleanLabel);
-  if(cleanLabel && cleanName) return `${cleanLabel} - ${cleanName}`;
   return cleanName || cleanLabel || 'Όχημα';
 }
 
@@ -691,6 +690,18 @@ function toDateInputValue(value){
 
 const storedSearch = safeRead(BOOKING_STORAGE_KEY) || safeRead('diamond_booking_search_v1') || {};
 const storedOptions = safeRead(OPTIONS_STORAGE_KEY) || {};
+const storedDays = Number(storedOptions?.days || diffDays(storedOptions?.pickup, storedOptions?.dropoff) || 1);
+
+function storedExtrasFallbackTotal() {
+  const rows = Array.isArray(storedOptions?.extras) ? storedOptions.extras : [];
+  if (!rows.length) return 0;
+  return rows.reduce((sum, item) => {
+    const mode = String(item?.mode || 'perDay').trim().toLowerCase();
+    const unit = Number(item?.price ?? item?.pricePerDay ?? 0);
+    if (!Number.isFinite(unit)) return sum;
+    return sum + (mode === 'perbooking' ? unit : unit * storedDays);
+  }, 0);
+}
 
 const state = {
   vehicleId: qp('vehicle') || storedOptions.vehicleId || storedOptions?.vehicle?.id || '',
@@ -705,7 +716,7 @@ const state = {
   insuranceCost: Number(qp('insuranceCost', (storedOptions?.insurance?.pricePerDay || 0) * (storedOptions?.days || 1))),
   extras: qp('extras', Array.isArray(storedOptions?.extras) ? storedOptions.extras.map(x => x.label).join(', ') : ''),
   extrasKeys: (qp('extrasKeys', Array.isArray(storedOptions?.extras) ? storedOptions.extras.map(x => x.key).join(',') : '')).split(',').filter(Boolean),
-  extrasCost: Number(qp('extrasCost', Array.isArray(storedOptions?.extras) ? storedOptions.extras.reduce((sum, x) => sum + Number(x.pricePerDay || 0) * Number(storedOptions.days || 1), 0) : 0)),
+  extrasCost: Number(qp('extrasCost', storedExtrasFallbackTotal())),
   ageFee: Number(qp('ageFee', storedOptions.ageFee || 0)),
   nightFee: Number(qp('nightFee', storedOptions.nightFee || 0)),
   locationFee: Number(qp('locationFee', storedOptions.locationFee || 0)),
@@ -1236,6 +1247,13 @@ function initPageOwnedControls(configs){
         if (kind === 'year') ctrl.monthRef = new Date(Number(btn.dataset.jumpValue || viewDate.getFullYear()), viewDate.getMonth(), 1);
         else ctrl.monthRef = new Date(viewDate.getFullYear(), Number(btn.dataset.jumpValue || viewDate.getMonth()), 1);
         renderCalendar(ctrl);
+        if (kind === 'year') {
+          setTimeout(() => {
+            try {
+              ctrl.panel.querySelectorAll('.calendar-jump').forEach((item) => item.classList.remove('open'));
+            } catch (_) {}
+          }, 0);
+        }
       });
     });
     ctrl.panel.querySelectorAll('.custom-calendar-nav').forEach((btn) => {
