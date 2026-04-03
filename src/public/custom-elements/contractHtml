@@ -564,10 +564,10 @@
     .toolbar-badge .v{font-size:12px}
     .toolbar-group{gap:6px}
 
-    .movement-cards-grid{align-items:stretch}
-    .station-operation-card{height:100%}
-    .station-grid{grid-template-rows:repeat(4,minmax(0,1fr))}
-    .station-row{min-height:64px}
+    .movement-cards-grid{align-items:start;gap:12px}
+    .station-operation-card{height:auto}
+    .station-grid{grid-template-rows:none}
+    .station-row{min-height:0}
     .station-value .input{height:46px}
     .station-operation-sub{font-size:11px}
     .station-label{font-size:11px}
@@ -922,7 +922,7 @@
                     <div class="station-code-badge" id="pickupStationCode">---</div>
                     <button class="picker-trigger" type="button" id="btnPickupStation">
                       <span class="picker-value-main" id="pickupStationDisplay">Επιλογή station</span>
-                      <span class="picker-value-sub" id="pickupStationSub">Τοποθεσίες εταιρίας</span>
+                      <span class="picker-value-sub" id="pickupStationSub">Σταθμοί εταιρίας</span>
                     </button>
                   </div>
                 </div>
@@ -971,7 +971,7 @@
                     <div class="station-code-badge" id="dropoffStationCode">---</div>
                     <button class="picker-trigger" type="button" id="btnDropoffStation">
                       <span class="picker-value-main" id="dropoffStationDisplay">Επιλογή station</span>
-                      <span class="picker-value-sub" id="dropoffStationSub">Τοποθεσίες εταιρίας</span>
+                      <span class="picker-value-sub" id="dropoffStationSub">Σταθμοί εταιρίας</span>
                     </button>
                   </div>
                 </div>
@@ -1803,7 +1803,7 @@
   <div class="modal md movement-modal" role="dialog" aria-modal="true" aria-labelledby="movementLocationModalTitle">
     <div class="modal-hd">
       <h3 class="modal-title" id="movementLocationModalTitle">Select station</h3>
-      <div class="modal-sub" id="movementLocationModalSub">Τοποθεσίες εταιρίας για παραλαβή / παράδοση.</div>
+      <div class="modal-sub" id="movementLocationModalSub">Σταθμοί / τοποθεσίες εταιρίας για παραλαβή / παράδοση.</div>
     </div>
     <div class="modal-bd">
       <div class="field"><label>Search</label><input class="input" id="movementLocationSearchInput" placeholder="Location, station, address" /></div>
@@ -1948,7 +1948,14 @@
     if (!value) return '—';
     const d = new Date(value);
     if (Number.isNaN(d.getTime())) return safe(value);
-    return new Intl.DateTimeFormat('el-GR',{dateStyle:'short', timeStyle:'short'}).format(d);
+    return new Intl.DateTimeFormat('el-GR',{
+      day:'2-digit',
+      month:'2-digit',
+      year:'2-digit',
+      hour:'2-digit',
+      minute:'2-digit',
+      hour12:false
+    }).format(d);
   }
 
   function humanDate(value){
@@ -2982,6 +2989,21 @@ function renderLookups(){
     if (!words.length) return '---';
     return words.map((w) => w[0]).join('').slice(0, 3).toUpperCase();
   }
+  function companyStationLabelFromRow(row, fallbackLabel=''){
+    const explicit = safe(
+      row?.stationLabel ||
+      row?.stationName ||
+      row?.station ||
+      row?.branchLabel ||
+      row?.branchName
+    ).trim();
+    if (explicit) return explicit;
+    const base = safe(fallbackLabel || row?.label || '').trim();
+    if (!base) return '';
+    if (/station/i.test(base)) return base;
+    const code = extractStationCode(base);
+    return `${code !== '---' ? `${code} ` : ''}${base} Station`;
+  }
 
   function getPickupLocationRows(kind='pickup'){
     const rows = Array.isArray(state.lookups?.pickupLocations) ? state.lookups.pickupLocations : [];
@@ -3029,19 +3051,21 @@ function renderLookups(){
 
     const setText = (id, value) => { const el = byId(id); if (el) el.textContent = value; };
     setText('pickupDateTimeDisplay', pickupDate ? humanDateTime(pickupDate) : 'Επιλογή ημερομηνίας / ώρας');
-    setText('pickupDateTimeSub', pickupDate ? `${pickupDate.toLocaleDateString('el-GR')} • ${pickupDate.toLocaleTimeString('el-GR', { hour:'2-digit', minute:'2-digit' })}` : 'Πατάς για άνοιγμα picker');
+    setText('pickupDateTimeSub', pickupDate ? `${pickupDate.toLocaleDateString('el-GR')} • ${pickupDate.toLocaleTimeString('el-GR', { hour:'2-digit', minute:'2-digit', hour12:false })}` : 'Πατάς για άνοιγμα picker');
     setText('dropoffDateTimeDisplay', dropoffDate ? humanDateTime(dropoffDate) : 'Επιλογή ημερομηνίας / ώρας');
-    setText('dropoffDateTimeSub', dropoffDate ? `${dropoffDate.toLocaleDateString('el-GR')} • ${dropoffDate.toLocaleTimeString('el-GR', { hour:'2-digit', minute:'2-digit' })}` : 'Πατάς για άνοιγμα picker');
-    setText('pickupStationDisplay', pickupLabel || 'Επιλογή station');
-    setText('pickupStationSub', pickupRow?.address || pickupRow?.description || 'Τοποθεσίες εταιρίας');
-    setText('pickupStationCode', extractStationCode(pickupLabel));
-    setText('dropoffStationDisplay', dropoffLabel || 'Επιλογή station');
-    setText('dropoffStationSub', dropoffRow?.address || dropoffRow?.description || 'Τοποθεσίες εταιρίας');
-    setText('dropoffStationCode', extractStationCode(dropoffLabel));
-    setText('pickupFeeDisplay', pickupRow?.description || pickupLabel || 'Τοποθεσία / Fee');
+    setText('dropoffDateTimeSub', dropoffDate ? `${dropoffDate.toLocaleDateString('el-GR')} • ${dropoffDate.toLocaleTimeString('el-GR', { hour:'2-digit', minute:'2-digit', hour12:false })}` : 'Πατάς για άνοιγμα picker');
+    const pickupStationLabel = companyStationLabelFromRow(pickupRow, pickupLabel);
+    const dropoffStationLabel = companyStationLabelFromRow(dropoffRow, dropoffLabel);
+    setText('pickupStationDisplay', pickupStationLabel || 'Επιλογή station');
+    setText('pickupStationSub', pickupRow?.address || 'Σταθμοί εταιρίας');
+    setText('pickupStationCode', extractStationCode(pickupStationLabel || pickupLabel));
+    setText('dropoffStationDisplay', dropoffStationLabel || 'Επιλογή station');
+    setText('dropoffStationSub', dropoffRow?.address || 'Σταθμοί εταιρίας');
+    setText('dropoffStationCode', extractStationCode(dropoffStationLabel || dropoffLabel));
+    setText('pickupFeeDisplay', pickupRow?.label || pickupLabel || 'Τοποθεσία / Fee');
     setText('pickupFeeSub', pickupRow ? 'Χρέωση βάσει εταιρικών location settings' : 'Περιγραφή station fee');
     setText('pickupFeeAmount', formatEuro(pickupRow?.extraFee || 0));
-    setText('dropoffFeeDisplay', dropoffRow?.description || dropoffLabel || 'Τοποθεσία / Fee');
+    setText('dropoffFeeDisplay', dropoffRow?.label || dropoffLabel || 'Τοποθεσία / Fee');
     setText('dropoffFeeSub', dropoffRow ? 'Χρέωση βάσει εταιρικών location settings' : 'Περιγραφή station fee');
     setText('dropoffFeeAmount', formatEuro(dropoffRow?.extraFee || 0));
     const dropMemo = byId('dropoffMemoInline');
