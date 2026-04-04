@@ -609,19 +609,21 @@
                 </div>
                 <div class="business-subtabs" id="stationsLocationsTabs"></div>
                 <div class="business-subtab-note" id="stationsLocationsNote" style="display:none"></div>
+                <div class="table-toolbar" style="margin-bottom:12px">
+                  <div class="table-toolbar-left">
+                    <input id="searchStationProfiles" placeholder="Αναζήτηση station key / label / city" style="min-width:280px" />
+                  </div>
+                  <div class="table-toolbar-right">
+                    <span class="badge" id="stationProfilesCount">0 stations</span>
+                  </div>
+                </div>
 
                 <div class="embedded-manager" id="stationsWorkspacePane" style="margin-bottom:12px">
                   <div class="embedded-manager-head">
-                    <div>
-                      <h4>Stations</h4>
-                    </div>
+                    <div></div>
                     <div class="actions">
                       <button class="btn primary" id="addStationProfileBtn" type="button">Νέος σταθμός</button>
                     </div>
-                  </div>
-                  <div class="toolbar">
-                    <div class="left"><input id="searchStationProfiles" placeholder="Αναζήτηση station key / label / description" /></div>
-                    <div class="right"><span class="badge" id="stationProfilesCount">0 stations</span></div>
                   </div>
                   <div id="stationProfilesTableWrap"></div>
                 </div>
