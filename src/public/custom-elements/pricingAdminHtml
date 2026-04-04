@@ -396,61 +396,6 @@
           </div>
         </div>
 
-        <div class="settings-command-deck">
-          <div class="settings-command-card">
-            <div class="settings-command-kicker">Front &amp; catalog</div>
-            <h3 class="settings-command-title">Brand, operations &amp; vehicle presentation</h3>
-            <p class="settings-command-copy">Γρήγορη πρόσβαση στα σημεία που επηρεάζουν το front look, τη λογική κατηγοριών/μοντέλων και τα βασικά operational defaults.</p>
-            <div class="settings-command-pills">
-              <span class="pill">Front company</span>
-              <span class="pill">Operations</span>
-              <span class="pill">Vehicle catalog</span>
-            </div>
-            <div class="settings-command-actions">
-              <button class="btn" data-home-go="business" data-focus-group="frontBrand">Front &amp; company</button>
-              <button class="btn" data-home-go="business" data-focus-group="operations">Operations</button>
-              <button class="btn" data-home-go="business" data-focus-group="vehicleCatalog">Vehicle catalog</button>
-            </div>
-          </div>
-          <div class="settings-command-card">
-            <div class="settings-command-kicker">Pricing &amp; legal</div>
-            <h3 class="settings-command-title">Rules, coverages &amp; commercial policy</h3>
-            <p class="settings-command-copy">Ενιαίο σημείο για δυναμική τιμολόγηση, ασφάλειες, extras, fees και όρους που επηρεάζουν προσφορά, checkout και contract.</p>
-            <div class="settings-command-pills">
-              <span class="pill">Dynamic pricing</span>
-              <span class="pill">Insurance</span>
-              <span class="pill">Fees &amp; extras</span>
-            </div>
-            <div class="settings-command-actions">
-              <button class="btn" data-settings-section="dynamicPricing">Dynamic pricing</button>
-              <button class="btn" data-settings-section="insurance">Insurance</button>
-              <button class="btn" data-settings-section="fees">Fees</button>
-            </div>
-          </div>
-          <div class="settings-command-card">
-            <div class="settings-command-kicker">Team &amp; privacy</div>
-            <h3 class="settings-command-title">Access control, staff roles &amp; audit visibility</h3>
-            <p class="settings-command-copy">Σύνδεσε ρόλους, χρήστες, active sessions και privacy checks με το ίδιο admin language που χρησιμοποιείς σε Daily, Fleet και Bookings.</p>
-            <div class="settings-command-pills">
-              <span class="pill">Security</span>
-              <span class="pill">Roles</span>
-              <span class="pill">Users &amp; audit</span>
-            </div>
-            <div class="settings-command-actions">
-              <button class="btn" data-settings-section="security">Security</button>
-              <button class="btn" data-settings-section="roles">Roles</button>
-              <button class="btn" data-settings-section="users">Users</button>
-            </div>
-          </div>
-        </div>
-
-
-        <div class="patternStrip">
-          <div class="patternCard"><div class="patternKick">Shared language</div><div class="patternValue">Settings joins the same system</div><div class="patternMeta">Το Account Settings δεν μένει πια μόνο του· μιλάει την ίδια visual διάλεκτο με Daily, Fleet, Bookings και Contract.</div></div>
-          <div class="patternCard"><div class="patternKick">Business model</div><div class="patternValue">Front data stays configurable</div><div class="patternMeta">Η λογική παραμένει data-driven: ρυθμίσεις εταιρίας, pricing, operations και catalog χωρίς να πειράζεται το runtime front shell.</div></div>
-          <div class="patternCard"><div class="patternKick">Control focus</div><div class="patternValue">Overview before deep tabs</div><div class="patternMeta">Πρώτα βλέπεις το command deck και το status overview και μετά μπαίνεις σε pricing, fees, security ή role-specific λεπτομέρειες.</div></div>
-          <div class="patternCard"><div class="patternKick">Safety</div><div class="patternValue">UI system only</div><div class="patternMeta">Το upgrade μένει στο shell, άρα roles, users, seed/reset και save flows συνεχίζουν στο ίδιο business logic.</div></div>
-        </div>
         <div class="overview-grid">
           <div class="overview-card overview-primary">
             <div class="overview-card-head">
@@ -495,28 +440,6 @@
                 <h4>Access status</h4>
                 <p>Γίνεται φόρτωση του current access snapshot...</p>
               </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="overview-grid-secondary">
-          <div class="overview-card overview-shortcuts">
-            <div class="overview-card-head">
-              <div>
-                <div class="eyebrow">Navigation</div>
-                <h3>Quick navigation</h3>
-                <p>Γρήγορη μετάβαση στα sections που χρησιμοποιούνται περισσότερο, χωρίς να ψάχνεις όλη τη σελίδα.</p>
-              </div>
-            </div>
-            <div class="settings-home-list" id="settingsHomeLinks"></div>
-            <div class="quick-focus-row">
-              <button class="jump-btn" data-home-go="business" data-focus-group="frontBrand">Front &amp; company</button>
-              <button class="jump-btn" data-home-go="business" data-focus-group="operations">Operations</button>
-              <button class="jump-btn" data-home-go="business" data-focus-group="locations">Stations/Locations</button>
-              <button class="jump-btn" data-home-go="business" data-focus-group="vehicleCatalog">Vehicle catalog</button>
-              <button class="jump-btn" data-home-go="business" data-focus-group="automation">Triggered emails</button>
-              <button class="jump-btn" data-home-go="business" data-focus-group="rentalTerms">Rental terms</button>
-              <button class="jump-btn" data-home-go="business" data-focus-group="insuranceTexts">Insurance &amp; legal</button>
             </div>
           </div>
         </div>
