@@ -512,7 +512,7 @@
             <div class="quick-focus-row">
               <button class="jump-btn" data-home-go="business" data-focus-group="frontBrand">Front &amp; company</button>
               <button class="jump-btn" data-home-go="business" data-focus-group="operations">Operations</button>
-              <button class="jump-btn" data-home-go="business" data-focus-group="locations">Locations</button>
+              <button class="jump-btn" data-home-go="business" data-focus-group="locations">Stations/Locations</button>
               <button class="jump-btn" data-home-go="business" data-focus-group="vehicleCatalog">Vehicle catalog</button>
               <button class="jump-btn" data-home-go="business" data-focus-group="automation">Triggered emails</button>
               <button class="jump-btn" data-home-go="business" data-focus-group="rentalTerms">Rental terms</button>
@@ -603,32 +603,32 @@
               <div class="settings-group business-pane" id="group-locations" data-group-anchor="locations" data-business-pane="locations">
                 <div class="settings-group-head">
                   <div>
-                    <h3>3. Locations</h3>
+                    <h3>3. Stations / Locations</h3>
                     <p>Τοποθεσίες παραλαβής και επιστροφής για το front booking flow, με ομαδοποίηση ανά σταθμό, fees, order και ενεργοποίηση ανά σημείο.</p>
                   </div>
                   <div class="settings-group-badge">Pickup / Dropoff</div>
                 </div>
-                <div class="embedded-manager" style="margin-bottom:12px">
+                <div class="business-subtabs" id="stationsLocationsTabs"></div>
+                <div class="business-subtab-note" id="stationsLocationsNote"></div>
+
+                <div class="embedded-manager" id="stationsWorkspacePane" style="margin-bottom:12px">
                   <div class="embedded-manager-head">
                     <div>
-                      <h4>Station workspace</h4>
-                      <p>Διαλέγεις ενεργό σταθμό, επεξεργάζεσαι τα στοιχεία του και ο πίνακας locations φιλτράρεται πάνω στον σταθμό αυτό.</p>
+                      <h4>Stations</h4>
+                      <p>Διαχείριση station profiles με πίνακα, όπως στο locations workspace.</p>
                     </div>
                     <div class="actions">
                       <button class="btn" id="addStationProfileBtn" type="button">Νέος σταθμός</button>
-                      <button class="btn" id="editStationProfileBtn" type="button">Επεξεργασία σταθμού</button>
-                      <button class="btn danger" id="deleteStationProfileBtn" type="button">Διαγραφή σταθμού</button>
                     </div>
                   </div>
                   <div class="toolbar">
-                    <div class="left" style="gap:10px">
-                      <select id="locationStationScope" style="min-width:240px"></select>
-                      <span class="table-toolbar-sub" id="stationScopeHint">Προβολή όλων των σταθμών.</span>
-                    </div>
+                    <div class="left"><input id="searchStationProfiles" placeholder="Αναζήτηση station key / label / description" /></div>
                     <div class="right"><span class="badge" id="stationProfilesCount">0 stations</span></div>
                   </div>
+                  <div id="stationProfilesTableWrap"></div>
                 </div>
-                <div class="embedded-manager">
+
+                <div class="embedded-manager" id="locationsWorkspacePane" style="display:none">
                   <div class="embedded-manager-head">
                     <div>
                       <h4>Pickup / Dropoff locations</h4>
@@ -639,7 +639,10 @@
                     </div>
                   </div>
                   <div class="toolbar">
-                    <div class="left"><input id="searchPickupLocations" placeholder="Αναζήτηση station / location / address" /></div>
+                    <div class="left" style="gap:10px">
+                      <select id="locationStationScope" style="min-width:240px"></select>
+                      <input id="searchPickupLocations" placeholder="Αναζήτηση station / location / address" />
+                    </div>
                     <div class="right"><span class="badge" id="pickupLocationsCount">0 items</span></div>
                   </div>
                   <div id="pickupLocationsTableWrap"></div>
@@ -1148,7 +1151,7 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
       editor: { open: false, kind: '', item: null },
       inspector: { open:false, kind:'', item:null },
       busy: false,
-      filters: { vehicleCategories: '', fleetVehicles: '', pricingSeasons: '', categoryRateRules: '', rateRuleCategory: '', rateRuleSeason: '', pickupLocations: '', insurance: '', extras: '', fees: '', ruleType: '', roles: '', users: '', sessions: '', audit: '', auditType: '' },
+      filters: { vehicleCategories: '', fleetVehicles: '', pricingSeasons: '', categoryRateRules: '', rateRuleCategory: '', rateRuleSeason: '', stationProfiles: '', pickupLocations: '', insurance: '', extras: '', fees: '', ruleType: '', roles: '', users: '', sessions: '', audit: '', auditType: '' },
       securityEmail: '',
       securityResult: '',
       activeBusinessPane: savedSettingsWorkspace?.activeBusinessPane || 'frontBrand',
@@ -1156,6 +1159,7 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
       tableLayouts: loadTableLayouts(),
       stationProfiles: [],
       locationStationScope: 'all',
+      locationsWorkspaceTab: 'stations',
       activeBusinessStationKey: 'default',
       stationModal: { open:false, mode:'create', originalKey:'' }
     };
@@ -1179,7 +1183,7 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
     const BUSINESS_PANES = [
       { key:'frontBrand', label:'1. Front & company', shortLabel:'Front & company', helper:'Brand, company identity, footer and front-facing contact info.' },
       { key:'operations', label:'2. Operations', shortLabel:'Operations', helper:'Booking rules, operating hours, deposits and out-of-hours behavior.' },
-      { key:'locations', label:'3. Locations', shortLabel:'Locations', helper:'Pickup and dropoff locations, ordering, fees and activation state.' },
+      { key:'locations', label:'3. Stations / Locations', shortLabel:'Stations/Locations', helper:'Stations and pickup/dropoff locations, ordering, fees and activation state.' },
       { key:'vehicleCatalog', label:'4. Vehicle catalog', shortLabel:'Vehicle catalog', helper:'Vehicles page mode and a visual preview of what the customer sees on the vehicles page.' },
       { key:'automation', label:'5. Triggered emails', shortLabel:'Triggered emails', helper:'Automation enablement and trigger ids.' },
       { key:'rentalTerms', label:'6. Rental terms', shortLabel:'Rental terms', helper:'Public rental terms page content and large legal copy.' },
@@ -1233,6 +1237,10 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
       openStationModalBtn: document.getElementById('openStationModalBtn'),
       businessPaneTabs: document.getElementById('businessPaneTabs'),
       businessPaneNote: document.getElementById('businessPaneNote'),
+      stationsLocationsTabs: document.getElementById('stationsLocationsTabs'),
+      stationsLocationsNote: document.getElementById('stationsLocationsNote'),
+      stationsWorkspacePane: document.getElementById('stationsWorkspacePane'),
+      locationsWorkspacePane: document.getElementById('locationsWorkspacePane'),
       textEditorOverlay: document.getElementById('textEditorOverlay'),
       textEditorTitle: document.getElementById('textEditorTitle'),
       textEditorSub: document.getElementById('textEditorSub'),
@@ -1240,6 +1248,7 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
       textEditorHint: document.getElementById('textEditorHint'),
       textEditorCount: document.getElementById('textEditorCount'),
       toast: document.getElementById('toast'),
+      stationProfilesWrap: document.getElementById('stationProfilesTableWrap'),
       vehicleCategoriesWrap: document.getElementById('vehicleCategoriesTableWrap'),
       fleetVehiclesWrap: document.getElementById('fleetVehiclesTableWrap'),
       pickupLocationsWrap: document.getElementById('pickupLocationsTableWrap'),
@@ -1279,13 +1288,11 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
       auditCount: document.getElementById('auditCount'),
       searchVehicleCategories: document.getElementById('searchVehicleCategories'),
       searchFleetVehicles: document.getElementById('searchFleetVehicles'),
+      searchStationProfiles: document.getElementById('searchStationProfiles'),
       searchPickupLocations: document.getElementById('searchPickupLocations'),
       locationStationScope: document.getElementById('locationStationScope'),
-      stationScopeHint: document.getElementById('stationScopeHint'),
       stationProfilesCount: document.getElementById('stationProfilesCount'),
       addStationProfileBtn: document.getElementById('addStationProfileBtn'),
-      editStationProfileBtn: document.getElementById('editStationProfileBtn'),
-      deleteStationProfileBtn: document.getElementById('deleteStationProfileBtn'),
       stationProfileOverlay: document.getElementById('stationProfileOverlay'),
       stationProfileTitle: document.getElementById('stationProfileTitle'),
       stationProfileSub: document.getElementById('stationProfileSub'),
@@ -2862,23 +2869,28 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
     }
 
 
+    function renderStationsLocationsTabs(){
+      const tabs = [
+        { key:'stations', label:'Stations', hint:'Διαχείριση station profiles σε table.' },
+        { key:'locations', label:'Locations', hint:'Pickup/dropoff locations με station φίλτρο.' }
+      ];
+      if (!tabs.some((tab)=>tab.key === state.locationsWorkspaceTab)) state.locationsWorkspaceTab = 'stations';
+      if (els.stationsLocationsTabs) {
+        els.stationsLocationsTabs.innerHTML = tabs.map((tab)=>`<button class="business-subtab-btn ${state.locationsWorkspaceTab === tab.key ? 'active' : ''}" data-locations-workspace-tab="${tab.key}">${tab.label}</button>`).join('');
+      }
+      if (els.stationsLocationsNote) {
+        const current = tabs.find((tab)=>tab.key === state.locationsWorkspaceTab) || tabs[0];
+        els.stationsLocationsNote.textContent = current.hint;
+      }
+      if (els.stationsWorkspacePane) els.stationsWorkspacePane.style.display = state.locationsWorkspaceTab === 'stations' ? '' : 'none';
+      if (els.locationsWorkspacePane) els.locationsWorkspacePane.style.display = state.locationsWorkspaceTab === 'locations' ? '' : 'none';
+    }
+
     function renderStationWorkspace(){
       const profiles = effectiveStationProfiles();
       const scope = String(state.locationStationScope || 'all');
       if (els.stationProfilesCount) els.stationProfilesCount.textContent = `${profiles.length} stations`;
       if (!profiles.some((row)=>row.key === state.activeBusinessStationKey)) state.activeBusinessStationKey = profiles[0]?.key || 'default';
-      if (els.businessStationSelect) {
-        const prev = String(state.activeBusinessStationKey || 'default');
-        els.businessStationSelect.innerHTML = profiles.map((row) => `<option value="${esc(row.key)}">${esc(row.label)} (${esc(row.key)})</option>`).join('');
-        if ([...els.businessStationSelect.options].some((opt)=>opt.value === prev)) els.businessStationSelect.value = prev;
-        state.activeBusinessStationKey = els.businessStationSelect.value || profiles[0]?.key || 'default';
-      }
-      if (els.businessStationMeta) {
-        const selected = profiles.find((row)=>row.key === state.activeBusinessStationKey);
-        els.businessStationMeta.textContent = selected
-          ? `Ενεργός σταθμός ρυθμίσεων: ${selected.label} (${selected.key}).`
-          : 'Επίλεξε σταθμό για φόρτωση ρυθμίσεων.';
-      }
       if (els.locationStationScope) {
         const prev = scope;
         els.locationStationScope.innerHTML = `<option value="all">Όλοι οι σταθμοί</option>` + profiles.map((row) => `<option value="${esc(row.key)}">${esc(row.label)} (${esc(row.key)})</option>`).join('');
@@ -2886,13 +2898,24 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
         else els.locationStationScope.value = 'all';
         state.locationStationScope = els.locationStationScope.value;
       }
-      if (els.stationScopeHint) {
-        if (state.locationStationScope === 'all') els.stationScopeHint.textContent = 'Προβολή όλων των σταθμών.';
-        else {
-          const selected = profiles.find((row)=>row.key === state.locationStationScope);
-          els.stationScopeHint.textContent = selected ? `Ενεργός σταθμός: ${selected.label} (${selected.key}).` : 'Φίλτρο σταθμού.';
-        }
-      }
+      renderStationsLocationsTabs();
+    }
+
+    function renderStationProfilesTable(){
+      const rows = filterList(effectiveStationProfiles(), state.filters.stationProfiles);
+      if (els.stationProfilesCount) els.stationProfilesCount.textContent = `${rows.length} stations`;
+      if (!els.stationProfilesWrap) return;
+      if(!rows.length){ els.stationProfilesWrap.innerHTML = '<div class="empty">Δεν βρέθηκαν σταθμοί.</div>'; return; }
+      els.stationProfilesWrap.innerHTML = `<div class="table-wrap"><table><thead><tr><th>Station</th><th>Description</th><th>Linked locations</th><th>Actions</th></tr></thead><tbody>${rows.map(item => {
+        const linked = pickupLocationRows().filter((row) => String(row.stationKey || row.station || 'default').trim().toLowerCase() === String(item.key || '').trim().toLowerCase()).length;
+        return `
+        <tr>
+          <td><strong>${esc(item.label || 'Κεντρικός σταθμός')}</strong><div style="color:var(--muted);font-size:12px">${esc(item.key || 'default')}</div></td>
+          <td>${esc(item.description || '—')}</td>
+          <td>${Number(linked || 0)}</td>
+          <td><div class="row-actions"><button class="link" data-station-action="edit" data-station-key="${esc(item.key || '')}">Edit</button><button class="link danger" data-station-action="delete" data-station-key="${esc(item.key || '')}">Delete</button></div></td>
+        </tr>`;
+      }).join('')}</tbody></table></div>`;
     }
 
     function renderPickupLocationsTable(){
@@ -3452,7 +3475,7 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
       return obj;
     }
 
-    function renderAll(){ renderBackroomHeader(); renderTabs(); renderSections(); renderAccessGate(); renderKpis(); renderHealth(); setBusinessForm(); renderStationWorkspace(); renderVehicleCategoriesTable(); renderFleetVehiclesTable(); renderPickupLocationsTable(); renderDynamicPricingSection(); renderInsuranceTable(); renderExtrasTable(); renderFeesTable(); renderRolesTable(); renderUsersTable(); renderAuditTable(); requestResize(); }
+    function renderAll(){ renderBackroomHeader(); renderTabs(); renderSections(); renderAccessGate(); renderKpis(); renderHealth(); setBusinessForm(); renderStationWorkspace(); renderStationProfilesTable(); renderVehicleCategoriesTable(); renderFleetVehiclesTable(); renderPickupLocationsTable(); renderDynamicPricingSection(); renderInsuranceTable(); renderExtrasTable(); renderFeesTable(); renderRolesTable(); renderUsersTable(); renderAuditTable(); requestResize(); }
 
     function handleMessage(event){
       const data = normalizeMessage(event.data);
@@ -3504,6 +3527,7 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
       state.stationProfiles = rows.sort((a, b) => String(a.label || '').localeCompare(String(b.label || ''), 'el'));
       state.locationStationScope = normalized.key;
       renderStationWorkspace();
+      renderStationProfilesTable();
       renderPickupLocationsTable();
       showToast('Ο σταθμός ενημερώθηκε. Πάτησε Save business settings για αποθήκευση.', 'info');
     }
@@ -3517,6 +3541,7 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
       removeStationSettingsKey(stationKey);
       state.locationStationScope = 'all';
       renderStationWorkspace();
+      renderStationProfilesTable();
       renderPickupLocationsTable();
       showToast('Ο σταθμός αφαιρέθηκε. Πάτησε Save business settings για αποθήκευση.', 'info');
     }
@@ -3549,27 +3574,34 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
       document.querySelectorAll('[data-reset-target]').forEach(btn => btn.addEventListener('click', () => { setBusy(true); post('resetPricingDefaults', { payload: { target: btn.dataset.resetTarget || 'all' } }); }));
       if (els.searchVehicleCategories) els.searchVehicleCategories.addEventListener('input', (e) => { state.filters.vehicleCategories = e.target.value; renderVehicleCategoriesTable(); requestResize(); });
       if (els.searchFleetVehicles) els.searchFleetVehicles.addEventListener('input', (e) => { state.filters.fleetVehicles = e.target.value; renderFleetVehiclesTable(); requestResize(); });
+      if (els.searchStationProfiles) els.searchStationProfiles.addEventListener('input', (e) => { state.filters.stationProfiles = e.target.value; renderStationProfilesTable(); requestResize(); });
       if (els.searchPickupLocations) els.searchPickupLocations.addEventListener('input', (e) => { state.filters.pickupLocations = e.target.value; renderPickupLocationsTable(); requestResize(); });
-      if (els.locationStationScope) els.locationStationScope.addEventListener('change', (e) => { state.locationStationScope = String(e.target.value || 'all'); renderStationWorkspace(); renderPickupLocationsTable(); requestResize(); });
-      if (els.businessStationSelect) els.businessStationSelect.addEventListener('change', (e) => { state.activeBusinessStationKey = String(e.target.value || 'default'); setBusinessForm(); renderStationWorkspace(); requestResize(); });
-      if (els.openStationModalBtn) els.openStationModalBtn.addEventListener('click', () => {
-        const current = effectiveStationProfiles().find((row) => row.key === String(state.activeBusinessStationKey || 'default')) || null;
-        openStationModal(current ? 'edit' : 'create', current);
+      if (els.locationStationScope) els.locationStationScope.addEventListener('change', (e) => { state.locationStationScope = String(e.target.value || 'all'); renderPickupLocationsTable(); requestResize(); });
+      if (els.stationsLocationsTabs) els.stationsLocationsTabs.addEventListener('click', (e) => {
+        const btn = e.target?.closest?.('[data-locations-workspace-tab]');
+        if (!btn) return;
+        state.locationsWorkspaceTab = String(btn.dataset.locationsWorkspaceTab || 'stations');
+        renderStationsLocationsTabs();
+        requestResize();
       });
       if (els.addStationProfileBtn) els.addStationProfileBtn.addEventListener('click', () => {
         openStationModal('create', null);
       });
-      if (els.editStationProfileBtn) els.editStationProfileBtn.addEventListener('click', () => {
-        const key = String(state.locationStationScope || 'all');
-        if (key === 'all') { showToast('Επίλεξε πρώτα station για επεξεργασία.', 'error'); return; }
-        const current = effectiveStationProfiles().find((row) => row.key === key);
-        if (!current) { showToast('Δεν βρέθηκε station profile.', 'error'); return; }
-        openStationModal('edit', current);
-      });
-      if (els.deleteStationProfileBtn) els.deleteStationProfileBtn.addEventListener('click', () => {
-        const key = String(state.locationStationScope || 'all');
-        if (key === 'all') { showToast('Επίλεξε station για διαγραφή.', 'error'); return; }
-        deleteStationProfileLocal(key);
+      if (els.stationProfilesWrap) els.stationProfilesWrap.addEventListener('click', (e) => {
+        const btn = e.target?.closest?.('[data-station-action]');
+        if (!btn) return;
+        const key = String(btn.dataset.stationKey || '');
+        if (!key) return;
+        if (btn.dataset.stationAction === 'edit') {
+          const current = effectiveStationProfiles().find((row) => row.key === key);
+          if (!current) { showToast('Δεν βρέθηκε station profile.', 'error'); return; }
+          openStationModal('edit', current);
+          return;
+        }
+        if (btn.dataset.stationAction === 'delete') {
+          deleteStationProfileLocal(key);
+          renderStationProfilesTable();
+        }
       });
       if (els.closeStationProfileBtn) els.closeStationProfileBtn.addEventListener('click', closeStationModal);
       if (els.cancelStationProfileBtn) els.cancelStationProfileBtn.addEventListener('click', closeStationModal);
