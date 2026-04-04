@@ -90,6 +90,12 @@
     .settings-context-copy strong{font-size:14px;letter-spacing:-.01em}
     .settings-context-copy span{color:var(--muted);font-size:12px}
     .settings-nav-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .top-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px}
+    .top-option-group{border:1px solid #e7dbc8;border-radius:14px;background:linear-gradient(180deg,#fffdfa 0%,#f7f1e8 100%);padding:8px}
+    .top-option-label{font-size:10px;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:#8e6d3d;margin:0 0 6px 2px}
+    .top-option-items{display:flex;flex-wrap:wrap;gap:6px}
+    .top-option-tab{appearance:none;border:1px solid #e6dbc9;background:#fff;color:#6c522e;border-radius:999px;padding:7px 10px;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap}
+    .top-option-tab.active{background:linear-gradient(180deg,#a8844a 0%,#8e6d3d 100%);border-color:#8e6d3d;color:#fff;box-shadow:0 6px 14px rgba(142,109,61,.16)}
     .group-rail{display:flex;gap:8px;overflow:auto;padding-bottom:2px;scrollbar-width:thin;align-items:center;background:linear-gradient(180deg,#fbf8f3 0%,#f7f1e8 100%);border:1px solid #eee3d2;border-radius:999px;padding:6px 8px}
     .group-pill{padding:8px 14px;border-radius:999px;border:1px solid transparent;background:transparent;color:#7b6a56;cursor:pointer;font-weight:800;font-size:12px;white-space:nowrap;transition:all .18s ease}
     .group-pill.active{background:#fff;border-color:#d9c3a2;color:var(--accent);box-shadow:0 6px 14px rgba(142,109,61,.10)}
@@ -1901,8 +1907,38 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
       if(!tabs.some(tab => tab.key === state.activeSection)) state.activeSection = tabs[0]?.key || 'settingsHome';
       persistSettingsWorkspace();
       els.tabs.innerHTML = `
-        <div class="section-row" style="padding:10px 12px;border:1px solid var(--line);border-bottom:0;border-radius:16px 16px 0 0;background:linear-gradient(180deg,#ffffff 0%,#fbf8f3 100%);display:grid;gap:8px">
-          <div class="section-rail">${tabs.map(tab => `<button class="tab ${state.activeSection === tab.key ? 'active' : ''}" data-tab="${tab.key}">${tab.label}</button>`).join('')}</div>
+        <div class="settings-nav-shell">
+          <div class="settings-nav-topline">
+            <div class="settings-context">
+              <span class="settings-context-badge">Settings</span>
+              <div class="settings-context-copy">
+                <strong>${activeLabel}</strong>
+                <span>${activeGroup} · Εργαλειοκεντρική πλοήγηση τύπου control toolbar.</span>
+              </div>
+            </div>
+            <div class="settings-nav-actions">
+              <button class="tab ${state.activeSection === 'settingsHome' ? 'active' : ''}" data-tab="settingsHome">Overview</button>
+              <div class="tab-picker">
+                <button class="picker-trigger" id="tabPickerTrigger">All sections ▾</button>
+                <div class="picker-menu" id="tabPickerMenu">${groups.map(group => `<div class="picker-section"><div class="picker-label">${group}</div><div class="picker-items">${(grouped[group]||[]).map(tab => `<button class="tab ${state.activeSection === tab.key ? 'active' : ''}" data-tab="${tab.key}">${tab.label}</button>`).join('')}</div></div>`).join('')}</div>
+              </div>
+            </div>
+          </div>
+          <div class="top-options">
+            ${groups.map(group => `
+              <div class="top-option-group">
+                <div class="top-option-label">${group}</div>
+                <div class="top-option-items">
+                  ${(grouped[group] || []).map(tab => `<button class="top-option-tab ${state.activeSection === tab.key ? 'active' : ''}" data-tab="${tab.key}">${tab.label}</button>`).join('')}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+          <div class="group-rail">${groups.map(group => `<button class="group-pill ${group===activeGroup?'active':''}" data-tab-group="${group}">${group}</button>`).join('')}</div>
+          <div class="section-row">
+            <div class="section-rail">${activeTabs.map(tab => `<button class="tab ${state.activeSection === tab.key ? 'active' : ''}" data-tab="${tab.key}">${tab.label}</button>`).join('')}</div>
+          </div>
+          <div class="nav-shell-helper"><span>Το πάνω rail κρατά τις βασικές ομάδες και η δεύτερη σειρά αλλάζει μόνο τις ενότητες της ενεργής ομάδας.</span><span>${activeGroup}</span></div>
         </div>`;
       const activate = (key) => { openSectionByKey(key); };
       els.tabs.querySelectorAll('[data-tab]').forEach(btn => btn.addEventListener('click', () => activate(btn.dataset.tab)));
