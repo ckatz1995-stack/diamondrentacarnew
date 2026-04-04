@@ -458,6 +458,16 @@
             <button class="btn primary" id="saveBusinessBtn">Αποθήκευση business settings</button>
           </div>
         </div>
+        <div class="table-toolbar" style="margin-bottom:12px">
+          <div class="table-toolbar-left">
+            <span class="table-toolbar-title">Κεντρικός σταθμός ρυθμίσεων</span>
+            <select id="businessStationSelect" style="min-width:260px"></select>
+            <span class="table-toolbar-sub" id="businessStationMeta">Οι παρακάτω ρυθμίσεις φορτώνονται από τον επιλεγμένο σταθμό.</span>
+          </div>
+          <div class="table-toolbar-right">
+            <button class="btn" id="openStationModalBtn" type="button">Νέος / Επεξεργασία σταθμού</button>
+          </div>
+        </div>
         <div class="business-shell">
           <div class="business-pane-shell">
             <div class="business-subtabs" id="businessPaneTabs"></div>
@@ -1149,6 +1159,9 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
       snapNight: document.getElementById('snapNight'),
       snapDeposit: document.getElementById('snapDeposit'),
       saveBusinessBtn: document.getElementById('saveBusinessBtn'),
+      businessStationSelect: document.getElementById('businessStationSelect'),
+      businessStationMeta: document.getElementById('businessStationMeta'),
+      openStationModalBtn: document.getElementById('openStationModalBtn'),
       businessPaneTabs: document.getElementById('businessPaneTabs'),
       businessPaneNote: document.getElementById('businessPaneNote'),
       stationsLocationsTabs: document.getElementById('stationsLocationsTabs'),
@@ -2713,6 +2726,7 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
         rentalRequirementsBody: document.getElementById('bsRentalRequirementsBody').value.trim(),
         rentalPoliciesBody: document.getElementById('bsRentalPoliciesBody').value.trim(),
         rentalPrivacyBody: document.getElementById('bsRentalPrivacyBody').value.trim(),
+        stationProfiles: effectiveStationProfiles(),
         active: !!document.getElementById('bsActive').checked
       };
       stationSettings[stationKey] = { ...(stationSettings[stationKey] || {}), ...scopedValues };
