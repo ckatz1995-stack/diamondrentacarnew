@@ -2274,11 +2274,13 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
       return rows.map(normalizeStationProfileRow).filter((row, idx, arr) => arr.findIndex((it)=>it.key===row.key) === idx);
     }
     function stationProfilesFromLocations(){
-      const rows = pickupLocationRows().map((item) => normalizeStationProfileRow({
-        stationKey: item.stationKey || item.stationCode || item.station || 'default',
-        stationLabel: item.stationLabel || item.station || 'Κεντρικός σταθμός'
-      }));
-      return rows.filter((row, idx, arr) => arr.findIndex((it)=>it.key===row.key) === idx);
+      const rows = pickupLocationRows().map((item) => {
+        const key = String(item.stationKey || item.stationCode || item.station || '').trim().toLowerCase().replace(/[^a-z0-9_]+/g, '_').replace(/^_+|_+$/g, '');
+        const label = String(item.stationLabel || item.station || '').trim();
+        return key ? { key, label: label || key, description:'' } : null;
+      }).filter(Boolean);
+      return rows
+        .filter((row, idx, arr) => arr.findIndex((it)=>it.key===row.key) === idx);
     }
     function effectiveStationProfiles(){
       const fromBusiness = Array.isArray(state.stationProfiles) && state.stationProfiles.length ? state.stationProfiles : stationProfilesFromBusiness();
