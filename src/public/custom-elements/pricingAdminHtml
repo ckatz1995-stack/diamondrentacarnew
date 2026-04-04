@@ -6,9 +6,9 @@
   <title>Account Settings</title>
   <style>
     :root{
-      --bg:#f5f7fb;
-      --card:#fff;
-      --line:#d9e1ec;
+      --bg:#f2ede3;
+      --card:#fbf7ef;
+      --line:#d9c8ad;
       --text:#16324f;
       --muted:#6f8096;
       --accent:#8e6d3d;
@@ -66,7 +66,7 @@
     .top-icon-btn:hover{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.22);transform:translateY(-1px)}
     .top-icon-btn .dot{width:8px;height:8px;border-radius:999px;background:#22c55e;box-shadow:0 0 0 4px rgba(34,197,94,.18)}
     .hero{display:grid;grid-template-columns:1.6fr 1fr;gap:16px;margin-bottom:16px}
-    .panel{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+    .panel{background:linear-gradient(180deg,#fdfaf4 0%,#f7f1e6 100%);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
     .hero-main{padding:18px 20px}
     .hero-side{padding:18px 20px;display:flex;flex-direction:column;gap:10px}
     .eyebrow{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:700}
@@ -112,7 +112,7 @@
     .section-head h2{margin:0;font-size:22px;letter-spacing:-.02em}
     .section-head p{margin:4px 0 0;color:var(--muted)}
     .actions{display:flex;gap:10px;flex-wrap:wrap}
-    .btn{appearance:none;border:1px solid var(--line);background:#fff;color:var(--text);border-radius:12px;padding:10px 14px;font-weight:700;cursor:pointer}
+    .btn{appearance:none;border:1px solid var(--line);background:#fffaf2;color:var(--text);border-radius:12px;padding:10px 14px;font-weight:700;cursor:pointer}
     .btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
     .btn.good{background:var(--good);border-color:var(--good);color:#fff}
     .btn.warn{background:#fff7ed;border-color:#fed7aa;color:var(--warn)}
@@ -121,7 +121,7 @@
     .grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:14px}
     .field{display:flex;flex-direction:column;gap:6px}
     .field label{font-size:12px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.03em}
-    .field input,.field select,.field textarea{width:100%;padding:11px 12px;border:1px solid var(--line);background:linear-gradient(180deg,#ffffff 0%,#fcfdff 100%);border-radius:14px;color:var(--text);box-shadow:inset 0 1px 0 rgba(255,255,255,.8),0 1px 2px rgba(15,23,42,.02)}
+    .field input,.field select,.field textarea{width:100%;padding:11px 12px;border:1px solid var(--line);background:linear-gradient(180deg,#fffdfa 0%,#f8f2e8 100%);border-radius:14px;color:var(--text);box-shadow:inset 0 1px 0 rgba(255,255,255,.8),0 1px 2px rgba(15,23,42,.02)}
     .field input:focus,.field select:focus,.field textarea:focus{outline:none;border-color:#e2cda6;box-shadow:0 0 0 4px rgba(180,138,79,.10),inset 0 1px 0 rgba(255,255,255,.8)}
     .field textarea{min-height:92px;resize:vertical}
     .col-3{grid-column:span 3}.col-4{grid-column:span 4}.col-5{grid-column:span 5}.col-6{grid-column:span 6}.col-8{grid-column:span 8}.col-12{grid-column:span 12}
@@ -159,10 +159,10 @@
     .table-col-order{display:inline-flex;align-items:center;justify-content:center;min-width:24px;height:24px;padding:0 7px;border-radius:999px;background:#f7f0e5;color:#8e6d3d;font-size:11px;font-weight:900}
     .table-col-empty{padding:12px;border:1px dashed rgba(15,23,42,.12);border-radius:12px;background:#fff;font-size:12px;font-weight:700;color:#64748b;text-align:center}
     .table-col-note{padding:10px 12px;border-top:1px solid #eef2f7;font-size:11px;color:#64748b;font-weight:700;background:#fff}
-    .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:16px;background:#fff}
+    .table-wrap{overflow:auto;border:1px solid var(--line);border-radius:16px;background:#fdfaf4}
     table{width:100%;border-collapse:collapse;min-width:900px}
     th,td{padding:12px 10px;border-bottom:1px solid #eef2f7;text-align:left;vertical-align:top}
-    th{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;background:#fbfdff}
+    th{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;background:#efe4d2}
     .table-wrap table.is-enhanced th{position:relative;user-select:none;background:#fbf8f3;touch-action:none}
     .table-wrap table.is-enhanced th.drag-over{outline:2px dashed #d7b27a;outline-offset:-4px;box-shadow:inset 3px 0 0 #d7b27a}
     .table-wrap table.is-enhanced th.drag-over-after{outline:2px dashed #b48a4f;outline-offset:-4px;box-shadow:inset -3px 0 0 #b48a4f}
@@ -251,11 +251,11 @@
     .access-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
     .overview-grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(320px,.75fr);gap:14px;align-items:start}
     .overview-grid-secondary{display:grid;grid-template-columns:1fr;gap:14px;margin-top:14px}
-    .overview-card{border:1px solid #eadfce;border-radius:22px;background:linear-gradient(180deg,#ffffff 0%,#f9fbff 100%);padding:16px;box-shadow:0 10px 24px rgba(15,23,42,.04)}
+    .overview-card{border:1px solid #d9c8ad;border-radius:22px;background:linear-gradient(180deg,#fdfaf4 0%,#f7f1e6 100%);padding:16px;box-shadow:0 10px 24px rgba(15,23,42,.04)}
     .overview-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:8px}
     .overview-card h3{margin:0;font-size:18px;letter-spacing:-.02em}
     .overview-card p{margin:4px 0 0;color:var(--muted);font-size:12px;line-height:1.45}
-    .overview-primary{background:linear-gradient(180deg,#fbfdff 0%,#f4f8ff 100%)}
+    .overview-primary{background:linear-gradient(180deg,#fdfaf4 0%,#f7f1e6 100%)}
     .overview-status{display:grid;gap:12px}
     .overview-shortcuts{display:grid;gap:12px}
     .overview-status-panels{display:grid;gap:12px}
@@ -296,7 +296,7 @@
     .business-subtab-note{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:8px 12px;border:1px solid #eee3d2;border-radius:14px;background:#fbf8f3;color:var(--muted);font-size:12px;margin-bottom:12px}
     .business-pane{display:none}
     .business-pane.active{display:block}
-    .embedded-manager{display:grid;gap:12px;margin-top:14px;padding-top:14px;border-top:1px solid #e6edf8}
+    .embedded-manager{display:grid;gap:12px;margin-top:14px;padding-top:14px;border-top:1px solid #e4d5bf}
     .embedded-manager-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
     .embedded-manager-head h4{margin:0;font-size:15px}
     .embedded-manager-head p{margin:4px 0 0;color:var(--muted);font-size:12px;max-width:760px}
@@ -1867,7 +1867,9 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
 
     function visibleTabs(){
       const snap = accessSnapshot();
-      if(snap.accessState !== 'ready') return [];
+      if(snap.accessState !== 'ready'){
+        return TAB_DEF.filter(tab => !['security','roles','users','audit'].includes(tab.key));
+      }
       const current = snap.currentStaff || {};
       return TAB_DEF.filter((tab) => {
         if(['security','roles','users'].includes(tab.key)) return !!current.canManageStaff;
@@ -2481,7 +2483,7 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
       if(els.accessSummary){
         els.accessSummary.innerHTML = `<h4>${snap.accessState === 'authRequired' ? 'Backroom login required' : 'Access denied'}</h4><div class="sub" style="font-size:13px">${snap.accessState === 'authRequired' ? 'Για να μπεις στα Business Settings & Preferences πρέπει πρώτα να κάνεις custom login από το Myroom.' : 'Ο χρήστης δεν υπάρχει ως ενεργός staff user ή ο ρόλος του δεν έχει δικαίωμα Pricing / Manage Staff.'}</div><div class="hero-actions" style="margin-top:12px"><button class="btn" id="gateRefreshBtn" data-allow-busy="1">Refresh</button></div>`;
       }
-      els.sections.forEach(sec => sec.style.display = 'none');
+      els.sections.forEach(sec => sec.style.display = '');
       const btn = document.getElementById('gateRefreshBtn');
       if(btn) btn.addEventListener('click', () => { setBusy(true); post('pricingAdminReady', {}); });
     }
