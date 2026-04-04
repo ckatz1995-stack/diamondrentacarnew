@@ -251,7 +251,7 @@ button:hover,.cta:hover,.header-phone:hover{
 
 .grid{
   display:grid;
-  grid-template-columns:1.35fr 1fr .84fr;
+  grid-template-columns:repeat(4,minmax(0,1fr));
   gap:14px;
   margin-bottom:14px
 }
@@ -815,10 +815,13 @@ button:hover,.cta:hover,.header-phone:hover{
           <form id="searchForm">
             <div class="grid">
               <div class="field">
-                <label>Σταθμός & παραλαβή</label>
+                <label>Σταθμός παραλαβής</label>
                 <select id="pickupStation">
                   <option value="default">Κεντρικός σταθμός</option>
                 </select>
+              </div>
+              <div class="field">
+                <label>Σημείο παραλαβής</label>
                 <select id="pickupLocation">
                   <option>Αεροδρόμιο Μακεδονία Θεσσαλονίκη</option>
                   <option>Κέντρο Θεσσαλονίκης</option>
@@ -839,10 +842,13 @@ button:hover,.cta:hover,.header-phone:hover{
 
             <div class="grid">
               <div class="field">
-                <label>Σταθμός & επιστροφή</label>
+                <label>Σταθμός επιστροφής</label>
                 <select id="dropoffStation">
                   <option value="default">Κεντρικός σταθμός</option>
                 </select>
+              </div>
+              <div class="field">
+                <label>Σημείο επιστροφής</label>
                 <select id="dropoffLocation">
                   <option>Αεροδρόμιο Μακεδονία Θεσσαλονίκη</option>
                   <option>Κέντρο Θεσσαλονίκης</option>
