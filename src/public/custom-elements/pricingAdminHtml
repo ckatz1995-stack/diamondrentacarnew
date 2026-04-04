@@ -2803,6 +2803,7 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
         rentalRequirementsBody: document.getElementById('bsRentalRequirementsBody').value.trim(),
         rentalPoliciesBody: document.getElementById('bsRentalPoliciesBody').value.trim(),
         rentalPrivacyBody: document.getElementById('bsRentalPrivacyBody').value.trim(),
+        stationProfiles: effectiveStationProfiles(),
         active: !!document.getElementById('bsActive').checked
       };
       stationSettings[stationKey] = { ...(stationSettings[stationKey] || {}), ...scopedValues };
