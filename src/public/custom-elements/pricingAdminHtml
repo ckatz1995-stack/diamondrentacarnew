@@ -2231,6 +2231,12 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
     }
 
     function businessSettings(){ return state.snapshot?.businessSettings || {}; }
+    function pruneLegacyStationToolbar(){
+      const legacySelect = document.getElementById('businessStationSelect');
+      const legacyMeta = document.getElementById('businessStationMeta');
+      const root = legacySelect?.closest('.table-toolbar') || legacyMeta?.closest('.table-toolbar');
+      if (root) root.remove();
+    }
     function stationSettingsMap(){
       const map = businessSettings()?.stationSettings;
       return (map && typeof map === 'object' && !Array.isArray(map)) ? map : {};
@@ -3477,7 +3483,7 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
       return obj;
     }
 
-    function renderAll(){ renderBackroomHeader(); renderTabs(); renderSections(); renderAccessGate(); renderKpis(); renderHealth(); setBusinessForm(); renderStationWorkspace(); renderStationProfilesTable(); renderVehicleCategoriesTable(); renderFleetVehiclesTable(); renderPickupLocationsTable(); renderDynamicPricingSection(); renderInsuranceTable(); renderExtrasTable(); renderFeesTable(); renderRolesTable(); renderUsersTable(); renderAuditTable(); requestResize(); }
+    function renderAll(){ pruneLegacyStationToolbar(); renderBackroomHeader(); renderTabs(); renderSections(); renderAccessGate(); renderKpis(); renderHealth(); setBusinessForm(); renderStationWorkspace(); renderStationProfilesTable(); renderVehicleCategoriesTable(); renderFleetVehiclesTable(); renderPickupLocationsTable(); renderDynamicPricingSection(); renderInsuranceTable(); renderExtrasTable(); renderFeesTable(); renderRolesTable(); renderUsersTable(); renderAuditTable(); requestResize(); }
 
     function handleMessage(event){
       const data = normalizeMessage(event.data);
