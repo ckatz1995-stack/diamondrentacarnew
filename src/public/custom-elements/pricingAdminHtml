@@ -1908,11 +1908,17 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
       const activeGroup = (tabs.find(tab => tab.key === state.activeSection)?.group) || groups[0] || 'General';
       const activeTabs = grouped[activeGroup] || [];
       els.tabs.innerHTML = `
-        <div class="section-row" style="padding:0;margin:0 0 6px 0">
+        <div class="section-row" style="padding:10px 12px;border:1px solid var(--line);border-radius:16px;background:linear-gradient(180deg,#ffffff 0%,#fbf8f3 100%);display:grid;gap:8px">
+          <div class="group-rail">${groups.map(group => `<button class="group-pill ${group===activeGroup?'active':''}" data-tab-group="${group}">${group}</button>`).join('')}</div>
           <div class="section-rail">${activeTabs.map(tab => `<button class="tab ${state.activeSection === tab.key ? 'active' : ''}" data-tab="${tab.key}">${tab.label}</button>`).join('')}</div>
         </div>`;
       const activate = (key) => { openSectionByKey(key); };
       els.tabs.querySelectorAll('[data-tab]').forEach(btn => btn.addEventListener('click', () => activate(btn.dataset.tab)));
+      els.tabs.querySelectorAll('[data-tab-group]').forEach(btn => btn.addEventListener('click', () => {
+        const group = btn.getAttribute('data-tab-group') || '';
+        const first = (grouped[group] || [])[0];
+        if(first) activate(first.key);
+      }));
       if(state._tabPickerDocHandler){
         document.removeEventListener('click', state._tabPickerDocHandler, true);
         state._tabPickerDocHandler = null;
