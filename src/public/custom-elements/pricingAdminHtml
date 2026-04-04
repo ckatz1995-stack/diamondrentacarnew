@@ -2925,20 +2925,22 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
     }
 
     function renderStationProfilesTable(){
-      const rows = filterList(effectiveStationProfiles(), state.filters.stationProfiles);
+      const rows = filterList(effectiveStationProfiles(), state.filters.stationProfiles)
+        .sort((a, b) => String(a.label || '').localeCompare(String(b.label || ''), 'el'));
       if (els.stationProfilesCount) els.stationProfilesCount.textContent = `${rows.length} stations`;
       if (!els.stationProfilesWrap) return;
       if(!rows.length){ els.stationProfilesWrap.innerHTML = '<div class="empty">Δεν βρέθηκαν σταθμοί.</div>'; return; }
-      els.stationProfilesWrap.innerHTML = `<div class="table-wrap"><table><thead><tr><th>Station</th><th>Description</th><th>Linked locations</th><th>Actions</th></tr></thead><tbody>${rows.map(item => {
+      els.stationProfilesWrap.innerHTML = `<div class="table-wrap"><table><thead><tr><th>Σταθμός</th><th>Description</th><th>Linked locations</th><th>Actions</th></tr></thead><tbody>${rows.map(item => {
         const linked = pickupLocationRows().filter((row) => String(row.stationKey || row.station || 'default').trim().toLowerCase() === String(item.key || '').trim().toLowerCase()).length;
         return `
         <tr>
           <td><strong>${esc(item.label || 'Κεντρικός σταθμός')}</strong><div style="color:var(--muted);font-size:12px">${esc(item.key || 'default')}</div></td>
           <td>${esc(item.description || '—')}</td>
-          <td>${Number(linked || 0)}</td>
-          <td><div class="row-actions"><button class="btn" style="padding:7px 10px;border-radius:10px" data-station-action="edit" data-station-key="${esc(item.key || '')}">Edit</button><button class="btn danger" style="padding:7px 10px;border-radius:10px" data-station-action="delete" data-station-key="${esc(item.key || '')}">Delete</button></div></td>
+          <td>${linked > 0 ? `<span class="badge good">${Number(linked)} linked</span>` : '<span class="badge off">0 linked</span>'}</td>
+          <td><div class="row-actions"><button class="link" data-station-action="edit" data-station-key="${esc(item.key || '')}">Edit</button><button class="link danger" data-station-action="delete" data-station-key="${esc(item.key || '')}">Delete</button></div></td>
         </tr>`;
       }).join('')}</tbody></table></div>`;
+      enhanceTable(els.stationProfilesWrap, 'stationProfiles');
     }
 
     function renderPickupLocationsTable(){
