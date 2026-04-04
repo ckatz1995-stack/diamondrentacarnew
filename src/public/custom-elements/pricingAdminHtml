@@ -2871,12 +2871,12 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
 
     function renderStationsLocationsTabs(){
       const tabs = [
-        { key:'stations', label:'Stations', hint:'Διαχείριση station profiles σε table.' },
-        { key:'locations', label:'Locations', hint:'Pickup/dropoff locations με station φίλτρο.' }
+        { key:'stations', label:'Stations', hint:'Διαχείριση station profiles με πίνακα και ενέργειες επεξεργασίας.' },
+        { key:'locations', label:'Locations', hint:'Pickup/dropoff locations με station φίλτρο, sorting και κατάσταση.' }
       ];
       if (!tabs.some((tab)=>tab.key === state.locationsWorkspaceTab)) state.locationsWorkspaceTab = 'stations';
       if (els.stationsLocationsTabs) {
-        els.stationsLocationsTabs.innerHTML = tabs.map((tab)=>`<button class="business-subtab-btn ${state.locationsWorkspaceTab === tab.key ? 'active' : ''}" data-locations-workspace-tab="${tab.key}">${tab.label}</button>`).join('');
+        els.stationsLocationsTabs.innerHTML = `<div class="business-subtabs-left">${tabs.map((tab)=>`<button class="business-subtab ${state.locationsWorkspaceTab === tab.key ? 'active' : ''}" data-locations-workspace-tab="${tab.key}">${tab.label}</button>`).join('')}</div>`;
       }
       if (els.stationsLocationsNote) {
         const current = tabs.find((tab)=>tab.key === state.locationsWorkspaceTab) || tabs[0];
