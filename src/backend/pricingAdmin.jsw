@@ -12,6 +12,33 @@ function toNumber(value, fallback = 0){ const num = Number(value); return Number
 function readBool(value, fallback = false){ if (typeof value === 'boolean') return value; if (typeof value === 'number') return value !== 0; const t = String(value ?? '').trim().toLowerCase(); if (!t) return fallback; return ['1','true','yes','y','on'].includes(t); }
 function cleanId(value){ const raw = String(value ?? '').trim(); return raw || ''; }
 function slugKey(value){ return String(value ?? '').trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').replace(/_{2,}/g, '_').toLowerCase(); }
+function normalizeStationProfiles(rows = []){
+  const list = Array.isArray(rows) ? rows : [];
+  const out = [];
+  list.forEach((row) => {
+    const key = slugKey(row?.key || row?.stationKey || row?.label || row?.stationLabel || 'default') || 'default';
+    const label = text(row?.label || row?.stationLabel || row?.station || '', 'Κεντρικός σταθμός');
+    const description = text(row?.description || '');
+    const city = text(row?.city || row?.stationCity || '');
+    const address = text(row?.address || row?.stationAddress || '');
+    const sortOrder = toNumber(row?.sortOrder, 9999);
+    const active = readBool(row?.active, true);
+    if (!out.some((it) => it.key === key)) out.push({ key, label, description, city, address, sortOrder, active });
+  });
+  if (!out.length) out.push({ key:'default', label:'Κεντρικός σταθμός', description:'' });
+  return out;
+}
+function normalizeStationSettingsMap(value){
+  const input = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const out = {};
+  Object.keys(input).forEach((rawKey) => {
+    const key = slugKey(rawKey) || 'default';
+    const row = input[rawKey];
+    if (!row || typeof row !== 'object' || Array.isArray(row)) return;
+    out[key] = { ...row };
+  });
+  return out;
+}
 async function queryAllRows(collectionName, includeFields = []){
   try {
     let q = wixData.query(collectionName).limit(1000);
@@ -276,6 +303,8 @@ function normalizePickupLocationItem(payload = {}) {
     label: text(payload.label || payload.title || 'Location'),
     description: text(payload.description),
     locationType: text(payload.locationType || payload.type, 'both') || 'both',
+    stationKey: slugKey(payload.stationKey || payload.stationCode || payload.station || payload.stationLabel || 'default') || 'default',
+    stationLabel: text(payload.stationLabel || payload.station || '', 'Κεντρικός σταθμός'),
     address: text(payload.address),
     mapUrl: text(payload.mapUrl || payload.mapsUrl || payload.googleMapsUrl),
     extraFee: toNumber(payload.extraFee ?? payload.fee ?? payload.price, 0),
@@ -355,6 +384,8 @@ export async function saveBusinessSettings({ authToken, payload = {} } = {}){
     rentalRequirementsBody: text(payload.rentalRequirementsBody),
     rentalPoliciesBody: text(payload.rentalPoliciesBody),
     rentalPrivacyBody: text(payload.rentalPrivacyBody),
+    stationProfiles: normalizeStationProfiles(payload.stationProfiles),
+    stationSettings: normalizeStationSettingsMap(payload.stationSettings),
     active: readBool(payload.active, true)
   };
   const saved = item._id ? await wixData.update(PRICING_COLLECTIONS.businessSettings, item) : await wixData.insert(PRICING_COLLECTIONS.businessSettings, item);
