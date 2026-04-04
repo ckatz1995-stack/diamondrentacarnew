@@ -1083,16 +1083,22 @@ function stationKeyForRow(row){ return normalizeKey(row?.stationKey || row?.stat
 function stationLabelForRow(row){ return String(row?.stationLabel || row?.station || row?.groupLabel || row?.hubLabel || row?.hub || 'Κεντρικός σταθμός').trim() || 'Κεντρικός σταθμός'; }
 function populateLocationSelectsFromCatalog(){
   const rows = Array.isArray(pricingCatalog?.pickupLocations) ? pricingCatalog.pickupLocations.filter((row)=>row && row.active !== false && row.publicVisible !== false) : [];
-  if(!rows.length) return;
+  const stationProfiles = Array.isArray(pricingCatalog?.businessSettings?.stationProfiles) ? pricingCatalog.businessSettings.stationProfiles : [];
   const pickupStationSelect = document.getElementById('pickupStation');
   const dropoffStationSelect = document.getElementById('dropoffStation');
   const pickupSelect = document.getElementById('pickupLocation');
   const dropoffSelect = document.getElementById('dropoffLocation');
+  if (!pickupStationSelect || !dropoffStationSelect || !pickupSelect || !dropoffSelect) return;
   const pickupCurrent = pickupSelect.value;
   const dropoffCurrent = dropoffSelect.value;
   const pickupStationCurrent = pickupStationSelect.value;
   const dropoffStationCurrent = dropoffStationSelect.value;
-  const stationRows = Array.from(new Map(rows.map((row)=>[stationKeyForRow(row), { key: stationKeyForRow(row), label: stationLabelForRow(row) }])).values());
+  const stationSource = [
+    ...stationProfiles.map((row)=>({ stationKey: row?.key || row?.stationKey || 'default', stationLabel: row?.label || row?.stationLabel || 'Κεντρικός σταθμός' })),
+    ...rows
+  ];
+  const stationRows = Array.from(new Map(stationSource.map((row)=>[stationKeyForRow(row), { key: stationKeyForRow(row), label: stationLabelForRow(row) }])).values());
+  if (!stationRows.some((row)=>row.key === 'default')) stationRows.unshift({ key:'default', label:'Κεντρικός σταθμός' });
   const stationOptions = stationRows.map((row)=>`<option value="${String(row.key).replace(/"/g,'&quot;')}">${String(row.label)}</option>`).join('');
   pickupStationSelect.innerHTML = stationOptions;
   dropoffStationSelect.innerHTML = stationOptions;
@@ -1102,10 +1108,10 @@ function populateLocationSelectsFromCatalog(){
   const build = (type, stationKey) => rows.filter((row)=>{ const t = normalizeKey(row.locationType || 'both') || 'both'; return (t === 'both' || t === type) && stationKeyForRow(row) === stationKey; });
   const updateLocationsFor = (type, stationSelect, locationSelect, currentValue) => {
     const stationKey = stationSelect.value || 'default';
-    let filtered = build(type, stationKey);
-    if (!filtered.length) filtered = rows.filter((row)=>{ const t = normalizeKey(row.locationType || 'both') || 'both'; return t === 'both' || t === type; });
+    const filtered = build(type, stationKey);
     locationSelect.innerHTML = filtered.map((row)=>`<option value="${String(row.label || row.key || '').replace(/"/g,'&quot;')}">${String(row.label || row.key || '')}</option>`).join('');
     if([...locationSelect.options].some((opt)=>opt.value===currentValue)) locationSelect.value = currentValue;
+    else if (locationSelect.options.length) locationSelect.selectedIndex = 0;
   };
   updateLocationsFor('pickup', pickupStationSelect, pickupSelect, pickupCurrent);
   updateLocationsFor('dropoff', dropoffStationSelect, dropoffSelect, dropoffCurrent);

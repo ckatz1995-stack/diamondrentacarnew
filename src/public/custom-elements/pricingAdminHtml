@@ -2228,6 +2228,27 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
       const map = businessSettings()?.stationSettings;
       return (map && typeof map === 'object' && !Array.isArray(map)) ? map : {};
     }
+    function setStationSettingsMap(next){
+      const currentSettings = businessSettings();
+      const normalized = (next && typeof next === 'object' && !Array.isArray(next)) ? next : {};
+      state.snapshot.businessSettings = { ...(currentSettings || {}), stationSettings: normalized };
+    }
+    function renameStationSettingsKey(fromKey, toKey){
+      const from = String(fromKey || '').trim().toLowerCase();
+      const to = String(toKey || '').trim().toLowerCase();
+      if (!from || !to || from === to) return;
+      const map = { ...(stationSettingsMap() || {}) };
+      if (map[from] && !map[to]) map[to] = { ...map[from] };
+      delete map[from];
+      setStationSettingsMap(map);
+    }
+    function removeStationSettingsKey(key){
+      const target = String(key || '').trim().toLowerCase();
+      if (!target) return;
+      const map = { ...(stationSettingsMap() || {}) };
+      delete map[target];
+      setStationSettingsMap(map);
+    }
     function normalizeStationProfileRow(row = {}){
       const key = String(row.key || row.stationKey || '').trim().toLowerCase().replace(/[^a-z0-9_]+/g, '_').replace(/^_+|_+$/g, '') || 'default';
       const label = String(row.label || row.stationLabel || row.station || '').trim() || 'Κεντρικός σταθμός';
@@ -3493,6 +3514,7 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
       const hasLocations = pickupLocationRows().some((row) => String(row.stationKey || row.station || 'default').trim().toLowerCase() === stationKey);
       if (hasLocations) { showToast('Υπάρχουν locations στον σταθμό. Μετέφερέ τα πρώτα σε άλλο station.', 'error'); return; }
       state.stationProfiles = effectiveStationProfiles().filter((row) => row.key !== stationKey);
+      removeStationSettingsKey(stationKey);
       state.locationStationScope = 'all';
       renderStationWorkspace();
       renderPickupLocationsTable();
@@ -3560,6 +3582,7 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
         if (mode === 'edit' && originalKey && originalKey !== next.key) {
           const hasLocations = pickupLocationRows().some((row) => String(row.stationKey || row.station || 'default').trim().toLowerCase() === originalKey);
           if (hasLocations) { showToast('Δεν γίνεται rename station key όταν υπάρχουν locations. Μετέφερε πρώτα τα locations.', 'error'); return; }
+          renameStationSettingsKey(originalKey, next.key);
           state.stationProfiles = effectiveStationProfiles().filter((row) => row.key !== originalKey);
         }
         upsertStationProfileLocal(next);
