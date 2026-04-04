@@ -1894,7 +1894,9 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
 
     function visibleTabs(){
       const snap = accessSnapshot();
-      if(snap.accessState !== 'ready') return [];
+      if(snap.accessState !== 'ready'){
+        return TAB_DEF.filter(tab => !['security','roles','users','audit'].includes(tab.key));
+      }
       const current = snap.currentStaff || {};
       return TAB_DEF.filter((tab) => {
         if(['security','roles','users'].includes(tab.key)) return !!current.canManageStaff;
@@ -2566,7 +2568,7 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
       if(els.accessSummary){
         els.accessSummary.innerHTML = `<h4>${snap.accessState === 'authRequired' ? 'Backroom login required' : 'Access denied'}</h4><div class="sub" style="font-size:13px">${snap.accessState === 'authRequired' ? 'Για να μπεις στα Business Settings & Preferences πρέπει πρώτα να κάνεις custom login από το Myroom.' : 'Ο χρήστης δεν υπάρχει ως ενεργός staff user ή ο ρόλος του δεν έχει δικαίωμα Pricing / Manage Staff.'}</div><div class="hero-actions" style="margin-top:12px"><button class="btn" id="gateRefreshBtn" data-allow-busy="1">Refresh</button></div>`;
       }
-      els.sections.forEach(sec => sec.style.display = 'none');
+      els.sections.forEach(sec => sec.style.display = '');
       const btn = document.getElementById('gateRefreshBtn');
       if(btn) btn.addEventListener('click', () => { setBusy(true); post('pricingAdminReady', {}); });
     }
