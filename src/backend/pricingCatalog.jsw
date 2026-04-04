@@ -50,6 +50,8 @@ const DEFAULT_BUSINESS_SETTINGS = bookingConfig?.DEFAULT_BUSINESS_SETTINGS || {
   rentalRequirementsBody: 'Ο κύριος οδηγός οφείλει να διαθέτει ισχύουσα άδεια οδήγησης, ταυτότητα ή διαβατήριο και κάρτα ή άλλο μέσο πληρωμής αποδεκτό από την εταιρία. Ελάχιστη ηλικία, έτη κατοχής διπλώματος, εγγύηση και τυχόν επασφάλιστρα εξαρτώνται από την κατηγορία οχήματος και την τελική επιβεβαίωση της κράτησης.',
   rentalPoliciesBody: 'Η πολιτική καυσίμου, οι ώρες παράδοσης και παραλαβής, οι χρεώσεις εκτός ωραρίου, οι ακυρώσεις, οι καθυστερήσεις και οι όροι επέκτασης της μίσθωσης επιβεβαιώνονται πριν την παράδοση. Τυχόν ζημιές, πρόστιμα, απώλειες εξοπλισμού ή χρήση του οχήματος κατά παράβαση των συμφωνημένων όρων βαρύνουν τον ενοικιαστή σύμφωνα με την τελική σύμβαση.',
   rentalPrivacyBody: 'Τα προσωπικά δεδομένα χρησιμοποιούνται αποκλειστικά για την εξυπηρέτηση της κράτησης, την επικοινωνία με τον πελάτη και την εκπλήρωση νομικών ή φορολογικών υποχρεώσεων της εταιρίας. Για ειδικά αιτήματα, διορθώσεις στοιχείων ή απορίες σχετικά με την επεξεργασία δεδομένων, ο πελάτης μπορεί να επικοινωνεί με την εταιρία στα διαθέσιμα στοιχεία επικοινωνίας.',
+  stationProfiles: [{ key:'default', label:'Κεντρικός σταθμός', description:'' }],
+  stationSettings: {},
   active: true
 };
 const FALLBACK_INSURANCE_OPTIONS = Array.isArray(bookingConfig?.INSURANCE_OPTIONS) && bookingConfig.INSURANCE_OPTIONS.length ? bookingConfig.INSURANCE_OPTIONS : [
@@ -73,6 +75,29 @@ const FALLBACK_FEE_RULES = Array.isArray(bookingConfig?.FEE_RULES) && bookingCon
 ];
 
 function normalizeKey(value){ return text(value, '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '').replace(/_{2,}/g, '_').toLowerCase(); }
+function normalizeStationProfiles(rows = []){
+  const list = Array.isArray(rows) ? rows : [];
+  const out = [];
+  list.forEach((row) => {
+    const key = normalizeKey(row?.key || row?.stationKey || row?.label || row?.stationLabel || 'default') || 'default';
+    const label = text(row?.label || row?.stationLabel || row?.station || '', 'Κεντρικός σταθμός');
+    const description = text(row?.description || '');
+    if (!out.some((it) => it.key === key)) out.push({ key, label, description });
+  });
+  if (!out.some((it) => it.key === 'default')) out.unshift({ key:'default', label:'Κεντρικός σταθμός', description:'' });
+  return out;
+}
+function normalizeStationSettingsMap(value){
+  const input = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  const out = {};
+  Object.keys(input).forEach((rawKey) => {
+    const key = normalizeKey(rawKey) || 'default';
+    const row = input[rawKey];
+    if (!row || typeof row !== 'object' || Array.isArray(row)) return;
+    out[key] = { ...row };
+  });
+  return out;
+}
 
 function normalizeBusinessSettings(item){
   const vatRate = toNumber(item?.vatRate, DEFAULT_BUSINESS_SETTINGS.vatRate);
@@ -113,6 +138,8 @@ function normalizeBusinessSettings(item){
     rentalRequirementsBody: text(item?.rentalRequirementsBody, DEFAULT_BUSINESS_SETTINGS.rentalRequirementsBody),
     rentalPoliciesBody: text(item?.rentalPoliciesBody, DEFAULT_BUSINESS_SETTINGS.rentalPoliciesBody),
     rentalPrivacyBody: text(item?.rentalPrivacyBody, DEFAULT_BUSINESS_SETTINGS.rentalPrivacyBody),
+    stationProfiles: normalizeStationProfiles(item?.stationProfiles),
+    stationSettings: normalizeStationSettingsMap(item?.stationSettings),
     dailyRateLabel: text(item?.dailyRateLabel, ''),
     daysLabel: text(item?.daysLabel, ''),
     bookingSummaryLabel: text(item?.bookingSummaryLabel, ''),
@@ -173,6 +200,8 @@ function normalizePickupLocation(item, fallbackSort = 9999){
     description: text(item?.description, ''),
     locationType: text(item?.locationType || item?.type, 'both') || 'both',
     address: text(item?.address, ''),
+    stationKey: normalizeKey(item?.stationKey || item?.stationCode || item?.station || item?.hub || item?.group || 'default') || 'default',
+    stationLabel: text(item?.stationLabel || item?.station || item?.hubLabel || item?.hub || item?.groupLabel || item?.group, 'Κεντρικός σταθμός') || 'Κεντρικός σταθμός',
     mapUrl: text(item?.mapUrl || item?.mapsUrl || item?.googleMapsUrl, ''),
     extraFee: toNumber(item?.extraFee ?? item?.fee ?? item?.price, 0),
     active: readBool(item?.active, true),
