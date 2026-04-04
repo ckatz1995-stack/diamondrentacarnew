@@ -2286,8 +2286,21 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
       stationProfilesFromLocations().forEach((row) => {
         if (!merged.some((it) => it.key === row.key)) merged.push(row);
       });
-      if (!merged.some((it) => it.key === 'default')) merged.unshift({ key:'default', label:'Κεντρικός σταθμός', description:'' });
+      if (!merged.length) merged.push({ key:'default', label:'Κεντρικός σταθμός', description:'' });
       return merged;
+    }
+    function migratePickupLocationsStation(fromKey, toKey, toLabel = ''){
+      const from = String(fromKey || '').trim().toLowerCase();
+      const to = String(toKey || '').trim().toLowerCase();
+      if (!from || !to || from === to) return;
+      const label = String(toLabel || '').trim();
+      const rows = pickupLocationRows();
+      rows.forEach((row) => {
+        const rowKey = String(row.stationKey || row.station || 'default').trim().toLowerCase();
+        if (rowKey !== from) return;
+        row.stationKey = to;
+        if (label) row.stationLabel = label;
+      });
     }
     function stationScopedBusinessSettings(){
       const key = String(state.activeBusinessStationKey || 'default');
@@ -3335,6 +3348,18 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
         if(maxInput) maxInput.addEventListener('input', syncCustomPreset);
         syncCategoryId();
         syncCustomPreset();
+        return;
+      }
+      if(kind === 'pickupLocation'){
+        const stationSelect = els.editorGrid.querySelector('[data-station-profile-select]');
+        const stationLabelInput = els.editorGrid.querySelector('[data-field="stationLabel"]');
+        const syncStationLabel = () => {
+          const selectedKey = String(stationSelect?.value || '').trim().toLowerCase();
+          const match = effectiveStationProfiles().find((row) => row.key === selectedKey);
+          if (stationLabelInput) stationLabelInput.value = match?.label || '';
+        };
+        if (stationSelect) stationSelect.addEventListener('change', syncStationLabel);
+        syncStationLabel();
       }
     }
 
@@ -3432,12 +3457,16 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
       }
 
       if(kind === 'pickupLocation'){
+        const profiles = effectiveStationProfiles();
+        const stationKey = String(item.stationKey || item.station || profiles[0]?.key || 'default').trim().toLowerCase();
+        const selectedStation = profiles.find((row) => row.key === stationKey) || profiles[0] || { key:'default', label:'Κεντρικός σταθμός' };
+        const stationOptions = profiles.map((row) => `<option value="${esc(row.key)}" ${row.key === selectedStation.key ? 'selected' : ''}>${esc(row.label)} (${esc(row.key)})</option>`).join('');
         return `
           <div class="field col-4"><label>Key</label><input data-field="key" value="${esc(item.key || '')}" placeholder="airport_thessaloniki" /></div>
           <div class="field col-4"><label>Label</label><input data-field="label" value="${esc(item.label || '')}" placeholder="Αεροδρόμιο Θεσσαλονίκης" /></div>
           <div class="field col-4"><label>Sort order</label><input data-field="sortOrder" type="number" step="1" value="${Number(item.sortOrder || 0)}" /></div>
-          <div class="field col-4"><label>Station key</label><input data-field="stationKey" value="${esc(item.stationKey || 'default')}" placeholder="airport" /></div>
-          <div class="field col-4"><label>Station label</label><input data-field="stationLabel" value="${esc(item.stationLabel || item.station || '')}" placeholder="Αεροδρόμιο" /></div>
+          <div class="field col-4"><label>Station</label><select data-field="stationKey" data-station-profile-select="1">${stationOptions}</select></div>
+          <div class="field col-4"><label>Station label</label><input data-field="stationLabel" value="${esc(selectedStation.label || item.stationLabel || item.station || '')}" readonly /></div>
           <div class="field col-4"><label>Type</label><select data-field="locationType"><option value="pickup" ${item.locationType === 'pickup' ? 'selected' : ''}>pickup only</option><option value="dropoff" ${item.locationType === 'dropoff' ? 'selected' : ''}>dropoff only</option><option value="both" ${(!item.locationType || item.locationType === 'both') ? 'selected' : ''}>both</option></select></div>
           <div class="field col-4"><label>Extra fee</label><input data-field="extraFee" type="number" step="0.01" value="${Number(item.extraFee || 0)}" /></div>
           <div class="field col-4"><label>Map URL</label><input data-field="mapUrl" value="${esc(item.mapUrl || '')}" placeholder="https://maps.google.com/..." /></div>
@@ -3620,9 +3649,8 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
         const mode = state.stationModal?.mode || 'create';
         const originalKey = String(state.stationModal?.originalKey || '');
         if (mode === 'edit' && originalKey && originalKey !== next.key) {
-          const hasLocations = pickupLocationRows().some((row) => String(row.stationKey || row.station || 'default').trim().toLowerCase() === originalKey);
-          if (hasLocations) { showToast('Δεν γίνεται rename station key όταν υπάρχουν locations. Μετέφερε πρώτα τα locations.', 'error'); return; }
           renameStationSettingsKey(originalKey, next.key);
+          migratePickupLocationsStation(originalKey, next.key, next.label);
           state.stationProfiles = effectiveStationProfiles().filter((row) => row.key !== originalKey);
         }
         upsertStationProfileLocal(next);

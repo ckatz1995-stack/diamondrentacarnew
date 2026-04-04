@@ -84,7 +84,7 @@ function normalizeStationProfiles(rows = []){
     const description = text(row?.description || '');
     if (!out.some((it) => it.key === key)) out.push({ key, label, description });
   });
-  if (!out.some((it) => it.key === 'default')) out.unshift({ key:'default', label:'Κεντρικός σταθμός', description:'' });
+  if (!out.length) out.push({ key:'default', label:'Κεντρικός σταθμός', description:'' });
   return out;
 }
 function normalizeStationSettingsMap(value){
