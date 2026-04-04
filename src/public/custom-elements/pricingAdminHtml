@@ -528,7 +528,7 @@
         <div class="section-head">
           <div>
             <h2>Business settings</h2>
-            <p>Γενικές εταιρικές ρυθμίσεις, front configuration και βασικά operational δεδομένα που τροφοδοτούν live το front booking UI.</p>
+            <p>Βασικές ρυθμίσεις business και διαχείριση σταθμών/τοποθεσιών.</p>
           </div>
           <div class="actions">
             <button class="btn warn" id="resetBusinessDefaultsBtn" data-allow-busy="1">Reset defaults</button>
@@ -548,7 +548,7 @@
         <div class="business-shell">
           <div class="business-pane-shell">
             <div class="business-subtabs" id="businessPaneTabs"></div>
-            <div class="business-subtab-note" id="businessPaneNote"></div>
+            <div class="business-subtab-note" id="businessPaneNote" style="display:none"></div>
             <div class="settings-stack">
               <div class="settings-group business-pane active" id="group-frontBrand" data-group-anchor="frontBrand" data-business-pane="frontBrand">
                 <div class="settings-group-head">
@@ -604,18 +604,16 @@
                 <div class="settings-group-head">
                   <div>
                     <h3>3. Stations / Locations</h3>
-                    <p>Τοποθεσίες παραλαβής και επιστροφής για το front booking flow, με ομαδοποίηση ανά σταθμό, fees, order και ενεργοποίηση ανά σημείο.</p>
                   </div>
                   <div class="settings-group-badge">Stations &amp; Locations</div>
                 </div>
                 <div class="business-subtabs" id="stationsLocationsTabs"></div>
-                <div class="business-subtab-note" id="stationsLocationsNote"></div>
+                <div class="business-subtab-note" id="stationsLocationsNote" style="display:none"></div>
 
                 <div class="embedded-manager" id="stationsWorkspacePane" style="margin-bottom:12px">
                   <div class="embedded-manager-head">
                     <div>
                       <h4>Stations</h4>
-                      <p>Διαχείριση station profiles με πίνακα, όπως στο locations workspace.</p>
                     </div>
                     <div class="actions">
                       <button class="btn primary" id="addStationProfileBtn" type="button">Νέος σταθμός</button>
