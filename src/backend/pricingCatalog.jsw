@@ -82,7 +82,11 @@ function normalizeStationProfiles(rows = []){
     const key = normalizeKey(row?.key || row?.stationKey || row?.label || row?.stationLabel || 'default') || 'default';
     const label = text(row?.label || row?.stationLabel || row?.station || '', 'Κεντρικός σταθμός');
     const description = text(row?.description || '');
-    if (!out.some((it) => it.key === key)) out.push({ key, label, description });
+    const city = text(row?.city || row?.stationCity || '');
+    const address = text(row?.address || row?.stationAddress || '');
+    const sortOrder = toNumber(row?.sortOrder, 9999);
+    const active = readBool(row?.active, true);
+    if (!out.some((it) => it.key === key)) out.push({ key, label, description, city, address, sortOrder, active });
   });
   if (!out.length) out.push({ key:'default', label:'Κεντρικός σταθμός', description:'' });
   return out;

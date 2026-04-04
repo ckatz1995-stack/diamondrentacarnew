@@ -618,7 +618,7 @@
                       <p>Διαχείριση station profiles με πίνακα, όπως στο locations workspace.</p>
                     </div>
                     <div class="actions">
-                      <button class="btn" id="addStationProfileBtn" type="button">Νέος σταθμός</button>
+                      <button class="btn primary" id="addStationProfileBtn" type="button">Νέος σταθμός</button>
                     </div>
                   </div>
                   <div class="toolbar">
@@ -1053,8 +1053,12 @@
       <div class="modal-body">
         <div class="grid">
           <div class="field col-4"><label>Station key</label><input id="stationProfileKey" placeholder="airport" /></div>
-          <div class="field col-8"><label>Station label</label><input id="stationProfileLabel" placeholder="Αεροδρόμιο" /></div>
+          <div class="field col-5"><label>Station label</label><input id="stationProfileLabel" placeholder="Αεροδρόμιο" /></div>
+          <div class="field col-3"><label>Sort order</label><input id="stationProfileSortOrder" type="number" step="1" value="9999" /></div>
+          <div class="field col-4"><label>City</label><input id="stationProfileCity" placeholder="Thessaloniki" /></div>
+          <div class="field col-8"><label>Address</label><input id="stationProfileAddress" placeholder="Address / σημείο σταθμού" /></div>
           <div class="field col-12"><label>Description</label><textarea id="stationProfileDescription" placeholder="Προαιρετική περιγραφή σταθμού"></textarea></div>
+          <div class="field col-3 switch"><input id="stationProfileActive" type="checkbox" checked /><label for="stationProfileActive">Active</label></div>
         </div>
       </div>
       <div class="modal-foot">
@@ -1298,7 +1302,11 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
       stationProfileSub: document.getElementById('stationProfileSub'),
       stationProfileKey: document.getElementById('stationProfileKey'),
       stationProfileLabel: document.getElementById('stationProfileLabel'),
+      stationProfileSortOrder: document.getElementById('stationProfileSortOrder'),
+      stationProfileCity: document.getElementById('stationProfileCity'),
+      stationProfileAddress: document.getElementById('stationProfileAddress'),
       stationProfileDescription: document.getElementById('stationProfileDescription'),
+      stationProfileActive: document.getElementById('stationProfileActive'),
       closeStationProfileBtn: document.getElementById('closeStationProfileBtn'),
       cancelStationProfileBtn: document.getElementById('cancelStationProfileBtn'),
       saveStationProfileBtn: document.getElementById('saveStationProfileBtn'),
@@ -2266,7 +2274,11 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
       const key = String(row.key || row.stationKey || '').trim().toLowerCase().replace(/[^a-z0-9_]+/g, '_').replace(/^_+|_+$/g, '') || 'default';
       const label = String(row.label || row.stationLabel || row.station || '').trim() || 'Κεντρικός σταθμός';
       const description = String(row.description || '').trim();
-      return { key, label, description };
+      const city = String(row.city || row.stationCity || '').trim();
+      const address = String(row.address || row.stationAddress || '').trim();
+      const sortOrder = Number.isFinite(Number(row.sortOrder)) ? Number(row.sortOrder) : 9999;
+      const active = row.active !== false;
+      return { key, label, description, city, address, sortOrder, active };
     }
     function stationProfilesFromBusiness(){
       const source = businessSettings()?.stationProfiles;
@@ -2846,7 +2858,7 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
     function filterList(list, text, extraFn){
       const q = String(text || '').trim().toLowerCase();
       return list.filter(item => {
-        const match = !q || [item.key, item.label, item.title, item.displayTitle, item.description, item.ruleType, item.audienceGroup, item.category, item.categoryCode, item.seasonKey, item.transmission, item.fuelType, item.plate, item.model, item.address, item.locationType, item.stationKey, item.stationLabel, item.station].some(v => String(v || '').toLowerCase().includes(q));
+        const match = !q || [item.key, item.label, item.title, item.displayTitle, item.description, item.ruleType, item.audienceGroup, item.category, item.categoryCode, item.seasonKey, item.transmission, item.fuelType, item.plate, item.model, item.address, item.city, item.locationType, item.stationKey, item.stationLabel, item.station].some(v => String(v || '').toLowerCase().includes(q));
         return match && (!extraFn || extraFn(item));
       });
     }
@@ -2926,17 +2938,20 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
 
     function renderStationProfilesTable(){
       const rows = filterList(effectiveStationProfiles(), state.filters.stationProfiles)
-        .sort((a, b) => String(a.label || '').localeCompare(String(b.label || ''), 'el'));
+        .sort((a, b) => Number(a.sortOrder || 9999) - Number(b.sortOrder || 9999) || String(a.label || '').localeCompare(String(b.label || ''), 'el'));
       if (els.stationProfilesCount) els.stationProfilesCount.textContent = `${rows.length} stations`;
       if (!els.stationProfilesWrap) return;
       if(!rows.length){ els.stationProfilesWrap.innerHTML = '<div class="empty">Δεν βρέθηκαν σταθμοί.</div>'; return; }
-      els.stationProfilesWrap.innerHTML = `<div class="table-wrap"><table><thead><tr><th>Σταθμός</th><th>Description</th><th>Linked locations</th><th>Actions</th></tr></thead><tbody>${rows.map(item => {
+      els.stationProfilesWrap.innerHTML = `<div class="table-wrap"><table><thead><tr><th>Σταθμός</th><th>City / Address</th><th>Description</th><th>Linked locations</th><th>Status</th><th>Sort</th><th>Actions</th></tr></thead><tbody>${rows.map(item => {
         const linked = pickupLocationRows().filter((row) => String(row.stationKey || row.station || 'default').trim().toLowerCase() === String(item.key || '').trim().toLowerCase()).length;
         return `
         <tr>
           <td><strong>${esc(item.label || 'Κεντρικός σταθμός')}</strong><div style="color:var(--muted);font-size:12px">${esc(item.key || 'default')}</div></td>
+          <td>${esc(item.city || '—')}<div style="color:var(--muted);font-size:12px">${esc(item.address || '—')}</div></td>
           <td>${esc(item.description || '—')}</td>
           <td>${linked > 0 ? `<span class="badge good">${Number(linked)} linked</span>` : '<span class="badge off">0 linked</span>'}</td>
+          <td>${item.active !== false ? '<span class="badge good">Active</span>' : '<span class="badge off">Inactive</span>'}</td>
+          <td>${Number(item.sortOrder || 9999)}</td>
           <td><div class="row-actions"><button class="link" data-station-action="edit" data-station-key="${esc(item.key || '')}">Edit</button><button class="link danger" data-station-action="delete" data-station-key="${esc(item.key || '')}">Delete</button></div></td>
         </tr>`;
       }).join('')}</tbody></table></div>`;
@@ -3544,7 +3559,11 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
       if (els.stationProfileSub) els.stationProfileSub.textContent = mode === 'edit' ? 'Αλλαγή βασικών στοιχείων station profile.' : 'Δημιουργία νέου station profile για station-first ρυθμίσεις.';
       if (els.stationProfileKey) els.stationProfileKey.value = String(existing?.key || '');
       if (els.stationProfileLabel) els.stationProfileLabel.value = String(existing?.label || '');
+      if (els.stationProfileSortOrder) els.stationProfileSortOrder.value = String(Number(existing?.sortOrder ?? 9999));
+      if (els.stationProfileCity) els.stationProfileCity.value = String(existing?.city || '');
+      if (els.stationProfileAddress) els.stationProfileAddress.value = String(existing?.address || '');
       if (els.stationProfileDescription) els.stationProfileDescription.value = String(existing?.description || '');
+      if (els.stationProfileActive) els.stationProfileActive.checked = existing?.active !== false;
       if (els.deleteStationProfileModalBtn) els.deleteStationProfileModalBtn.style.display = mode === 'edit' ? '' : 'none';
       if (els.stationProfileOverlay) els.stationProfileOverlay.classList.add('show');
     }
@@ -3558,14 +3577,18 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
       return normalizeStationProfileRow({
         key: els.stationProfileKey?.value || '',
         label: els.stationProfileLabel?.value || '',
-        description: els.stationProfileDescription?.value || ''
+        sortOrder: els.stationProfileSortOrder?.value || 9999,
+        city: els.stationProfileCity?.value || '',
+        address: els.stationProfileAddress?.value || '',
+        description: els.stationProfileDescription?.value || '',
+        active: !!els.stationProfileActive?.checked
       });
     }
 
     function upsertStationProfileLocal(next){
       const normalized = normalizeStationProfileRow(next || {});
       const rows = [...effectiveStationProfiles().filter((row) => row.key !== normalized.key), normalized];
-      state.stationProfiles = rows.sort((a, b) => String(a.label || '').localeCompare(String(b.label || ''), 'el'));
+      state.stationProfiles = rows.sort((a, b) => Number(a.sortOrder || 9999) - Number(b.sortOrder || 9999) || String(a.label || '').localeCompare(String(b.label || ''), 'el'));
       state.locationStationScope = normalized.key;
       renderStationWorkspace();
       renderStationProfilesTable();
