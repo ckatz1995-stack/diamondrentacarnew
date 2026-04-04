@@ -606,7 +606,7 @@
                     <h3>3. Stations / Locations</h3>
                     <p>Τοποθεσίες παραλαβής και επιστροφής για το front booking flow, με ομαδοποίηση ανά σταθμό, fees, order και ενεργοποίηση ανά σημείο.</p>
                   </div>
-                  <div class="settings-group-badge">Pickup / Dropoff</div>
+                  <div class="settings-group-badge">Stations &amp; Locations</div>
                 </div>
                 <div class="business-subtabs" id="stationsLocationsTabs"></div>
                 <div class="business-subtab-note" id="stationsLocationsNote"></div>
@@ -2870,9 +2870,11 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
 
 
     function renderStationsLocationsTabs(){
+      const stationCount = effectiveStationProfiles().length;
+      const locationCount = pickupLocationRows().length;
       const tabs = [
-        { key:'stations', label:'Stations', hint:'Διαχείριση station profiles με πίνακα και ενέργειες επεξεργασίας.' },
-        { key:'locations', label:'Locations', hint:'Pickup/dropoff locations με station φίλτρο, sorting και κατάσταση.' }
+        { key:'stations', label:`Σταθμοί (${stationCount})`, short:'Σταθμοί', hint:'Διαχείριση station profiles με πίνακα και ενέργειες επεξεργασίας.' },
+        { key:'locations', label:`Τοποθεσίες (${locationCount})`, short:'Τοποθεσίες', hint:'Pickup/dropoff locations με station φίλτρο, sorting και κατάσταση.' }
       ];
       if (!tabs.some((tab)=>tab.key === state.locationsWorkspaceTab)) state.locationsWorkspaceTab = 'stations';
       if (els.stationsLocationsTabs) {
@@ -2880,7 +2882,7 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
       }
       if (els.stationsLocationsNote) {
         const current = tabs.find((tab)=>tab.key === state.locationsWorkspaceTab) || tabs[0];
-        els.stationsLocationsNote.textContent = current.hint;
+        els.stationsLocationsNote.innerHTML = `<span>${current.hint}</span><strong>${current.short}</strong>`;
       }
       if (els.stationsWorkspacePane) els.stationsWorkspacePane.style.display = state.locationsWorkspaceTab === 'stations' ? '' : 'none';
       if (els.locationsWorkspacePane) els.locationsWorkspacePane.style.display = state.locationsWorkspaceTab === 'locations' ? '' : 'none';
@@ -2913,7 +2915,7 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
           <td><strong>${esc(item.label || 'Κεντρικός σταθμός')}</strong><div style="color:var(--muted);font-size:12px">${esc(item.key || 'default')}</div></td>
           <td>${esc(item.description || '—')}</td>
           <td>${Number(linked || 0)}</td>
-          <td><div class="row-actions"><button class="link" data-station-action="edit" data-station-key="${esc(item.key || '')}">Edit</button><button class="link danger" data-station-action="delete" data-station-key="${esc(item.key || '')}">Delete</button></div></td>
+          <td><div class="row-actions"><button class="btn" style="padding:7px 10px;border-radius:10px" data-station-action="edit" data-station-key="${esc(item.key || '')}">Edit</button><button class="btn danger" style="padding:7px 10px;border-radius:10px" data-station-action="delete" data-station-key="${esc(item.key || '')}">Delete</button></div></td>
         </tr>`;
       }).join('')}</tbody></table></div>`;
     }
