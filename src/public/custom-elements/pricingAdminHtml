@@ -1898,70 +1898,15 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
       const tabs = visibleTabs();
       if(!tabs.some(tab => tab.key === state.activeSection)) state.activeSection = tabs[0]?.key || 'settingsHome';
       persistSettingsWorkspace();
-      const grouped = tabs.reduce((acc, tab) => {
-        const key = tab.group || 'General';
-        if(!acc[key]) acc[key] = [];
-        acc[key].push(tab);
-        return acc;
-      }, {});
-      const groups = Object.keys(grouped);
-      const activeGroup = (tabs.find(tab => tab.key === state.activeSection)?.group) || groups[0] || 'General';
-      const activeTabs = grouped[activeGroup] || [];
-      const activeLabel = tabs.find(tab => tab.key === state.activeSection)?.label || 'Επιλογή ενότητας';
       els.tabs.innerHTML = `
-        <div class="settings-nav-shell">
-          <div class="settings-nav-topline">
-            <div class="settings-context">
-              <span class="settings-context-badge">Settings</span>
-              <div class="settings-context-copy">
-                <strong>${activeLabel}</strong>
-                <span>${activeGroup} · Εργαλειοκεντρική πλοήγηση τύπου control toolbar.</span>
-              </div>
-            </div>
-            <div class="settings-nav-actions">
-              <button class="tab ${state.activeSection === 'settingsHome' ? 'active' : ''}" data-tab="settingsHome">Overview</button>
-              <div class="tab-picker">
-                <button class="picker-trigger" id="tabPickerTrigger">All sections ▾</button>
-                <div class="picker-menu" id="tabPickerMenu">${groups.map(group => `<div class="picker-section"><div class="picker-label">${group}</div><div class="picker-items">${(grouped[group]||[]).map(tab => `<button class="tab ${state.activeSection === tab.key ? 'active' : ''}" data-tab="${tab.key}">${tab.label}</button>`).join('')}</div></div>`).join('')}</div>
-              </div>
-            </div>
-          </div>
-          <div class="group-rail">${groups.map(group => `<button class="group-pill ${group===activeGroup?'active':''}" data-tab-group="${group}">${group}</button>`).join('')}</div>
-          <div class="section-row">
-            <div class="section-rail">${activeTabs.map(tab => `<button class="tab ${state.activeSection === tab.key ? 'active' : ''}" data-tab="${tab.key}">${tab.label}</button>`).join('')}</div>
-          </div>
-          <div class="nav-shell-helper"><span>Το πάνω rail κρατά τις βασικές ομάδες και η δεύτερη σειρά αλλάζει μόνο τις ενότητες της ενεργής ομάδας.</span><span>${activeGroup}</span></div>
+        <div class="section-row" style="padding:10px 12px;border:1px solid var(--line);border-radius:16px;background:linear-gradient(180deg,#ffffff 0%,#fbf8f3 100%)">
+          <div class="section-rail">${tabs.map(tab => `<button class="tab ${state.activeSection === tab.key ? 'active' : ''}" data-tab="${tab.key}">${tab.label}</button>`).join('')}</div>
         </div>`;
       const activate = (key) => { openSectionByKey(key); };
       els.tabs.querySelectorAll('[data-tab]').forEach(btn => btn.addEventListener('click', () => activate(btn.dataset.tab)));
-      els.tabs.querySelectorAll('[data-tab-group]').forEach(btn => btn.addEventListener('click', () => {
-        const group = btn.getAttribute('data-tab-group') || '';
-        const first = (grouped[group] || [])[0];
-        if(first) activate(first.key);
-      }));
-      const pickerTrigger = document.getElementById('tabPickerTrigger');
-      const pickerMenu = document.getElementById('tabPickerMenu');
       if(state._tabPickerDocHandler){
         document.removeEventListener('click', state._tabPickerDocHandler, true);
         state._tabPickerDocHandler = null;
-      }
-      if(pickerTrigger && pickerMenu){
-        pickerTrigger.addEventListener('click', (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          const willOpen = !pickerMenu.classList.contains('open');
-          pickerMenu.classList.toggle('open', willOpen);
-          if(willOpen && state._tabPickerDocHandler){
-            document.addEventListener('click', state._tabPickerDocHandler, true);
-          }
-        });
-        pickerMenu.querySelectorAll('[data-tab]').forEach(btn => btn.addEventListener('click', () => { pickerMenu.classList.remove('open'); }));
-        state._tabPickerDocHandler = (event) => {
-          if(!pickerMenu.contains(event.target) && !pickerTrigger.contains(event.target)){
-            pickerMenu.classList.remove('open');
-            document.removeEventListener('click', state._tabPickerDocHandler, true);
-          }
-        };
       }
     }
     function renderSections(){ els.sections.forEach(sec => sec.classList.toggle('active', sec.dataset.section === state.activeSection)); if(state.activeSection === 'settingsHome') renderSettingsHome(); if(state.activeSection === 'business') renderBusinessPaneNav(); enhanceBusinessTextEditors(); bindBusinessJumps(); }
