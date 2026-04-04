@@ -173,6 +173,8 @@ function normalizePickupLocation(item, fallbackSort = 9999){
     description: text(item?.description, ''),
     locationType: text(item?.locationType || item?.type, 'both') || 'both',
     address: text(item?.address, ''),
+    stationKey: normalizeKey(item?.stationKey || item?.stationCode || item?.station || item?.hub || item?.group || 'default') || 'default',
+    stationLabel: text(item?.stationLabel || item?.station || item?.hubLabel || item?.hub || item?.groupLabel || item?.group, 'Κεντρικός σταθμός') || 'Κεντρικός σταθμός',
     mapUrl: text(item?.mapUrl || item?.mapsUrl || item?.googleMapsUrl, ''),
     extraFee: toNumber(item?.extraFee ?? item?.fee ?? item?.price, 0),
     active: readBool(item?.active, true),

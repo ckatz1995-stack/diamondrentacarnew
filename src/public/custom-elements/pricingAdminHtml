@@ -594,7 +594,7 @@
                 <div class="settings-group-head">
                   <div>
                     <h3>3. Locations</h3>
-                    <p>Τοποθεσίες παραλαβής και επιστροφής για το front booking flow, με fees, order και ενεργοποίηση ανά σημείο.</p>
+                    <p>Τοποθεσίες παραλαβής και επιστροφής για το front booking flow, με ομαδοποίηση ανά σταθμό, fees, order και ενεργοποίηση ανά σημείο.</p>
                   </div>
                   <div class="settings-group-badge">Pickup / Dropoff</div>
                 </div>
@@ -609,7 +609,7 @@
                     </div>
                   </div>
                   <div class="toolbar">
-                    <div class="left"><input id="searchPickupLocations" placeholder="Αναζήτηση location / address" /></div>
+                    <div class="left"><input id="searchPickupLocations" placeholder="Αναζήτηση station / location / address" /></div>
                     <div class="right"><span class="badge" id="pickupLocationsCount">0 items</span></div>
                   </div>
                   <div id="pickupLocationsTableWrap"></div>
@@ -2668,7 +2668,7 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
     function filterList(list, text, extraFn){
       const q = String(text || '').trim().toLowerCase();
       return list.filter(item => {
-        const match = !q || [item.key, item.label, item.title, item.displayTitle, item.description, item.ruleType, item.audienceGroup, item.category, item.categoryCode, item.seasonKey, item.transmission, item.fuelType, item.plate, item.model, item.address, item.locationType].some(v => String(v || '').toLowerCase().includes(q));
+        const match = !q || [item.key, item.label, item.title, item.displayTitle, item.description, item.ruleType, item.audienceGroup, item.category, item.categoryCode, item.seasonKey, item.transmission, item.fuelType, item.plate, item.model, item.address, item.locationType, item.stationKey, item.stationLabel, item.station].some(v => String(v || '').toLowerCase().includes(q));
         return match && (!extraFn || extraFn(item));
       });
     }
@@ -2717,8 +2717,9 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
       if (els.pickupLocationsCount) els.pickupLocationsCount.textContent = `${rows.length} items`;
       if(!rows.length){ els.pickupLocationsWrap.innerHTML = '<div class="empty">Δεν βρέθηκαν τοποθεσίες.</div>'; return; }
       const currency = businessSettings().currency || 'EUR';
-      els.pickupLocationsWrap.innerHTML = `<div class="table-wrap"><table><thead><tr><th>Τοποθεσία</th><th>Type</th><th>Address</th><th>Extra fee</th><th>Active</th><th>Sort</th><th>Actions</th></tr></thead><tbody>${rows.map(item => `
+      els.pickupLocationsWrap.innerHTML = `<div class="table-wrap"><table><thead><tr><th>Σταθμός</th><th>Τοποθεσία</th><th>Type</th><th>Address</th><th>Extra fee</th><th>Active</th><th>Sort</th><th>Actions</th></tr></thead><tbody>${rows.map(item => `
         <tr>
+          <td><strong>${esc(item.stationLabel || item.station || 'Κεντρικός σταθμός')}</strong><div style="color:var(--muted);font-size:12px">${esc(item.stationKey || 'default')}</div></td>
           <td><strong>${esc(item.label || item.displayTitle || '—')}</strong><div style="color:var(--muted);font-size:12px">${esc(item.description || '')}</div></td>
           <td>${esc(item.locationType || 'both')}</td>
           <td>${esc(item.address || '—')}</td>
@@ -3063,7 +3064,7 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
     function defaultsFor(kind){
       if(kind === 'vehicleCategory') return { _id:'', title:'', category:'', price:0, image:'', active:true, status:'active', sortOrder:9999, transmission:'', fuelType:'', seats:'', doors:'', luggage:'', airCondition:true, publicVisible:true, description:'' };
       if(kind === 'fleetVehicle') return { _id:'', plate:'', model:'', category:(vehicleCategoryRows()[0]?.category || ''), status:'available', active:true, notes:'' };
-      if(kind === 'pickupLocation') return { _id:'', key:'', label:'', description:'', locationType:'both', address:'', mapUrl:'', extraFee:0, sortOrder:9999, active:true, publicVisible:true };
+      if(kind === 'pickupLocation') return { _id:'', key:'', label:'', description:'', locationType:'both', stationKey:'default', stationLabel:'Κεντρικός σταθμός', address:'', mapUrl:'', extraFee:0, sortOrder:9999, active:true, publicVisible:true };
       if(kind === 'pricingSeason') return { _id:'', key:'', label:'', description:'', startDate:'', endDate:'', priority:0, sortOrder:9999, repeatYearly:false, active:true, publicVisible:true };
       if(kind === 'categoryRateRule') return { _id:'', key:'', label:'', description:'', categoryCode:(vehicleCategoryRows()[0]?.category || ''), vehicleCategoryId:(vehicleCategoryRows()[0]?._id || ''), seasonKey:'', minDays:1, maxDays:3, pricePerDay:0, sortOrder:9999, active:true, publicVisible:true, rangePreset:'1_3' };
       if(kind === 'insurance') return { _id:'', key:'', label:'', description:'', pricePerDay:0, active:true, publicVisible:true, sortOrder:9999 };
@@ -3210,8 +3211,10 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
       if(kind === 'pickupLocation'){
         return `
           <div class="field col-4"><label>Key</label><input data-field="key" value="${esc(item.key || '')}" placeholder="airport_thessaloniki" /></div>
-          <div class="field col-5"><label>Label</label><input data-field="label" value="${esc(item.label || '')}" placeholder="Αεροδρόμιο Θεσσαλονίκης" /></div>
-          <div class="field col-3"><label>Sort order</label><input data-field="sortOrder" type="number" step="1" value="${Number(item.sortOrder || 0)}" /></div>
+          <div class="field col-4"><label>Label</label><input data-field="label" value="${esc(item.label || '')}" placeholder="Αεροδρόμιο Θεσσαλονίκης" /></div>
+          <div class="field col-4"><label>Sort order</label><input data-field="sortOrder" type="number" step="1" value="${Number(item.sortOrder || 0)}" /></div>
+          <div class="field col-4"><label>Station key</label><input data-field="stationKey" value="${esc(item.stationKey || 'default')}" placeholder="airport" /></div>
+          <div class="field col-4"><label>Station label</label><input data-field="stationLabel" value="${esc(item.stationLabel || item.station || '')}" placeholder="Αεροδρόμιο" /></div>
           <div class="field col-4"><label>Type</label><select data-field="locationType"><option value="pickup" ${item.locationType === 'pickup' ? 'selected' : ''}>pickup only</option><option value="dropoff" ${item.locationType === 'dropoff' ? 'selected' : ''}>dropoff only</option><option value="both" ${(!item.locationType || item.locationType === 'both') ? 'selected' : ''}>both</option></select></div>
           <div class="field col-4"><label>Extra fee</label><input data-field="extraFee" type="number" step="0.01" value="${Number(item.extraFee || 0)}" /></div>
           <div class="field col-4"><label>Map URL</label><input data-field="mapUrl" value="${esc(item.mapUrl || '')}" placeholder="https://maps.google.com/..." /></div>
@@ -3219,7 +3222,7 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
           <div class="field col-12"><label>Description</label><textarea data-field="description">${esc(item.description || '')}</textarea></div>
           <div class="field col-3 switch"><input data-field="active" type="checkbox" ${item.active !== false ? 'checked' : ''} /><label>Active</label></div>
           <div class="field col-3 switch"><input data-field="publicVisible" type="checkbox" ${item.publicVisible !== false ? 'checked' : ''} /><label>Public visible</label></div>
-          <div class="field col-6"><label>Hint</label><input value="Χρησιμοποίησέ το για αεροδρόμιο, λιμάνι, σταθμό, ξενοδοχείο ή άλλο σημείο παραλαβής/επιστροφής." readonly /></div>`;
+          <div class="field col-6"><label>Hint</label><input value="Σταθμός = group οργάνωσης (π.χ. airport / center). Location = συγκεκριμένο σημείο εξυπηρέτησης του σταθμού." readonly /></div>`;
       }
 
       if(kind === 'insurance'){
@@ -3340,7 +3343,7 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
         if(state.editor.kind === 'user'){ if(!payload.email || !payload.roleKey){ showToast('Συμπλήρωσε email και role.', 'error'); return; } }
         else if(state.editor.kind === 'vehicleCategory'){ if(!payload.title || !payload.category){ showToast('Συμπλήρωσε τίτλο και category code.', 'error'); return; } }
         else if(state.editor.kind === 'fleetVehicle'){ if(!payload.plate || !payload.model || !payload.category){ showToast('Συμπλήρωσε πινακίδα, μοντέλο και category.', 'error'); return; } }
-        else if(state.editor.kind === 'pickupLocation'){ if(!payload.key || !payload.label || !payload.address){ showToast('Συμπλήρωσε key, label και address.', 'error'); return; } }
+        else if(state.editor.kind === 'pickupLocation'){ if(!payload.key || !payload.label || !payload.address || !payload.stationKey || !payload.stationLabel){ showToast('Συμπλήρωσε station, key, label και address.', 'error'); return; } }
         else if(state.editor.kind === 'pricingSeason'){ if(!payload.key || !payload.label || !payload.startDate || !payload.endDate){ showToast('Συμπλήρωσε key, label και season dates.', 'error'); return; } }
         else if(state.editor.kind === 'categoryRateRule'){ if(!payload.key || !payload.label || !payload.categoryCode){ showToast('Συμπλήρωσε key, label και κατηγορία.', 'error'); return; } if(Number(payload.minDays || 0) < 1 || Number(payload.maxDays || 0) < 0){ showToast('Το day range δεν είναι έγκυρο.', 'error'); return; } if(Number(payload.maxDays || 0) > 0 && Number(payload.maxDays || 0) < Number(payload.minDays || 1)){ showToast('Το max days πρέπει να είναι >= από το min days ή 0 για infinity.', 'error'); return; } }
         else if(!payload.key || !payload.label){ showToast('Συμπλήρωσε τουλάχιστον key και label.', 'error'); return; }
