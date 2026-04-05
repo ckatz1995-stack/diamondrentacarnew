@@ -27,6 +27,7 @@ let authState = null;
 $w.onReady(async function () {
   authState = await requireBackroomAccess({ area: "rentals", action: "View" });
   if (!authState?.ok) return;
+  hideNonContractComponents([CONTRACT_HTML_ID]);
 
   const query = wixLocation.query || {};
   bookingId = String(query.bookingId || query.id || "").trim();
@@ -134,6 +135,14 @@ $w.onReady(async function () {
     post({ type: "toast", message: "Missing bookingId in URL." });
   }
 });
+
+function hideNonContractComponents(keepIds) {
+  ["#tabsHtml", "#homeHtml", "#dailyHtml", "#bookingsHtml", "#fleetCalendarHtml", "#bpage1", "#bpage2", "#bpage3", "#bpage4", "#html1", "#html2"].forEach((id) => {
+    if (keepIds.includes(id)) return;
+    try { $w(id).collapse(); } catch (_) {}
+    try { $w(id).hide(); } catch (_) {}
+  });
+}
 
 async function loadContract() {
   if (!bookingId) {

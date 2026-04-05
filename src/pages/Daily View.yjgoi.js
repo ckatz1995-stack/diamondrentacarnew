@@ -169,7 +169,7 @@ async function loadDailyOps({ requestedDate, startISO, endISO } = {}) {
   }
 }
 function post(payload) { try { getHtmlComponent()?.postMessage(payload); } catch (_) {} }
-function hideOtherComponents(keepIds) { ['#tabsHtml', '#homeHtml', '#fleetCalendarHtml', '#bookingsHtml'].forEach(id => { if (keepIds.includes(id)) return; try { $w(id).collapse(); } catch (_) {} try { $w(id).hide(); } catch (_) {} }); }
+function hideOtherComponents(keepIds) { ['#tabsHtml', '#homeHtml', '#fleetCalendarHtml', '#bookingsHtml', '#bpage1', '#bpage2', '#bpage3', '#bpage4', '#html1', '#html2'].forEach(id => { if (keepIds.includes(id)) return; try { $w(id).collapse(); } catch (_) {} try { $w(id).hide(); } catch (_) {} }); }
 function clampHeight(value) { if (!Number.isFinite(value) || value <= 0) return null; return Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, Math.round(value))); }
 function todayYMD() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 function normalizeDateParam(value) { const raw = String(value || '').trim(); return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : ''; }
