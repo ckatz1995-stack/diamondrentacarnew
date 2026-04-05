@@ -32,6 +32,13 @@
     .brandText{display:flex;flex-direction:column;gap:3px;line-height:1.04;position:relative;z-index:1}.brandTitle{font-weight:1100;font-size:16px;letter-spacing:-.02em}.brandSub{font-size:11px;color:rgba(255,255,255,.84);font-weight:900}
     .headerZone{display:flex;flex-direction:column;min-width:0;overflow:visible}.headerNavRow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 16px 10px;border-bottom:1px solid rgba(255,255,255,.08);overflow:visible}
     .headerTools{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;overflow:visible;position:relative;z-index:6}
+    .headerTools .backroom-search{display:flex;align-items:center;min-width:200px;max-width:280px;flex:0 1 260px;height:42px;border-radius:999px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.08)}
+    .headerTools .backroom-search input{flex:1;min-width:0;height:100%;border:0;background:transparent;color:#fff;padding:0 14px;font:700 13px/1.2 Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+    .headerTools .backroom-search button{appearance:none;border:0;border-left:1px solid rgba(255,255,255,.1);background:transparent;color:#fff;height:100%;padding:0 14px;font-weight:800;cursor:pointer}
+    .headerTools .quick-apps-btn,.headerTools .top-icon-btn{appearance:none;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:#fff;border-radius:999px;padding:8px 12px;font:900 11px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;cursor:pointer}
+    .headerTools .top-icon-group{display:inline-flex;align-items:center;gap:8px}
+    .headerTools .top-icon-btn .dot{width:8px;height:8px;border-radius:999px;background:#22c55e;box-shadow:0 0 0 4px rgba(34,197,94,.18)}
+    .headerTools .top-chip{display:inline-flex;align-items:center;gap:8px;padding:7px 11px;border-radius:999px;background:rgba(255,255,255,.08);color:#fff;border:1px solid rgba(255,255,255,.10);font:900 10.5px/1.1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;white-space:nowrap}
     .routeRow{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px}
     .routeLeft{min-width:0;overflow:auto;padding-bottom:2px}.routeLeft::-webkit-scrollbar{height:7px}.routeLeft::-webkit-scrollbar-thumb{background:rgba(148,163,184,.45);border-radius:999px}
     .routeLine{min-width:760px;display:flex;align-items:center;gap:10px;white-space:nowrap}
@@ -42,7 +49,7 @@
     .routeTabs{ display:inline-flex; gap:6px; align-items:center; flex-wrap:wrap; }
     .routeBtn{ border:1px solid rgba(255,255,255,.14); border-radius:14px; padding:9px 12px; background:rgba(255,255,255,.06); font-size:11.5px; cursor:pointer; font-weight:900; box-shadow:0 8px 18px rgba(2,6,23,.14); color:#fff; }
     .routeBtn.active{ background:linear-gradient(135deg,#b48a4f,#8e6d3d); color:#fff; border-color:transparent; box-shadow:0 12px 24px rgba(91,68,35,.24); }
-    .routeMeta{display:inline-flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;padding:10px 16px 12px}
+    .routeMeta{display:none}
     .routeChip{display:inline-flex;align-items:center;gap:6px;padding:7px 11px;border-radius:999px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.05);font:800 10.5px/1.2 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:rgba(255,244,230,.88)}
     .routeChip.primary{background:#fff;color:#6c522e;border-color:#fff;box-shadow:0 10px 18px rgba(255,255,255,.12)}
     .routeChip.soft{background:rgba(255,255,255,.08);color:rgba(255,239,214,.9);border-color:rgba(255,255,255,.10)}
@@ -456,9 +463,14 @@
 <button class="routeBtn" data-route="settings" type="button">Settings</button>
 </div>
 <div class="headerTools">
+<div class="backroom-search"><input placeholder="Search settings, sections..." /><button type="button">Go</button></div>
+<button class="quick-apps-btn" type="button">☰ Apps</button>
+<div class="top-icon-group"><button class="top-icon-btn" type="button"><span class="dot"></span></button><button class="top-icon-btn" type="button">?</button></div>
+<span class="top-chip"><strong id="userNameChip">Nik nik</strong></span>
+<span class="top-chip">Admin</span>
 <button class="routeBtn" data-menu-action="reload" type="button">Reload</button>
 <button class="routeBtn" data-menu-action="logout" type="button">Logout</button>
-<div class="userMenuWrap">
+<div class="userMenuWrap" style="display:none">
 <button class="userMenuBtn" id="userMenuBtn" type="button"><span class="userBadge" id="userBadge">O</span><span class="userText"><span class="userName" id="userName">Operator</span><span class="userRole" id="userRole">Backroom</span></span><span class="caret">▾</span></button>
 <div class="userMenu" id="userMenu"><div class="userMenuHead"><div class="userName" id="menuUserName">Operator</div><div class="userRole" id="menuUserRole">Backroom</div></div><button class="userMenuItem" data-menu-action="reload" type="button">Ανανέωση</button><button class="userMenuItem danger" data-menu-action="logout" type="button">Αποσύνδεση</button></div>
 </div>
