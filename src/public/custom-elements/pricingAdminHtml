@@ -397,7 +397,7 @@
     <div class="backroom-header">
       <div class="backroom-brand">
         <b>DIAMOND Backroom</b>
-        <span>Front site · Pricing · Fleet · Team & Security</span>
+        <span>Settings workspace · front, company & communications</span>
       </div>
       <div class="backroom-nav" id="backroomNav"></div>
       <div class="backroom-user" id="backroomUser"></div>
