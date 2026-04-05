@@ -251,7 +251,7 @@ button:hover,.cta:hover,.header-phone:hover{
 
 .grid{
   display:grid;
-  grid-template-columns:1.35fr 1fr .84fr;
+  grid-template-columns:repeat(4,minmax(0,1fr));
   gap:14px;
   margin-bottom:14px
 }
@@ -815,7 +815,13 @@ button:hover,.cta:hover,.header-phone:hover{
           <form id="searchForm">
             <div class="grid">
               <div class="field">
-                <label>Παραλαβή</label>
+                <label>Σταθμός παραλαβής</label>
+                <select id="pickupStation">
+                  <option value="default">Κεντρικός σταθμός</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Σημείο παραλαβής</label>
                 <select id="pickupLocation">
                   <option>Αεροδρόμιο Μακεδονία Θεσσαλονίκη</option>
                   <option>Κέντρο Θεσσαλονίκης</option>
@@ -836,7 +842,13 @@ button:hover,.cta:hover,.header-phone:hover{
 
             <div class="grid">
               <div class="field">
-                <label>Επιστροφή</label>
+                <label>Σταθμός επιστροφής</label>
+                <select id="dropoffStation">
+                  <option value="default">Κεντρικός σταθμός</option>
+                </select>
+              </div>
+              <div class="field">
+                <label>Σημείο επιστροφής</label>
                 <select id="dropoffLocation">
                   <option>Αεροδρόμιο Μακεδονία Θεσσαλονίκη</option>
                   <option>Κέντρο Θεσσαλονίκης</option>
@@ -1067,19 +1079,43 @@ function applyBusinessIdentity(){
 }
 applyBusinessIdentity();
 function normalizeKey(value){ return String(value || '').trim().toLowerCase(); }
+function stationKeyForRow(row){ return normalizeKey(row?.stationKey || row?.stationCode || row?.station || row?.stationLabel || row?.group || row?.hub || 'default') || 'default'; }
+function stationLabelForRow(row){ return String(row?.stationLabel || row?.station || row?.groupLabel || row?.hubLabel || row?.hub || 'Κεντρικός σταθμός').trim() || 'Κεντρικός σταθμός'; }
 function populateLocationSelectsFromCatalog(){
   const rows = Array.isArray(pricingCatalog?.pickupLocations) ? pricingCatalog.pickupLocations.filter((row)=>row && row.active !== false && row.publicVisible !== false) : [];
-  if(!rows.length) return;
+  const stationProfiles = Array.isArray(pricingCatalog?.businessSettings?.stationProfiles) ? pricingCatalog.businessSettings.stationProfiles : [];
+  const pickupStationSelect = document.getElementById('pickupStation');
+  const dropoffStationSelect = document.getElementById('dropoffStation');
   const pickupSelect = document.getElementById('pickupLocation');
   const dropoffSelect = document.getElementById('dropoffLocation');
-  const build = (type) => rows.filter((row)=>{ const t = normalizeKey(row.locationType || 'both') || 'both'; return t === 'both' || t === type; });
+  if (!pickupStationSelect || !dropoffStationSelect || !pickupSelect || !dropoffSelect) return;
   const pickupCurrent = pickupSelect.value;
   const dropoffCurrent = dropoffSelect.value;
-  pickupSelect.innerHTML = build('pickup').map((row)=>`<option value="${String(row.label || row.key || '').replace(/"/g,'&quot;')}">${String(row.label || row.key || '')}</option>`).join('');
-  dropoffSelect.innerHTML = build('dropoff').map((row)=>`<option value="${String(row.label || row.key || '').replace(/"/g,'&quot;')}">${String(row.label || row.key || '')}</option>`).join('');
-  if([...pickupSelect.options].some((opt)=>opt.value===pickupCurrent)) pickupSelect.value = pickupCurrent;
-  if([...dropoffSelect.options].some((opt)=>opt.value===dropoffCurrent)) dropoffSelect.value = dropoffCurrent;
-  if (typeof window.refreshCustomControls === 'function') window.refreshCustomControls(['pickupLocation','dropoffLocation']);
+  const pickupStationCurrent = pickupStationSelect.value;
+  const dropoffStationCurrent = dropoffStationSelect.value;
+  const stationSource = [
+    ...stationProfiles.map((row)=>({ stationKey: row?.key || row?.stationKey || 'default', stationLabel: row?.label || row?.stationLabel || 'Κεντρικός σταθμός' })),
+    ...rows
+  ];
+  const stationRows = Array.from(new Map(stationSource.map((row)=>[stationKeyForRow(row), { key: stationKeyForRow(row), label: stationLabelForRow(row) }])).values());
+  if (!stationRows.some((row)=>row.key === 'default')) stationRows.unshift({ key:'default', label:'Κεντρικός σταθμός' });
+  const stationOptions = stationRows.map((row)=>`<option value="${String(row.key).replace(/"/g,'&quot;')}">${String(row.label)}</option>`).join('');
+  pickupStationSelect.innerHTML = stationOptions;
+  dropoffStationSelect.innerHTML = stationOptions;
+  if([...pickupStationSelect.options].some((opt)=>opt.value===pickupStationCurrent)) pickupStationSelect.value = pickupStationCurrent;
+  if([...dropoffStationSelect.options].some((opt)=>opt.value===dropoffStationCurrent)) dropoffStationSelect.value = dropoffStationCurrent;
+
+  const build = (type, stationKey) => rows.filter((row)=>{ const t = normalizeKey(row.locationType || 'both') || 'both'; return (t === 'both' || t === type) && stationKeyForRow(row) === stationKey; });
+  const updateLocationsFor = (type, stationSelect, locationSelect, currentValue) => {
+    const stationKey = stationSelect.value || 'default';
+    const filtered = build(type, stationKey);
+    locationSelect.innerHTML = filtered.map((row)=>`<option value="${String(row.label || row.key || '').replace(/"/g,'&quot;')}">${String(row.label || row.key || '')}</option>`).join('');
+    if([...locationSelect.options].some((opt)=>opt.value===currentValue)) locationSelect.value = currentValue;
+    else if (locationSelect.options.length) locationSelect.selectedIndex = 0;
+  };
+  updateLocationsFor('pickup', pickupStationSelect, pickupSelect, pickupCurrent);
+  updateLocationsFor('dropoff', dropoffStationSelect, dropoffSelect, dropoffCurrent);
+  if (typeof window.refreshCustomControls === 'function') window.refreshCustomControls(['pickupStation','dropoffStation','pickupLocation','dropoffLocation']);
 }
 function populateCategorySelectFromCatalog(){
   const select = document.getElementById('category');
@@ -1125,6 +1161,8 @@ function collectSearchState(){
   return {
     pickup: serializeLocalDateTime(pickup),
     dropoff: serializeLocalDateTime(dropoff),
+    pickupStation: clean(document.getElementById('pickupStation').value),
+    dropoffStation: clean(document.getElementById('dropoffStation').value),
     pickupLocation: clean(document.getElementById('pickupLocation').value),
     dropoffLocation: clean(document.getElementById('dropoffLocation').value),
     category: clean(document.getElementById('category').value) || 'all',
@@ -1172,6 +1210,8 @@ function parseCtx(qs){
     vehicle: clean(p.get('vehicle')),
     pickup: clean(p.get('pickup')),
     dropoff: clean(p.get('dropoff')),
+    pickupStation: clean(p.get('pickupStation')),
+    dropoffStation: clean(p.get('dropoffStation')),
     pickupLocation: clean(p.get('pickupLocation')),
     dropoffLocation: clean(p.get('dropoffLocation')),
     category: clean(p.get('category')) || 'all',
@@ -1263,7 +1303,7 @@ function normalizeDateTime(dateInput, timeSelect){
 }
 function getSearchPath(){
   const state = collectSearchState();
-  return `/categories?pickup=${encodeURIComponent(state.pickup)}&dropoff=${encodeURIComponent(state.dropoff)}&pickupLocation=${encodeURIComponent(state.pickupLocation)}&dropoffLocation=${encodeURIComponent(state.dropoffLocation)}&category=${encodeURIComponent(state.category)}&age=${encodeURIComponent(state.age)}`;
+  return `/categories?pickup=${encodeURIComponent(state.pickup)}&dropoff=${encodeURIComponent(state.dropoff)}&pickupStation=${encodeURIComponent(state.pickupStation)}&dropoffStation=${encodeURIComponent(state.dropoffStation)}&pickupLocation=${encodeURIComponent(state.pickupLocation)}&dropoffLocation=${encodeURIComponent(state.dropoffLocation)}&category=${encodeURIComponent(state.category)}&age=${encodeURIComponent(state.age)}`;
 }
 function applySearchContext(source){
   if (!source || typeof source !== 'object') return;
@@ -1278,6 +1318,9 @@ function applySearchContext(source){
     document.getElementById('dropoffDate').value = dropoffParts.date;
   }
 
+  setSelectValue('pickupStation', source.pickupStation);
+  setSelectValue('dropoffStation', source.dropoffStation);
+  populateLocationSelectsFromCatalog();
   setSelectValue('pickupLocation', source.pickupLocation);
   setSelectValue('dropoffLocation', source.dropoffLocation);
   setSelectValue('category', source.category);
@@ -1293,7 +1336,7 @@ function applySearchContext(source){
     );
   }
   syncDropoff(false);
-  if (typeof window.refreshCustomControls === 'function') window.refreshCustomControls(['pickupDate','pickupTime','dropoffDate','dropoffTime','pickupLocation','dropoffLocation','category','driverAge']);
+  if (typeof window.refreshCustomControls === 'function') window.refreshCustomControls(['pickupDate','pickupTime','dropoffDate','dropoffTime','pickupStation','dropoffStation','pickupLocation','dropoffLocation','category','driverAge']);
 }
 function onContext(){
   applySearchContext(ctx);
@@ -1347,7 +1390,7 @@ function syncPickupOptions(){
   }
 
   syncDropoff(false);
-  if (typeof window.refreshCustomControls === 'function') window.refreshCustomControls(['pickupDate','pickupTime','dropoffDate','dropoffTime','pickupLocation','dropoffLocation','category','driverAge']);
+  if (typeof window.refreshCustomControls === 'function') window.refreshCustomControls(['pickupDate','pickupTime','dropoffDate','dropoffTime','pickupStation','dropoffStation','pickupLocation','dropoffLocation','category','driverAge']);
 }
 
 
@@ -1623,6 +1666,15 @@ function initForm(){
     syncDropoff(false);
     safeStoreSearch(collectSearchState());
   });
+
+  document.getElementById('pickupStation').addEventListener('change', ()=>{
+    populateLocationSelectsFromCatalog();
+    safeStoreSearch(collectSearchState());
+  });
+  document.getElementById('dropoffStation').addEventListener('change', ()=>{
+    populateLocationSelectsFromCatalog();
+    safeStoreSearch(collectSearchState());
+  });
   ['dropoffTime','pickupLocation','dropoffLocation','category','driverAge'].forEach(id => {
     document.getElementById(id).addEventListener('change', ()=>safeStoreSearch(collectSearchState()));
   });
@@ -1655,10 +1707,12 @@ buildHeaderNav({
   booking:'/booking'
 });
 initPageOwnedControls([
-  { id:'pickupLocation', type:'select', placeholder:'Επιλογή τοποθεσίας' },
+  { id:'pickupStation', type:'select', placeholder:'Επιλογή σταθμού' },
+  { id:'pickupLocation', type:'select', placeholder:'Επιλογή σημείου' },
   { id:'pickupDate', type:'date', placeholder:'Επιλογή ημερομηνίας' },
   { id:'pickupTime', type:'select', placeholder:'Επιλογή ώρας' },
-  { id:'dropoffLocation', type:'select', placeholder:'Επιλογή τοποθεσίας' },
+  { id:'dropoffStation', type:'select', placeholder:'Επιλογή σταθμού' },
+  { id:'dropoffLocation', type:'select', placeholder:'Επιλογή σημείου' },
   { id:'dropoffDate', type:'date', placeholder:'Επιλογή ημερομηνίας' },
   { id:'dropoffTime', type:'select', placeholder:'Επιλογή ώρας' },
   { id:'category', type:'select', placeholder:'Κατηγορία οχήματος' },
