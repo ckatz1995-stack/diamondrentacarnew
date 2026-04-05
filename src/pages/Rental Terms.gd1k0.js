@@ -6,6 +6,11 @@ let htmlComponent = null;
 let pricingCatalog = null;
 let pricingPromise = null;
 
+function resetCaches() {
+  pricingCatalog = null;
+  pricingPromise = null;
+}
+
 function normalizeMessage(raw) {
   if (!raw) return null;
   if (typeof raw === "string") {
@@ -133,7 +138,12 @@ $w.onReady(async function () {
   };
 
   resend();
-  try { wixLocation.onChange(() => resend()); } catch (err) {}
+  try {
+    wixLocation.onChange(() => {
+      resetCaches();
+      resend();
+    });
+  } catch (err) {}
 
   if (typeof window !== "undefined") {
     window.addEventListener("message", (event) => {
