@@ -1933,7 +1933,6 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
         }, {});
         const groups = Object.keys(grouped);
         const activeGroup = (tabs.find(tab => tab.key === state.activeSection)?.group) || groups[0] || 'General';
-        const activeTabs = grouped[activeGroup] || [];
         const activeLabelText = (tabs.find(tab => tab.key === state.activeSection)?.label) || 'Επιλογή ενότητας';
         els.tabs.innerHTML = `
         <div class="settings-nav-shell">
@@ -1942,7 +1941,6 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
               <span class="settings-context-badge">Settings</span>
               <div class="settings-context-copy">
                 <strong>${activeLabelText}</strong>
-                <span>${activeGroup} · Εργαλειοκεντρική πλοήγηση τύπου control toolbar.</span>
               </div>
             </div>
             <div class="settings-nav-actions">
@@ -1964,10 +1962,6 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
             `).join('')}
           </div>
           <div class="group-rail">${groups.map(group => `<button class="group-pill ${group===activeGroup?'active':''}" data-tab-group="${group}">${group}</button>`).join('')}</div>
-          <div class="section-row">
-            <div class="section-rail">${activeTabs.map(tab => `<button class="tab ${state.activeSection === tab.key ? 'active' : ''}" data-tab="${tab.key}">${tab.label}</button>`).join('')}</div>
-          </div>
-          <div class="nav-shell-helper"><span>Το πάνω rail κρατά τις βασικές ομάδες και η δεύτερη σειρά αλλάζει μόνο τις ενότητες της ενεργής ομάδας.</span><span>${activeGroup}</span></div>
         </div>`;
         const activate = (key) => { openSectionByKey(key); };
         els.tabs.querySelectorAll('[data-tab]').forEach(btn => btn.addEventListener('click', () => activate(btn.dataset.tab)));
@@ -2018,14 +2012,6 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
             btn.onclick = () => openSectionByKey(btn.getAttribute('data-tab') || 'settingsHome');
           });
         }
-      }
-      if(els.tabsFallback){
-        const hasPrimaryNav = !!els.tabs.querySelector('.settings-nav-shell');
-        els.tabsFallback.style.display = hasPrimaryNav ? 'none' : 'flex';
-        els.tabsFallback.querySelectorAll('[data-tab]').forEach(btn => {
-          btn.classList.toggle('active', btn.getAttribute('data-tab') === state.activeSection);
-          btn.onclick = () => activate(btn.getAttribute('data-tab') || 'settingsHome');
-        });
       }
     }
     function renderSections(){ els.sections.forEach(sec => sec.classList.toggle('active', sec.dataset.section === state.activeSection)); if(state.activeSection === 'settingsHome') renderSettingsHome(); if(state.activeSection === 'business') renderBusinessPaneNav(); enhanceBusinessTextEditors(); bindBusinessJumps(); }
