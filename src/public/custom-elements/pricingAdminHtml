@@ -315,7 +315,7 @@
     #businessPaneTabs,#businessPaneNote{display:none}
     .section[data-section="business"] .section-head{justify-content:flex-end}
     .section[data-section="business"] .section-head > div:first-child{display:none}
-    .section[data-section="business"] .section-head .actions{margin-left:auto}
+    .section[data-section="business"] .section-head .actions{display:none}
     .business-pane{display:none}
     .business-pane.active{display:block}
     .embedded-manager{display:grid;gap:12px;margin-top:14px;padding-top:14px;border-top:1px solid #e4d5bf}
@@ -2036,6 +2036,7 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
               </div>
             </div>
             <div class="settings-nav-actions">
+              ${state.activeSection === 'business' ? '<button class="btn warn" id="navResetBusinessBtn" data-allow-busy="1">Reset defaults</button><button class="btn primary" id="navSaveBusinessBtn" data-allow-busy="1">Αποθήκευση business settings</button>' : ''}
               <button class="btn" id="settingsHomeRefreshBtn" data-allow-busy="1">Ανανέωση</button>
               <div class="tab-picker">
                 <button class="picker-trigger" id="tabPickerTrigger">All sections ▾</button>
@@ -2065,6 +2066,14 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
           if(key) setActiveBusinessPane(key);
           renderTabs();
         }));
+        const navResetBusinessBtn = document.getElementById('navResetBusinessBtn');
+        if(navResetBusinessBtn){
+          navResetBusinessBtn.addEventListener('click', () => { document.getElementById('resetBusinessDefaultsBtn')?.click(); });
+        }
+        const navSaveBusinessBtn = document.getElementById('navSaveBusinessBtn');
+        if(navSaveBusinessBtn){
+          navSaveBusinessBtn.addEventListener('click', () => { document.getElementById('saveBusinessBtn')?.click(); });
+        }
         const pickerTrigger = document.getElementById('tabPickerTrigger');
         const pickerMenu = document.getElementById('tabPickerMenu');
         if(state._tabPickerDocHandler){
