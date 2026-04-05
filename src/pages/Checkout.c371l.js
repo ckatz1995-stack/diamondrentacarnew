@@ -12,6 +12,15 @@ let pricingPromise = null;
 let memberPrefill = null;
 let memberPrefillPromise = null;
 
+function resetCaches() {
+  categoryItem = null;
+  categoryPromise = null;
+  pricingCatalog = null;
+  pricingPromise = null;
+  memberPrefill = null;
+  memberPrefillPromise = null;
+}
+
 function normalizeMessage(raw) {
   if (!raw) return null;
   if (typeof raw === "string") {
@@ -256,7 +265,12 @@ $w.onReady(async function () {
   };
 
   resend();
-  try { wixLocation.onChange(() => resend()); } catch (e) {}
+  try {
+    wixLocation.onChange(() => {
+      resetCaches();
+      resend();
+    });
+  } catch (e) {}
 
   if (typeof window !== "undefined") {
     window.addEventListener("message", (event) => {

@@ -11,6 +11,15 @@ let fleetPromise = null;
 let pricingCatalog = null;
 let pricingPromise = null;
 
+function resetCaches() {
+  categoryItem = null;
+  fleetModels = null;
+  categoryPromise = null;
+  fleetPromise = null;
+  pricingCatalog = null;
+  pricingPromise = null;
+}
+
 function normalizeMessage(raw) {
   if (!raw) return null;
   if (typeof raw === "string") {
@@ -212,7 +221,12 @@ $w.onReady(async function () {
   };
 
   resend();
-  try { wixLocation.onChange(() => resend()); } catch (e) {}
+  try {
+    wixLocation.onChange(() => {
+      resetCaches();
+      resend();
+    });
+  } catch (e) {}
 
   if (typeof window !== "undefined") {
     window.addEventListener("message", (event) => {
