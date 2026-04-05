@@ -174,7 +174,7 @@ async function handleAction(type, payload = {}) {
         newPassword: payload.newPassword,
         mustChangePassword: payload.mustChangePassword
       });
-      post({ type: 'staffPasswordResult', result: { mode: 'set', ...res, password: payload.newPassword } });
+      post({ type: 'staffPasswordResult', result: { mode: 'set', ...res, email: payload.email, mustChangePassword: !!payload.mustChangePassword } });
       return sendSnapshots('Το password αποθηκεύτηκε.');
     }
     if (type === 'resetStaffPassword') {
