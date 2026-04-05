@@ -2003,6 +2003,9 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
         const groups = Object.keys(grouped);
         const activeGroup = (tabs.find(tab => tab.key === state.activeSection)?.group) || groups[0] || 'General';
         const activeLabelText = (tabs.find(tab => tab.key === state.activeSection)?.label) || 'Επιλογή ενότητας';
+        const isBusinessSection = state.activeSection === 'business';
+        const activeBusinessArea = state.activeBusinessArea || 'front';
+        const areaPanes = BUSINESS_PANES.filter((pane) => pane.area === activeBusinessArea);
         els.tabs.innerHTML = `
         <div class="settings-nav-shell">
           <div class="settings-nav-topline">
@@ -2020,7 +2023,11 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
               </div>
             </div>
           </div>
-          <div class="group-rail">${groups.map(group => `<button class="group-pill ${group===activeGroup?'active':''}" data-tab-group="${group}">${group}</button>`).join('')}</div>
+          ${isBusinessSection
+            ? `<div class="group-rail">${BUSINESS_AREAS.map((area) => `<button class="group-pill ${area.key===activeBusinessArea?'active':''}" data-top-business-area="${area.key}">${area.label}</button>`).join('')}</div>
+               <div class="section-row"><div class="section-rail">${areaPanes.map((pane) => `<button class="tab ${pane.key===state.activeBusinessPane?'active':''}" data-top-business-pane="${pane.key}">${pane.label}</button>`).join('')}</div></div>`
+            : `<div class="group-rail">${groups.map(group => `<button class="group-pill ${group===activeGroup?'active':''}" data-tab-group="${group}">${group}</button>`).join('')}</div>`
+          }
         </div>`;
         const activate = (key) => { openSectionByKey(key); };
         els.tabs.querySelectorAll('[data-tab]').forEach(btn => btn.addEventListener('click', () => activate(btn.dataset.tab)));
@@ -2028,6 +2035,16 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
           const group = btn.getAttribute('data-tab-group') || '';
           const first = (grouped[group] || [])[0];
           if(first) activate(first.key);
+        }));
+        els.tabs.querySelectorAll('[data-top-business-area]').forEach(btn => btn.addEventListener('click', () => {
+          const key = btn.getAttribute('data-top-business-area') || 'front';
+          setActiveBusinessArea(key);
+          renderTabs();
+        }));
+        els.tabs.querySelectorAll('[data-top-business-pane]').forEach(btn => btn.addEventListener('click', () => {
+          const key = btn.getAttribute('data-top-business-pane') || '';
+          if(key) setActiveBusinessPane(key);
+          renderTabs();
         }));
         const pickerTrigger = document.getElementById('tabPickerTrigger');
         const pickerMenu = document.getElementById('tabPickerMenu');
@@ -2110,7 +2127,6 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
       const areaPanes = BUSINESS_PANES.filter((pane) => pane.area === activeArea);
       const active = areaPanes.find((pane) => pane.key === state.activeBusinessPane) || areaPanes[0] || BUSINESS_PANES[0];
       els.businessPaneTabs.innerHTML = `
-        <div class="business-area-rail">${BUSINESS_AREAS.map((area) => `<button class="business-area-btn ${area.key===activeArea?'active':''}" data-business-area="${area.key}">${area.label}</button>`).join('')}</div>
         <div class="business-subtabs-left">${areaPanes.map((pane) => `<button class="business-subtab ${pane.key===active.key?'active':''}" data-business-tab="${pane.key}">${pane.label}</button>`).join('')}</div>
         <div class="business-subtab-picker">
           <button class="business-subtab-trigger" id="businessPaneTrigger">${active.shortLabel} ▾</button>
