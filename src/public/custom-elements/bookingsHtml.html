@@ -605,6 +605,13 @@
     .top-chip strong{font-weight:1000}
     .header-action-btn{appearance:none;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:#fff;border-radius:999px;padding:8px 12px;font:900 11px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;cursor:pointer;box-shadow:0 10px 20px rgba(2,6,23,.16);white-space:nowrap}
     .header-action-btn:hover{transform:translateY(-1px);box-shadow:0 14px 28px rgba(2,6,23,.18)}
+    .backroom-search{display:flex;align-items:center;min-width:200px;max-width:280px;flex:0 1 260px;height:42px;border-radius:999px;border:1px solid rgba(255,255,255,.14);background:rgba(255,255,255,.08)}
+    .backroom-search input{flex:1;min-width:0;height:100%;border:0;background:transparent;color:#fff;padding:0 14px;font:700 13px/1.2 Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+    .backroom-search input:focus{outline:none}
+    .backroom-search button{appearance:none;border:0;border-left:1px solid rgba(255,255,255,.1);background:transparent;color:#fff;height:100%;padding:0 14px;font-weight:800;cursor:pointer}
+    .quick-apps-btn,.top-icon-btn{appearance:none;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.06);color:#fff;border-radius:999px;padding:8px 12px;font:900 11px/1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;cursor:pointer}
+    .top-icon-group{display:inline-flex;align-items:center;gap:8px}
+    .top-icon-btn .dot{width:8px;height:8px;border-radius:999px;background:#22c55e;box-shadow:0 0 0 4px rgba(34,197,94,.18)}
     .backroom-header .userMenuWrap{position:relative;display:inline-flex;align-items:center;overflow:visible;z-index:40}
     .backroom-header .userMenuBtn{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid rgba(255,255,255,.12);background:rgba(255,255,255,.08);border-radius:999px;cursor:pointer;font:900 11px/1.1 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#fff;box-shadow:0 8px 18px rgba(2,6,23,.14)}
     .backroom-header .userBadge{width:26px;height:26px;border-radius:999px;display:grid;place-items:center;background:rgba(255,255,255,.16);color:#fff;font-weight:1000;font-size:10px;border:1px solid rgba(255,255,255,.18)}
@@ -890,7 +897,7 @@
   <div class="backroom-header">
     <div class="backroom-brand">
       <b>DIAMOND Backroom</b>
-      <span>Bookings workspace · request & follow-up</span>
+      <span>Bookings workspace · request &amp; follow-up</span>
     </div>
     <div class="backroom-nav">
       <button class="nav-btn routeTab" data-route="home" type="button">Myroom</button>
@@ -900,10 +907,13 @@
       <button class="nav-btn routeTab" data-route="settings" type="button">Settings</button>
     </div>
     <div class="backroom-user">
-      <span class="top-chip"><strong>Bookings workspace</strong></span>
-      <span class="top-chip" id="todayMeta">—</span>
+      <div class="backroom-search"><input placeholder="Search settings, sections..." /><button type="button">Go</button></div>
+      <button class="quick-apps-btn" type="button">☰ Apps</button>
+      <div class="top-icon-group"><button class="top-icon-btn" type="button"><span class="dot"></span></button><button class="top-icon-btn" type="button">?</button></div>
+      <span class="top-chip"><strong id="userNameChip">Nik nik</strong></span>
+      <span class="top-chip">Admin</span>
       <button class="header-action-btn" data-menu-action="reload" type="button">Reload</button>
-      <div class="userMenuWrap">
+      <div class="userMenuWrap" style="display:none">
         <button class="userMenuBtn" id="userMenuBtn" type="button">
           <span class="userBadge" id="userBadge">O</span>
           <span class="userText"><span class="userName" id="userName">Operator</span><span class="userRole" id="userRole">Backroom</span></span>
@@ -1813,7 +1823,7 @@
     if (d.type === 'toast') { setStatus(String(d.message || 'OK')); return; }
   });
 
-  try { todayMeta.textContent = new Date().toLocaleDateString('el-GR',{ weekday:'short', day:'2-digit', month:'2-digit', year:'numeric' }); } catch(_) {}
+  try { if (todayMeta) todayMeta.textContent = new Date().toLocaleDateString('el-GR',{ weekday:'short', day:'2-digit', month:'2-digit', year:'numeric' }); } catch(_) {}
   activeRange = defaultRange();
   restoreWorkspace();
   applyRangeToInputs();
