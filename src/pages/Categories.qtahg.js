@@ -11,6 +11,15 @@ let pricingCatalog = null;
 let pricingPromise = null;
 let vehiclesMeta = { displayMode: "categories", modelsSource: "fleet" };
 
+function resetCaches() {
+  vehicleItems = [];
+  vehicleError = '';
+  vehiclesPromise = null;
+  pricingCatalog = null;
+  pricingPromise = null;
+  vehiclesMeta = { displayMode: "categories", modelsSource: "fleet" };
+}
+
 function normalizeMessage(raw) {
   if (!raw) return null;
   if (typeof raw === "string") {
@@ -216,7 +225,12 @@ $w.onReady(async function () {
   };
 
   resend();
-  try { wixLocation.onChange(() => resend()); } catch (e) {}
+  try {
+    wixLocation.onChange(() => {
+      resetCaches();
+      resend();
+    });
+  } catch (e) {}
 
   if (typeof window !== "undefined") {
     window.addEventListener("message", (event) => {
