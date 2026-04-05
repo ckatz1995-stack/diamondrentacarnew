@@ -417,9 +417,7 @@
             <h2>Overview</h2>
             <p>Συμπτυγμένο control overview για τη συνολική εικόνα της εταιρίας, το system status και τη γρήγορη μετάβαση στα βασικά sections.</p>
           </div>
-          <div class="actions">
-            <button class="btn" id="settingsHomeRefreshBtn" data-allow-busy="1">Ανανέωση</button>
-          </div>
+          <div class="actions"></div>
         </div>
 
         <div class="overview-grid">
@@ -1951,7 +1949,7 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
               </div>
             </div>
             <div class="settings-nav-actions">
-              <button class="tab ${state.activeSection === 'settingsHome' ? 'active' : ''}" data-tab="settingsHome">Overview</button>
+              <button class="btn" id="settingsHomeRefreshBtn" data-allow-busy="1">Ανανέωση</button>
               <div class="tab-picker">
                 <button class="picker-trigger" id="tabPickerTrigger">All sections ▾</button>
                 <div class="picker-menu" id="tabPickerMenu">${groups.map(group => `<div class="picker-section"><div class="picker-label">${group}</div><div class="picker-items">${(grouped[group]||[]).map(tab => `<button class="tab ${state.activeSection === tab.key ? 'active' : ''}" data-tab="${tab.key}">${tab.label}</button>`).join('')}</div></div>`).join('')}</div>
