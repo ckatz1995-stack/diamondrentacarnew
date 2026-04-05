@@ -300,6 +300,9 @@
     .business-shell{display:grid;gap:14px}
     .business-pane-shell{border:1px solid #eadfce;border-radius:20px;background:linear-gradient(180deg,#ffffff 0%,#fbfdff 100%);padding:12px;box-shadow:0 8px 18px rgba(15,23,42,.04)}
     .business-subtabs{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:10px}
+    .business-area-rail{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+    .business-area-btn{padding:8px 12px;border-radius:999px;border:1px solid #e6dbc9;background:#fff;color:#6c522e;cursor:pointer;font-weight:800;font-size:12px}
+    .business-area-btn.active{background:linear-gradient(180deg,#a8844a 0%,#8e6d3d 100%);border-color:#8e6d3d;color:#fff;box-shadow:0 8px 16px rgba(142,109,61,.14)}
     .business-subtabs-left{display:flex;gap:8px;overflow:auto;scrollbar-width:thin;flex:1 1 720px;padding-bottom:2px}
     .business-subtab{padding:10px 13px;border-radius:999px;border:1px solid #e6dbc9;background:#fff;color:#6c522e;cursor:pointer;font-weight:800;font-size:12px;white-space:nowrap;transition:all .18s ease;box-shadow:0 3px 8px rgba(15,23,42,.03)}
     .business-subtab.active{background:linear-gradient(180deg,#a8844a 0%,#8e6d3d 100%);border-color:#8e6d3d;color:#fff;box-shadow:0 10px 18px rgba(142,109,61,.16)}
@@ -418,6 +421,54 @@
             <p>Συμπτυγμένο control overview για τη συνολική εικόνα της εταιρίας, το system status και τη γρήγορη μετάβαση στα βασικά sections.</p>
           </div>
           <div class="actions"></div>
+        </div>
+
+        <div class="settings-command-deck">
+          <div class="settings-command-card">
+            <div class="settings-command-kicker">Front &amp; catalog</div>
+            <h3 class="settings-command-title">Brand, operations &amp; vehicle presentation</h3>
+            <p class="settings-command-copy">Γρήγορη πρόσβαση στα σημεία που επηρεάζουν το front look, τη λογική κατηγοριών/μοντέλων και τα βασικά operational defaults.</p>
+            <div class="settings-command-pills">
+              <span class="pill">Front company</span>
+              <span class="pill">Operations</span>
+              <span class="pill">Vehicle catalog</span>
+            </div>
+            <div class="settings-command-actions">
+              <button class="btn" data-home-go="business" data-focus-group="frontBrand">Front &amp; company</button>
+              <button class="btn" data-home-go="business" data-focus-group="operations">Operations</button>
+              <button class="btn" data-home-go="business" data-focus-group="vehicleCatalog">Vehicle catalog</button>
+            </div>
+          </div>
+          <div class="settings-command-card">
+            <div class="settings-command-kicker">Pricing &amp; legal</div>
+            <h3 class="settings-command-title">Rules, coverages &amp; commercial policy</h3>
+            <p class="settings-command-copy">Ενιαίο σημείο για δυναμική τιμολόγηση, ασφάλειες, extras, fees και όρους που επηρεάζουν προσφορά, checkout και contract.</p>
+            <div class="settings-command-pills">
+              <span class="pill">Dynamic pricing</span>
+              <span class="pill">Insurance</span>
+              <span class="pill">Fees &amp; extras</span>
+            </div>
+            <div class="settings-command-actions">
+              <button class="btn" data-settings-section="dynamicPricing">Dynamic pricing</button>
+              <button class="btn" data-settings-section="insurance">Insurance</button>
+              <button class="btn" data-settings-section="fees">Fees</button>
+            </div>
+          </div>
+          <div class="settings-command-card">
+            <div class="settings-command-kicker">Team &amp; privacy</div>
+            <h3 class="settings-command-title">Access control, staff roles &amp; audit visibility</h3>
+            <p class="settings-command-copy">Σύνδεσε ρόλους, χρήστες, active sessions και privacy checks με το ίδιο admin language που χρησιμοποιείς σε Daily, Fleet και Bookings.</p>
+            <div class="settings-command-pills">
+              <span class="pill">Security</span>
+              <span class="pill">Roles</span>
+              <span class="pill">Users &amp; audit</span>
+            </div>
+            <div class="settings-command-actions">
+              <button class="btn" data-settings-section="security">Security</button>
+              <button class="btn" data-settings-section="roles">Roles</button>
+              <button class="btn" data-settings-section="users">Users</button>
+            </div>
+          </div>
         </div>
 
         <div class="overview-grid">
@@ -1107,6 +1158,7 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
       securityEmail: '',
       securityResult: '',
       activeBusinessPane: savedSettingsWorkspace?.activeBusinessPane || 'frontBrand',
+      activeBusinessArea: savedSettingsWorkspace?.activeBusinessArea || 'front',
       textEditor: { open:false, sourceId:'', title:'', hint:'' },
       tableLayouts: loadTableLayouts(),
       stationProfiles: [],
@@ -1132,15 +1184,25 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
     ];
 
 
-    const BUSINESS_PANES = [
-      { key:'frontBrand', label:'1. Front & company', shortLabel:'Front & company', helper:'Brand, company identity, footer and front-facing contact info.' },
-      { key:'operations', label:'2. Operations', shortLabel:'Operations', helper:'Booking rules, operating hours, deposits and out-of-hours behavior.' },
-      { key:'locations', label:'3. Stations / Locations', shortLabel:'Stations/Locations', helper:'Stations and pickup/dropoff locations, ordering, fees and activation state.' },
-      { key:'vehicleCatalog', label:'4. Vehicle catalog', shortLabel:'Vehicle catalog', helper:'Vehicles page mode and a visual preview of what the customer sees on the vehicles page.' },
-      { key:'automation', label:'5. Triggered emails', shortLabel:'Triggered emails', helper:'Automation enablement and trigger ids.' },
-      { key:'rentalTerms', label:'6. Rental terms', shortLabel:'Rental terms', helper:'Public rental terms page content and large legal copy.' },
-      { key:'insuranceTexts', label:'7. Insurance & legal', shortLabel:'Insurance & legal', helper:'Insurance texts, intros and legal helper content.' }
+    const BUSINESS_AREAS = [
+      { key:'front', label:'Front' },
+      { key:'company', label:'Company' },
+      { key:'communications', label:'Communications' }
     ];
+
+    const BUSINESS_PANES = [
+      { key:'frontBrand', area:'front', label:'1. Ταυτότητα εταιρίας & front brand', shortLabel:'Front brand', helper:'Brand, company identity, footer and front-facing contact info.' },
+      { key:'operations', area:'front', label:'2. Operations', shortLabel:'Operations', helper:'Booking rules, operating hours, deposits and out-of-hours behavior.' },
+      { key:'vehicleCatalog', area:'front', label:'3. Vehicle catalog', shortLabel:'Vehicle catalog', helper:'Vehicles page mode and a visual preview of what the customer sees on the vehicles page.' },
+      { key:'rentalTerms', area:'front', label:'4. Rental terms', shortLabel:'Rental terms', helper:'Public rental terms page content and large legal copy.' },
+      { key:'insuranceTexts', area:'front', label:'5. Insurance & legal', shortLabel:'Insurance & legal', helper:'Insurance texts, intros and legal helper content.' },
+      { key:'locations', area:'company', label:'1. Stations / Locations', shortLabel:'Stations / Locations', helper:'Pickup and dropoff locations, ordering, fees and activation state.' },
+      { key:'automation', area:'communications', label:'1. Triggered emails', shortLabel:'Triggered emails', helper:'Automation enablement and trigger ids.' }
+    ];
+    const initialBusinessPane = BUSINESS_PANES.find((pane) => pane.key === state.activeBusinessPane);
+    if(initialBusinessPane && state.activeBusinessArea !== initialBusinessPane.area){
+      state.activeBusinessArea = initialBusinessPane.area;
+    }
 
     const ROLE_MODULES = ['bookings','rentals','customers','pricing','fleet','reports','financials'];
     const ROLE_ACTIONS = ['view','insert','edit','delete'];
@@ -1789,8 +1851,10 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
       if(!tabs.some(tab => tab.key === key)) key = tabs[0]?.key || 'settingsHome';
       state.activeSection = key;
       if(key === 'business' && options.businessPane){
-        if(BUSINESS_PANES.some((pane) => pane.key === options.businessPane)){
-          state.activeBusinessPane = options.businessPane;
+        const selectedPane = BUSINESS_PANES.find((pane) => pane.key === options.businessPane);
+        if(selectedPane){
+          state.activeBusinessPane = selectedPane.key;
+          state.activeBusinessArea = selectedPane.area;
         }
       }
       persistSettingsWorkspace();
@@ -2014,29 +2078,51 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
 
 
     function currentBusinessPane(){
-      return BUSINESS_PANES.find((pane) => pane.key === state.activeBusinessPane) || BUSINESS_PANES[0];
+      const area = state.activeBusinessArea || 'front';
+      const scoped = BUSINESS_PANES.filter((pane) => pane.area === area);
+      return scoped.find((pane) => pane.key === state.activeBusinessPane) || scoped[0] || BUSINESS_PANES[0];
+    }
+    function setActiveBusinessArea(area){
+      if(!BUSINESS_AREAS.some((entry) => entry.key === area)) area = 'front';
+      state.activeBusinessArea = area;
+      const scoped = BUSINESS_PANES.filter((pane) => pane.area === area);
+      if(!scoped.some((pane) => pane.key === state.activeBusinessPane)){
+        state.activeBusinessPane = scoped[0]?.key || BUSINESS_PANES[0]?.key || 'frontBrand';
+      }
+      persistSettingsWorkspace();
+      if(state.activeSection === 'business') renderBusinessPaneNav();
     }
     function setActiveBusinessPane(key){
-      if(!BUSINESS_PANES.some((pane) => pane.key === key)) key = BUSINESS_PANES[0].key;
+      const hit = BUSINESS_PANES.find((pane) => pane.key === key);
+      if(!hit){
+        const scoped = BUSINESS_PANES.filter((pane) => pane.area === (state.activeBusinessArea || 'front'));
+        key = scoped[0]?.key || BUSINESS_PANES[0].key;
+      }
       state.activeBusinessPane = key;
+      const current = BUSINESS_PANES.find((pane) => pane.key === key);
+      if(current) state.activeBusinessArea = current.area;
       persistSettingsWorkspace();
       if(state.activeSection === 'business') renderBusinessPaneNav();
     }
     function renderBusinessPaneNav(){
       if(!els.businessPaneTabs || state.activeSection !== 'business') return;
-      const active = currentBusinessPane();
+      const activeArea = state.activeBusinessArea || 'front';
+      const areaPanes = BUSINESS_PANES.filter((pane) => pane.area === activeArea);
+      const active = areaPanes.find((pane) => pane.key === state.activeBusinessPane) || areaPanes[0] || BUSINESS_PANES[0];
       els.businessPaneTabs.innerHTML = `
-        <div class="business-subtabs-left">${BUSINESS_PANES.map((pane) => `<button class="business-subtab ${pane.key===active.key?'active':''}" data-business-tab="${pane.key}">${pane.label}</button>`).join('')}</div>
+        <div class="business-area-rail">${BUSINESS_AREAS.map((area) => `<button class="business-area-btn ${area.key===activeArea?'active':''}" data-business-area="${area.key}">${area.label}</button>`).join('')}</div>
+        <div class="business-subtabs-left">${areaPanes.map((pane) => `<button class="business-subtab ${pane.key===active.key?'active':''}" data-business-tab="${pane.key}">${pane.label}</button>`).join('')}</div>
         <div class="business-subtab-picker">
           <button class="business-subtab-trigger" id="businessPaneTrigger">${active.shortLabel} ▾</button>
           <div class="business-subtab-menu" id="businessPaneMenu">
-            <div class="picker-section"><div class="picker-label">Business settings panes</div><div class="picker-items">${BUSINESS_PANES.map((pane) => `<button class="tab ${pane.key===active.key?'active':''}" data-business-tab="${pane.key}">${pane.label}</button>`).join('')}</div></div>
+            <div class="picker-section"><div class="picker-label">Business settings panes</div><div class="picker-items">${areaPanes.map((pane) => `<button class="tab ${pane.key===active.key?'active':''}" data-business-tab="${pane.key}">${pane.label}</button>`).join('')}</div></div>
           </div>
         </div>`;
       if(els.businessPaneNote){
         els.businessPaneNote.innerHTML = `<span><strong>${active.label}</strong> · ${active.helper}</span><span>Εμφανίζεται μόνο το επιλεγμένο block για πιο καθαρή επεξεργασία.</span>`;
       }
       document.querySelectorAll('[data-business-pane]').forEach((pane) => pane.classList.toggle('active', pane.getAttribute('data-business-pane') === active.key));
+      els.businessPaneTabs.querySelectorAll('[data-business-area]').forEach((btn) => btn.addEventListener('click', () => setActiveBusinessArea(btn.getAttribute('data-business-area') || 'front')));
       els.businessPaneTabs.querySelectorAll('[data-business-tab]').forEach((btn) => btn.addEventListener('click', () => setActiveBusinessPane(btn.getAttribute('data-business-tab') || BUSINESS_PANES[0].key)));
       const trigger = document.getElementById('businessPaneTrigger');
       const menu = document.getElementById('businessPaneMenu');
@@ -2431,13 +2517,13 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
     }
     function upsertHandoffQueue(entry){ try { if (!entry || !entry.id) return; const raw = JSON.parse(localStorage.getItem(HANDOFF_QUEUE_KEY) || '[]'); const list = Array.isArray(raw) ? raw.filter((it)=> it && typeof it === 'object' && it.id !== entry.id) : []; list.unshift(entry); localStorage.setItem(HANDOFF_QUEUE_KEY, JSON.stringify(list.slice(0, 8))); } catch(_){} }
     function upsertSavedView(entry){ try { if (!entry || !entry.id) return; const raw = JSON.parse(localStorage.getItem(SAVED_VIEWS_KEY) || '[]'); const list = Array.isArray(raw) ? raw.filter((it)=> it && typeof it === 'object' && it.id !== entry.id) : []; list.unshift(entry); localStorage.setItem(SAVED_VIEWS_KEY, JSON.stringify(list.slice(0, 12))); } catch(_){} }
-    function queueCurrentSettingsSection(){ const info = buildCurrentSectionDigestData(); upsertHandoffQueue({ id:`settings:${state.activeSection || 'settingsHome'}:${state.activeBusinessPane || 'frontBrand'}`, route:'settings', routeLabel:'Settings', title:info.title, subtitle:info.subtitle, summaryLine:info.summaryLine, metrics:(info.metrics || []).slice(0, 3), workspaceKey:SETTINGS_WORKSPACE_KEY, workspace:{ activeSection: state.activeSection || 'settingsHome', activeBusinessPane: state.activeBusinessPane || 'frontBrand' }, updatedAt:new Date().toISOString() }); showToast('Το current Settings section μπήκε στο handoff queue της Myroom.', 'success'); }
+    function queueCurrentSettingsSection(){ const info = buildCurrentSectionDigestData(); upsertHandoffQueue({ id:`settings:${state.activeSection || 'settingsHome'}:${state.activeBusinessPane || 'frontBrand'}`, route:'settings', routeLabel:'Settings', title:info.title, subtitle:info.subtitle, summaryLine:info.summaryLine, metrics:(info.metrics || []).slice(0, 3), workspaceKey:SETTINGS_WORKSPACE_KEY, workspace:{ activeSection: state.activeSection || 'settingsHome', activeBusinessPane: state.activeBusinessPane || 'frontBrand', activeBusinessArea: state.activeBusinessArea || 'front' }, updatedAt:new Date().toISOString() }); showToast('Το current Settings section μπήκε στο handoff queue της Myroom.', 'success'); }
     function saveCurrentSettingsView(){
       const info = buildCurrentSectionDigestData();
       const defaultName = `${info.title || 'Settings'} • ${info.subtitle || 'Admin context'}`;
       const title = String(window.prompt('Όνομα για το saved view του Settings:', defaultName) || '').trim();
       if (!title) { showToast('Η αποθήκευση του saved view ακυρώθηκε.', 'error'); return; }
-      upsertSavedView({ id:`saved:settings:${Date.now()}`, route:'settings', routeLabel:'Settings', title, subtitle:info.subtitle, summaryLine:info.summaryLine, metrics:(info.metrics || []).slice(0, 3), workspaceKey:SETTINGS_WORKSPACE_KEY, workspace:{ activeSection: state.activeSection || 'settingsHome', activeBusinessPane: state.activeBusinessPane || 'frontBrand' }, updatedAt:new Date().toISOString() });
+      upsertSavedView({ id:`saved:settings:${Date.now()}`, route:'settings', routeLabel:'Settings', title, subtitle:info.subtitle, summaryLine:info.summaryLine, metrics:(info.metrics || []).slice(0, 3), workspaceKey:SETTINGS_WORKSPACE_KEY, workspace:{ activeSection: state.activeSection || 'settingsHome', activeBusinessPane: state.activeBusinessPane || 'frontBrand', activeBusinessArea: state.activeBusinessArea || 'front' }, updatedAt:new Date().toISOString() });
       showToast('Το current Settings view αποθηκεύτηκε στη Myroom.', 'success');
     }
 
@@ -2518,7 +2604,7 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
     function writeSettingsSnapshot(){ return; }
     function buildCurrentSectionDigest(){ const info = buildCurrentSectionDigestData(); return ['Settings section digest', `${info.title} • ${info.subtitle}`, info.summaryLine, ...info.metrics].filter(Boolean).join('\n'); }
     function persistSettingsWorkspace(){
-      try{ localStorage.setItem(SETTINGS_WORKSPACE_KEY, JSON.stringify({ activeSection: state.activeSection || 'settingsHome', activeBusinessPane: state.activeBusinessPane || 'frontBrand' })); } catch(_){}
+      try{ localStorage.setItem(SETTINGS_WORKSPACE_KEY, JSON.stringify({ activeSection: state.activeSection || 'settingsHome', activeBusinessPane: state.activeBusinessPane || 'frontBrand', activeBusinessArea: state.activeBusinessArea || 'front' })); } catch(_){}
       try{
         const info = buildCurrentSectionDigestData();
         const entry = { route:'settings', routeLabel:'Settings', title:'Account settings', subtitle:info.subtitle, updatedAt:new Date().toISOString() };
