@@ -1,5 +1,6 @@
 import wixLocation from "wix-location";
 import { getPublicPricingCatalog } from "backend/pricingCatalog.jsw";
+import { BRIDGE_TYPES, buildBookingContext, normalizeBridgeMessage, postMessageSafe, resolveHtmlComponent } from "public/bridgeUtils";
 
 const HTML_COMPONENT_ID = "#termsHtml";
 let htmlComponent = null;
@@ -11,49 +12,12 @@ function resetCaches() {
   pricingPromise = null;
 }
 
-function normalizeMessage(raw) {
-  if (!raw) return null;
-  if (typeof raw === "string") {
-    try { return JSON.parse(raw); } catch (err) { return null; }
-  }
-  return raw;
-}
-
-function isHtmlBridgeComponent(comp) {
-  return !!(comp && typeof comp.onMessage === "function" && typeof comp.postMessage === "function");
-}
-
 function getHtmlComponent() {
-  try {
-    const comp = $w(HTML_COMPONENT_ID);
-    if (isHtmlBridgeComponent(comp)) return comp;
-  } catch (err) {}
-  return null;
+  return resolveHtmlComponent($w, [HTML_COMPONENT_ID]);
 }
 
 function post(payload) {
-  if (!htmlComponent || !payload) return false;
-  try {
-    htmlComponent.postMessage(payload);
-    return true;
-  } catch (err) {
-    try {
-      htmlComponent.postMessage(JSON.stringify(payload));
-      return true;
-    } catch (innerErr) {
-      console.error("Rental terms postMessage failed", innerErr || err);
-      return false;
-    }
-  }
-}
-
-function buildContext() {
-  return {
-    type: "booking-context",
-    query: wixLocation.query || {},
-    url: wixLocation.url,
-    path: wixLocation.path || []
-  };
+  return postMessageSafe(htmlComponent, payload, "Rental Terms");
 }
 
 async function ensurePricingCatalog() {
@@ -78,12 +42,12 @@ async function ensurePricingCatalog() {
 }
 
 function sendContext() {
-  post(buildContext());
+  post(buildBookingContext(wixLocation));
 }
 
 async function sendPricingCatalog() {
   const catalog = await ensurePricingCatalog();
-  post({ type: "pricing-catalog-data", catalog: catalog || null });
+  post({ type: BRIDGE_TYPES.PRICING, catalog: catalog || null });
 }
 
 async function syncAll() {
@@ -101,17 +65,17 @@ function go(path) {
 }
 
 function handleMessage(event) {
-  const data = normalizeMessage(event && event.data);
+  const data = normalizeBridgeMessage(event && event.data);
   if (!data) return;
-  if (data.type === "wix-booking-nav" && data.path) {
+  if (data.type === BRIDGE_TYPES.WIX_NAV && data.path) {
     go(data.path);
     return;
   }
-  if (data.type === "request-booking-context") {
+  if (data.type === BRIDGE_TYPES.REQUEST_CONTEXT) {
     sendContext();
     return;
   }
-  if (data.type === "request-pricing-catalog-data") {
+  if (data.type === BRIDGE_TYPES.REQUEST_PRICING) {
     sendPricingCatalog();
   }
 }
@@ -147,11 +111,11 @@ $w.onReady(async function () {
 
   if (typeof window !== "undefined") {
     window.addEventListener("message", (event) => {
-      const data = normalizeMessage(event && event.data);
+      const data = normalizeBridgeMessage(event && event.data);
       if (!data) return;
-      if (data.type === "wix-booking-nav" && data.path) go(data.path);
-      if (data.type === "request-booking-context") sendContext();
-      if (data.type === "request-pricing-catalog-data") sendPricingCatalog();
+      if (data.type === BRIDGE_TYPES.WIX_NAV && data.path) go(data.path);
+      if (data.type === BRIDGE_TYPES.REQUEST_CONTEXT) sendContext();
+      if (data.type === BRIDGE_TYPES.REQUEST_PRICING) sendPricingCatalog();
     });
   }
 });

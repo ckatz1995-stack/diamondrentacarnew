@@ -2,6 +2,7 @@ import wixLocation from "wix-location";
 import { currentMember } from "wix-members-frontend";
 import { getPublicPricingCatalog } from "backend/pricingCatalog.jsw";
 import { getVehicleCategoryDetails, createBooking } from "backend/bookingEngine";
+import { BRIDGE_TYPES, buildBookingContext, normalizeBridgeMessage, postMessageSafe, resolveHtmlComponent } from "public/bridgeUtils";
 
 const COMPONENT_CANDIDATES = ["#bpage4", "#checkoutHtml", "#bookingHtml", "#html1"];
 let htmlComponent = null;
@@ -21,55 +22,12 @@ function resetCaches() {
   memberPrefillPromise = null;
 }
 
-function normalizeMessage(raw) {
-  if (!raw) return null;
-  if (typeof raw === "string") {
-    try { return JSON.parse(raw); } catch (e) { return null; }
-  }
-  return raw;
-}
-
 function getHtmlComponent() {
-  for (const selector of COMPONENT_CANDIDATES) {
-    try {
-      const comp = $w(selector);
-      if (comp) return comp;
-    } catch (err) {}
-  }
-  try {
-    const selection = $w("HtmlComponent");
-    if (selection && typeof selection.forEach === "function") {
-      const items = [];
-      selection.forEach((component) => items.push(component));
-      if (items.length) return items[0];
-    }
-  } catch (err) {}
-  return null;
+  return resolveHtmlComponent($w, COMPONENT_CANDIDATES);
 }
 
 function post(payload) {
-  if (!htmlComponent || !payload) return false;
-  try {
-    htmlComponent.postMessage(payload);
-    return true;
-  } catch (err) {
-    try {
-      htmlComponent.postMessage(JSON.stringify(payload));
-      return true;
-    } catch (innerErr) {
-      console.error("Checkout postMessage failed", innerErr || err);
-      return false;
-    }
-  }
-}
-
-function buildContext() {
-  return {
-    type: "booking-context",
-    query: wixLocation.query || {},
-    url: wixLocation.url,
-    path: wixLocation.path || []
-  };
+  return postMessageSafe(htmlComponent, payload, "Checkout");
 }
 
 function readVehicleId() {
@@ -168,12 +126,12 @@ async function ensureMemberPrefill() {
 }
 
 function sendContext() {
-  post(buildContext());
+  post(buildBookingContext(wixLocation));
 }
 
 async function sendPricingCatalog() {
   const catalog = await ensurePricingCatalog();
-  post({ type: "pricing-catalog-data", catalog: catalog || null });
+  post({ type: BRIDGE_TYPES.PRICING, catalog: catalog || null });
 }
 
 async function sendCategoryItem() {
@@ -212,17 +170,17 @@ function go(path) {
 }
 
 function handleMessage(event) {
-  const data = normalizeMessage(event && event.data);
+  const data = normalizeBridgeMessage(event && event.data);
   if (!data) return;
-  if (data.type === "wix-booking-nav" && data.path) {
+  if (data.type === BRIDGE_TYPES.WIX_NAV && data.path) {
     go(data.path);
     return;
   }
-  if (data.type === "request-booking-context") {
+  if (data.type === BRIDGE_TYPES.REQUEST_CONTEXT) {
     sendContext();
     return;
   }
-  if (data.type === "request-pricing-catalog-data") {
+  if (data.type === BRIDGE_TYPES.REQUEST_PRICING) {
     sendPricingCatalog();
     return;
   }
@@ -274,9 +232,9 @@ $w.onReady(async function () {
 
   if (typeof window !== "undefined") {
     window.addEventListener("message", (event) => {
-      const data = normalizeMessage(event && event.data);
+      const data = normalizeBridgeMessage(event && event.data);
       if (!data) return;
-      if (data.type === "wix-booking-nav" && data.path) go(data.path);
+      if (data.type === BRIDGE_TYPES.WIX_NAV && data.path) go(data.path);
     });
   }
 });
