@@ -2003,9 +2003,27 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
         const groups = Object.keys(grouped);
         const activeGroup = (tabs.find(tab => tab.key === state.activeSection)?.group) || groups[0] || 'General';
         const activeLabelText = (tabs.find(tab => tab.key === state.activeSection)?.label) || 'Επιλογή ενότητας';
-        const isBusinessSection = state.activeSection === 'business';
         const activeBusinessArea = state.activeBusinessArea || 'front';
         const areaPanes = BUSINESS_PANES.filter((pane) => pane.area === activeBusinessArea);
+        const topGroupDefs = [
+          { key:'overview', label:'Overview', section:'settingsHome' },
+          { key:'front', label:'Front', section:'business', businessArea:'front' },
+          { key:'company', label:'Company', section:'business', businessArea:'company' },
+          { key:'communications', label:'Communications', section:'business', businessArea:'communications' },
+          { key:'operations', label:'Operations', section:'fleetCategories' },
+          { key:'pricing', label:'Pricing rules', section:'dynamicPricing' },
+          { key:'team', label:'Team & access', section:(tabs.find(tab => ['roles','users','security','audit'].includes(tab.key)) || tabs.find(tab => tab.group === 'Team & access') || tabs[0] || {}).key || 'settingsHome' }
+        ];
+        const topGroupButtons = topGroupDefs
+          .map((entry) => {
+            const isVisible = tabs.some(tab => tab.key === entry.section) || entry.section === 'business';
+            if(!isVisible) return '';
+            const isActive = entry.section === 'business'
+              ? (state.activeSection === 'business' && activeBusinessArea === entry.businessArea)
+              : (activeGroup === entry.label || state.activeSection === entry.section);
+            return `<button class="group-pill ${isActive ? 'active' : ''}" data-top-group="${entry.section}" ${entry.businessArea ? `data-top-area="${entry.businessArea}"` : ''}>${entry.label}</button>`;
+          })
+          .join('');
         els.tabs.innerHTML = `
         <div class="settings-nav-shell">
           <div class="settings-nav-topline">
@@ -2023,23 +2041,22 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
               </div>
             </div>
           </div>
-          ${isBusinessSection
-            ? `<div class="group-rail">${BUSINESS_AREAS.map((area) => `<button class="group-pill ${area.key===activeBusinessArea?'active':''}" data-top-business-area="${area.key}">${area.label}</button>`).join('')}</div>
-               <div class="section-row"><div class="section-rail">${areaPanes.map((pane) => `<button class="tab ${pane.key===state.activeBusinessPane?'active':''}" data-top-business-pane="${pane.key}">${pane.label}</button>`).join('')}</div></div>`
-            : `<div class="group-rail">${groups.map(group => `<button class="group-pill ${group===activeGroup?'active':''}" data-tab-group="${group}">${group}</button>`).join('')}</div>`
-          }
+          <div class="group-rail">${topGroupButtons}</div>
+          ${state.activeSection === 'business' ? `<div class="section-row"><div class="section-rail">${areaPanes.map((pane) => `<button class="tab ${pane.key===state.activeBusinessPane?'active':''}" data-top-business-pane="${pane.key}">${pane.label}</button>`).join('')}</div></div>` : ''}
         </div>`;
         const activate = (key) => { openSectionByKey(key); };
         els.tabs.querySelectorAll('[data-tab]').forEach(btn => btn.addEventListener('click', () => activate(btn.dataset.tab)));
-        els.tabs.querySelectorAll('[data-tab-group]').forEach(btn => btn.addEventListener('click', () => {
-          const group = btn.getAttribute('data-tab-group') || '';
-          const first = (grouped[group] || [])[0];
-          if(first) activate(first.key);
-        }));
-        els.tabs.querySelectorAll('[data-top-business-area]').forEach(btn => btn.addEventListener('click', () => {
-          const key = btn.getAttribute('data-top-business-area') || 'front';
-          setActiveBusinessArea(key);
+        els.tabs.querySelectorAll('[data-top-group]').forEach(btn => btn.addEventListener('click', () => {
+          const section = btn.getAttribute('data-top-group') || 'settingsHome';
+          const area = btn.getAttribute('data-top-area') || '';
+          if(section === 'business'){
+            if(area) setActiveBusinessArea(area);
+            openSectionByKey('business', { businessPane: state.activeBusinessPane || BUSINESS_PANES.find((pane) => pane.area === (area || activeBusinessArea))?.key || 'frontBrand' });
+          } else {
+            activate(section);
+          }
           renderTabs();
+          renderSections();
         }));
         els.tabs.querySelectorAll('[data-top-business-pane]').forEach(btn => btn.addEventListener('click', () => {
           const key = btn.getAttribute('data-top-business-pane') || '';
