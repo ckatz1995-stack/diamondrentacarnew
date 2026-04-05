@@ -742,14 +742,14 @@
 <div class="app" id="app">
   <header class="backroom-header">
     <div class="backroom-brand">
-      <b>Diamond Rent A Car</b>
-      <span>Backroom operational workspace · Contract editor</span>
+      <b>DIAMOND Backroom</b>
+      <span>Front site · Pricing · Fleet · Team & Security</span>
     </div>
 
     <nav class="backroom-nav" id="backroomNav">
       <button class="nav-btn" type="button" data-nav-route="home">Myroom</button>
       <button class="nav-btn" type="button" data-nav-route="daily">Daily</button>
-      <button class="nav-btn" type="button" data-nav-route="fleet">Fleet chart</button>
+      <button class="nav-btn" type="button" data-nav-route="fleet">Fleet</button>
       <button class="nav-btn" type="button" data-nav-route="bookings">Bookings</button>
       <button class="nav-btn active" type="button" data-nav-route="contract">Contract</button>
       <button class="nav-btn" type="button" data-nav-route="settings">Settings</button>
