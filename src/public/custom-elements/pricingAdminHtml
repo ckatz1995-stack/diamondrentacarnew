@@ -312,6 +312,7 @@
     .business-subtab-menu.open{display:block}
     .business-subtab-menu .picker-items{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
     .business-subtab-note{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:8px 12px;border:1px solid #eee3d2;border-radius:14px;background:#fbf8f3;color:var(--muted);font-size:12px;margin-bottom:12px}
+    #businessPaneTabs,#businessPaneNote{display:none}
     .business-pane{display:none}
     .business-pane.active{display:block}
     .embedded-manager{display:grid;gap:12px;margin-top:14px;padding-top:14px;border-top:1px solid #e4d5bf}
@@ -2139,47 +2140,13 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
       if(state.activeSection === 'business') renderBusinessPaneNav();
     }
     function renderBusinessPaneNav(){
-      if(!els.businessPaneTabs || state.activeSection !== 'business') return;
+      if(state.activeSection !== 'business') return;
       const activeArea = state.activeBusinessArea || 'front';
       const areaPanes = BUSINESS_PANES.filter((pane) => pane.area === activeArea);
       const active = areaPanes.find((pane) => pane.key === state.activeBusinessPane) || areaPanes[0] || BUSINESS_PANES[0];
-      els.businessPaneTabs.innerHTML = `
-        <div class="business-subtabs-left">${areaPanes.map((pane) => `<button class="business-subtab ${pane.key===active.key?'active':''}" data-business-tab="${pane.key}">${pane.label}</button>`).join('')}</div>
-        <div class="business-subtab-picker">
-          <button class="business-subtab-trigger" id="businessPaneTrigger">${active.shortLabel} ▾</button>
-          <div class="business-subtab-menu" id="businessPaneMenu">
-            <div class="picker-section"><div class="picker-label">Business settings panes</div><div class="picker-items">${areaPanes.map((pane) => `<button class="tab ${pane.key===active.key?'active':''}" data-business-tab="${pane.key}">${pane.label}</button>`).join('')}</div></div>
-          </div>
-        </div>`;
-      if(els.businessPaneNote){
-        els.businessPaneNote.innerHTML = `<span><strong>${active.label}</strong> · ${active.helper}</span><span>Εμφανίζεται μόνο το επιλεγμένο block για πιο καθαρή επεξεργασία.</span>`;
-      }
+      if(els.businessPaneTabs) els.businessPaneTabs.style.display = 'none';
+      if(els.businessPaneNote) els.businessPaneNote.style.display = 'none';
       document.querySelectorAll('[data-business-pane]').forEach((pane) => pane.classList.toggle('active', pane.getAttribute('data-business-pane') === active.key));
-      els.businessPaneTabs.querySelectorAll('[data-business-area]').forEach((btn) => btn.addEventListener('click', () => setActiveBusinessArea(btn.getAttribute('data-business-area') || 'front')));
-      els.businessPaneTabs.querySelectorAll('[data-business-tab]').forEach((btn) => btn.addEventListener('click', () => setActiveBusinessPane(btn.getAttribute('data-business-tab') || BUSINESS_PANES[0].key)));
-      const trigger = document.getElementById('businessPaneTrigger');
-      const menu = document.getElementById('businessPaneMenu');
-      if(state._businessMenuDocHandler){
-        document.removeEventListener('click', state._businessMenuDocHandler, true);
-        state._businessMenuDocHandler = null;
-      }
-      if(trigger && menu){
-        trigger.addEventListener('click', (event) => {
-          event.preventDefault();
-          event.stopPropagation();
-          const open = !menu.classList.contains('open');
-          menu.classList.toggle('open', open);
-          if(open && state._businessMenuDocHandler){
-            document.addEventListener('click', state._businessMenuDocHandler, true);
-          }
-        });
-        state._businessMenuDocHandler = (event) => {
-          if(!menu.contains(event.target) && !trigger.contains(event.target)){
-            menu.classList.remove('open');
-            document.removeEventListener('click', state._businessMenuDocHandler, true);
-          }
-        };
-      }
       requestResize();
     }
     function openTextEditor(sourceId, title, hint){
