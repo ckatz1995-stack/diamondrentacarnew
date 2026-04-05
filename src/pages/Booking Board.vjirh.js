@@ -162,7 +162,7 @@ function getHtmlComponent() {
 }
 
 function hideOtherComponents(keepIds) {
-  ["#tabsHtml", "#homeHtml", "#dailyHtml", "#fleetCalendarHtml"].forEach(id => {
+  ["#tabsHtml", "#homeHtml", "#dailyHtml", "#fleetCalendarHtml", "#bpage1", "#bpage2", "#bpage3", "#bpage4", "#html1", "#html2"].forEach(id => {
     if (keepIds.includes(id)) return;
     try { $w(id).collapse(); } catch (_) {}
     try { $w(id).hide(); } catch (_) {}
