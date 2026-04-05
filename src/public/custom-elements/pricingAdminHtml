@@ -83,6 +83,11 @@
     .tabs{margin:0 0 14px}
     .tabs-fallback{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px}
     .tabs-fallback .tab{padding:8px 11px}
+    .workspace-board{background:linear-gradient(180deg,#fdfaf4 0%,#f7f1e6 100%);border:1px solid var(--line);border-radius:24px;padding:14px;margin-bottom:14px;box-shadow:0 12px 28px rgba(15,23,42,.05)}
+    .workspace-board .settings-nav-shell{background:transparent;border:0;box-shadow:none;padding:0 0 12px;border-bottom:1px solid #e7dbc8;border-radius:0}
+    .workspace-board .tabs{margin:0}
+    .workspace-board .tabs-fallback{margin:0 0 10px}
+    .workspace-board .section .panel.section-card{background:transparent;border:0;box-shadow:none;padding:14px 4px 2px}
     .settings-nav-shell{display:grid;gap:10px;padding:12px 14px;background:linear-gradient(180deg,#ffffff 0%,#fbf8f3 100%);border:1px solid var(--line);border-radius:22px;box-shadow:0 14px 26px rgba(15,23,42,.06)}
     .settings-nav-topline{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-bottom:4px;border-bottom:1px solid #eadfce}
     .settings-context{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
@@ -392,17 +397,18 @@
     </div>
     <div class="panel" id="accessGate" style="display:none;margin-bottom:16px;padding:18px 20px"></div>
 
-    <div class="tabs" id="tabs"></div>
-    <div class="tabs-fallback" id="tabsFallback">
-      <button class="tab active" data-tab="settingsHome">Overview</button>
-      <button class="tab" data-tab="business">Business control</button>
-      <button class="tab" data-tab="fleetCategories">Fleet categories</button>
-      <button class="tab" data-tab="fleetVehicles">Fleet vehicles</button>
-      <button class="tab" data-tab="dynamicPricing">Dynamic pricing</button>
-      <button class="tab" data-tab="insurance">Insurance plans</button>
-      <button class="tab" data-tab="extras">Extra services</button>
-      <button class="tab" data-tab="fees">Fee rules</button>
-    </div>
+    <div class="workspace-board">
+      <div class="tabs" id="tabs"></div>
+      <div class="tabs-fallback" id="tabsFallback">
+        <button class="tab active" data-tab="settingsHome">Overview</button>
+        <button class="tab" data-tab="business">Business control</button>
+        <button class="tab" data-tab="fleetCategories">Fleet categories</button>
+        <button class="tab" data-tab="fleetVehicles">Fleet vehicles</button>
+        <button class="tab" data-tab="dynamicPricing">Dynamic pricing</button>
+        <button class="tab" data-tab="insurance">Insurance plans</button>
+        <button class="tab" data-tab="extras">Extra services</button>
+        <button class="tab" data-tab="fees">Fee rules</button>
+      </div>
 
     <section class="section active" data-section="settingsHome">
       <div class="panel section-card">
@@ -957,6 +963,7 @@
       </div>
     </section>
 
+    </div>
     <div class="statusbar"><div class="toast" id="toast"></div></div>
   </div>
 
@@ -1950,16 +1957,6 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
                 <div class="picker-menu" id="tabPickerMenu">${groups.map(group => `<div class="picker-section"><div class="picker-label">${group}</div><div class="picker-items">${(grouped[group]||[]).map(tab => `<button class="tab ${state.activeSection === tab.key ? 'active' : ''}" data-tab="${tab.key}">${tab.label}</button>`).join('')}</div></div>`).join('')}</div>
               </div>
             </div>
-          </div>
-          <div class="top-options">
-            ${groups.map(group => `
-              <div class="top-option-group">
-                <div class="top-option-label">${group}</div>
-                <div class="top-option-items">
-                  ${(grouped[group] || []).map(tab => `<button class="top-option-tab ${state.activeSection === tab.key ? 'active' : ''}" data-tab="${tab.key}">${tab.label}</button>`).join('')}
-                </div>
-              </div>
-            `).join('')}
           </div>
           <div class="group-rail">${groups.map(group => `<button class="group-pill ${group===activeGroup?'active':''}" data-tab-group="${group}">${group}</button>`).join('')}</div>
         </div>`;
