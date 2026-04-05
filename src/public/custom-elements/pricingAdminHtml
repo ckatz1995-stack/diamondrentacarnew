@@ -313,6 +313,9 @@
     .business-subtab-menu .picker-items{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
     .business-subtab-note{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:8px 12px;border:1px solid #eee3d2;border-radius:14px;background:#fbf8f3;color:var(--muted);font-size:12px;margin-bottom:12px}
     #businessPaneTabs,#businessPaneNote{display:none}
+    .section[data-section="business"] .section-head{justify-content:flex-end}
+    .section[data-section="business"] .section-head > div:first-child{display:none}
+    .section[data-section="business"] .section-head .actions{margin-left:auto}
     .business-pane{display:none}
     .business-pane.active{display:block}
     .embedded-manager{display:grid;gap:12px;margin-top:14px;padding-top:14px;border-top:1px solid #e4d5bf}
@@ -546,8 +549,6 @@
         </div>
         <div class="business-shell">
           <div class="business-pane-shell">
-            <div class="business-subtabs" id="businessPaneTabs"></div>
-            <div class="business-subtab-note" id="businessPaneNote" style="display:none"></div>
             <div class="settings-stack">
               <div class="settings-group business-pane active" id="group-frontBrand" data-group-anchor="frontBrand" data-business-pane="frontBrand">
                 <div class="settings-group-head">
