@@ -188,7 +188,7 @@ $w.onReady(async function () {
       resetCaches();
       resend();
     });
-  } catch (e) {}
+  } catch (_e) {}
 
   if (typeof window !== "undefined") {
     window.addEventListener("message", (event) => {

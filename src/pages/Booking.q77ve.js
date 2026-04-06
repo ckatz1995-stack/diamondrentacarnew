@@ -8,7 +8,7 @@ let categoryPromise = null;
 function normalizeMessage(raw) {
   if (!raw) return null;
   if (typeof raw === "string") {
-    try { return JSON.parse(raw); } catch (e) { return null; }
+    try { return JSON.parse(raw); } catch (_e) { return null; }
   }
   return raw;
 }
@@ -20,7 +20,7 @@ function getHtmlComponents() {
     const items = [];
     selection.forEach((component) => items.push(component));
     return items;
-  } catch (err) {
+  } catch (_err) {
     return [];
   }
 }
@@ -88,7 +88,7 @@ async function getMemberPrefill() {
       country: address?.country || "",
       postalCode: address?.postalCode || ""
     };
-  } catch (err) {
+  } catch (_err) {
     console.warn("Member prefill unavailable", err);
     return null;
   }
@@ -99,7 +99,7 @@ function post(component, payload) {
   try {
     component.postMessage(payload);
     return true;
-  } catch (err) {
+  } catch (_err) {
     try {
       component.postMessage(JSON.stringify(payload));
       return true;
@@ -135,7 +135,7 @@ async function handleSubmitBooking(component, payload) {
       id: result?._id || result?.id || "",
       message: result?.message || ""
     });
-  } catch (err) {
+  } catch (_err) {
     post(component, {
       type: "booking-submit-result",
       success: false,
@@ -169,7 +169,7 @@ function bindComponent(component) {
         try { wixLocation.to(data.path); } catch (navErr) { console.warn("Failed wix navigation", navErr); }
       }
     });
-  } catch (err) {
+  } catch (_err) {
     console.warn("Failed to bind HTML component message", err);
   }
 }
