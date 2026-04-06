@@ -43,3 +43,14 @@ This document defines the common cross-frame message contract used by page contr
 ## Security notes
 - Global `window.message` handlers should validate `event.origin` before processing payloads.
 - Never include secrets (e.g. plaintext passwords) in bridge payloads.
+
+## Telemetry hooks
+- Runtime bridge telemetry lives in `src/public/bridgeUtils.js`.
+- Available counters:
+  - `parseFailures`
+  - `postFallbacks`
+  - `postFailures`
+  - `untrustedOriginDrops`
+- Access helpers:
+  - `getBridgeTelemetrySnapshot()`
+  - `resetBridgeTelemetry()`
