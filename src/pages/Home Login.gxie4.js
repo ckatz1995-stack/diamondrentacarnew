@@ -10,11 +10,15 @@ const LOGIN_COMPONENT_IDS = ['#loginHtml', '#homeHtml', '#bpage1', '#html1', '#h
 const MIN_HEIGHT = 640;
 const MAX_HEIGHT = 2400;
 
+function logSuppressed(context, error) {
+  console.warn(`[Home Login] ${context}`, error?.message || error || 'unknown error');
+}
+
 $w.onReady(async function () {
   const html = getLoginComponent();
   if (!html) return;
 
-  try { html.expand(); html.show(); } catch (_) {}
+  try { html.expand(); html.show(); } catch (error) { logSuppressed('expand/show failed', error); }
 
   html.onMessage(async (event) => {
     const msg = event.data || {};
@@ -27,7 +31,7 @@ $w.onReady(async function () {
 
     if (msg.type === 'resizeShell') {
       const h = clampHeight(Number(msg.height || 0));
-      if (h) { try { html.height = h; } catch (_) {} }
+      if (h) { try { html.height = h; } catch (error) { logSuppressed('resizeShell height set failed', error); } }
       return;
     }
 
@@ -111,7 +115,7 @@ async function refreshAuthState(message = '') {
 
 function getLoginComponent() {
   for (const id of LOGIN_COMPONENT_IDS) {
-    try { const cmp = $w(id); if (cmp) return cmp; } catch (_) {}
+    try { const cmp = $w(id); if (cmp) return cmp; } catch (error) { logSuppressed(`selector lookup failed for ${id}`, error); }
   }
   return null;
 }
@@ -119,7 +123,7 @@ function getLoginComponent() {
 function post(payload) {
   const html = getLoginComponent();
   if (!html) return;
-  try { html.postMessage(payload); } catch (_) {}
+  try { html.postMessage(payload); } catch (error) { logSuppressed('postMessage failed', error); }
 }
 
 function clampHeight(value) {

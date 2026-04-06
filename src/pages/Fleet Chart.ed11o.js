@@ -19,6 +19,10 @@ let pendingFocusBookingId = '';
 let lastRange = { from: '', to: '' };
 let authState = null;
 
+function logSuppressed(context, error) {
+  console.warn(`[Fleet Chart] ${context}`, error?.message || error || 'unknown error');
+}
+
 $w.onReady(async function () {
   authState = await requireBackroomAccess({ area: 'fleet', action: 'View' });
   if (!authState?.ok) return;
@@ -28,8 +32,8 @@ $w.onReady(async function () {
 
   const html = getHtmlComponent();
   if (!html) return;
-  try { html.expand(); html.show(); } catch (_) {}
-  try { html.height = 1250; } catch (_) {}
+  try { html.expand(); html.show(); } catch (error) { logSuppressed('expand/show failed', error); }
+  try { html.height = 1250; } catch (error) { logSuppressed('initial height set failed', error); }
 
   html.onMessage(async (event) => {
     const msg = event.data || {};
@@ -61,7 +65,7 @@ $w.onReady(async function () {
 
     if (msg.type === 'resizeShell') {
       const h = clampHeight(Number(msg.height || 0));
-      if (h) { try { html.height = h; } catch (_) {} }
+      if (h) { try { html.height = h; } catch (error) { logSuppressed('resizeShell height set failed', error); } }
       return;
     }
 
@@ -187,18 +191,19 @@ async function loadCalendar(range = {}, full = true) {
 function post(payload) {
   const html = getHtmlComponent();
   if (!html) return;
-  try { html.postMessage(payload); } catch (_) {}
+  try { html.postMessage(payload); } catch (error) { logSuppressed('postMessage failed', error); }
 }
 
 function getHtmlComponent() {
-  try { return $w(HTML_ID); } catch (_) {}
+  try { return $w(HTML_ID); } catch (error) { logSuppressed(`selector lookup failed for ${HTML_ID}`, error); }
   try {
     const selection = $w('HtmlComponent');
     if (!selection || typeof selection.forEach !== 'function') return null;
     let first = null;
     selection.forEach((component) => { if (!first) first = component; });
     return first;
-  } catch (_) {
+  } catch (error) {
+    logSuppressed('HtmlComponent fallback lookup failed', error);
     return null;
   }
 }
@@ -206,8 +211,8 @@ function getHtmlComponent() {
 function hideOtherComponents(keepIds) {
   ['#tabsHtml', '#homeHtml', '#dailyHtml', '#bookingsHtml', '#bpage1', '#bpage2', '#bpage3', '#bpage4', '#html1', '#html2'].forEach(id => {
     if (keepIds.includes(id)) return;
-    try { $w(id).collapse(); } catch (_) {}
-    try { $w(id).hide(); } catch (_) {}
+    try { $w(id).collapse(); } catch (error) { logSuppressed(`collapse failed for ${id}`, error); }
+    try { $w(id).hide(); } catch (error) { logSuppressed(`hide failed for ${id}`, error); }
   });
 }
 
