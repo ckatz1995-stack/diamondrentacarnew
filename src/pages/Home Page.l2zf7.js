@@ -1,6 +1,7 @@
 import wixLocation from "wix-location";
 import { getPublicPricingCatalog } from "backend/pricingCatalog.jsw";
 import { getVehicleCategoriesCatalog } from "backend/bookingEngine";
+import { BRIDGE_TYPES, buildBookingContext, normalizeBridgeMessage, postMessageSafe, resolveHtmlComponent } from "public/bridgeUtils";
 const COMP = "#bpage1";
 
 let pricingCatalog = null;
@@ -8,30 +9,17 @@ let vehicleCategories = [];
 let pricingPromise = null;
 let categoriesPromise = null;
 
-function normalizeMessage(raw) {
-  if (!raw) return null;
-  if (typeof raw === "string") {
-    try { return JSON.parse(raw); } catch (e) { return null; }
-  }
-  return raw;
-}
-
 function go(path) {
   if (!path) return;
   try { wixLocation.to(String(path)); } catch (err) { console.error("Home navigation failed", err); }
 }
 
 function getComponent(){
-  try { return $w(COMP); } catch (e) { return null; }
+  return resolveHtmlComponent($w, [COMP]);
 }
 
 function post(payload){
-  const comp = getComponent();
-  if (!comp || !payload) return;
-  try { comp.postMessage(payload); }
-  catch (e) {
-    try { comp.postMessage(JSON.stringify(payload)); } catch (_) {}
-  }
+  return postMessageSafe(getComponent(), payload, "Home Page");
 }
 
 async function ensurePricingCatalog(){
@@ -56,21 +44,21 @@ async function ensureVehicleCategories(){
 
 async function syncData(){
   const [catalog, categories] = await Promise.all([ensurePricingCatalog(), ensureVehicleCategories()]);
-  post({ type: "pricing-catalog-data", catalog: catalog || null });
+  post({ type: BRIDGE_TYPES.PRICING, catalog: catalog || null });
   post({ type: "pickup-locations-data", items: Array.isArray(catalog?.pickupLocations) ? catalog.pickupLocations : [] });
   post({ type: "vehicle-categories-data", items: categories || [] });
-  post({ type: "booking-context", query: wixLocation.query || {}, url: wixLocation.url, path: wixLocation.path || [] });
+  post(buildBookingContext(wixLocation));
 }
 
 function handleMessage(event) {
-  const data = normalizeMessage(event && event.data);
+  const data = normalizeBridgeMessage(event && event.data);
   if (!data) return;
-  if (data.type === "wix-booking-nav" && data.path) { go(data.path); return; }
-  if (data.type === "request-booking-context") {
-    post({ type: "booking-context", query: wixLocation.query || {}, url: wixLocation.url, path: wixLocation.path || [] });
+  if (data.type === BRIDGE_TYPES.WIX_NAV && data.path) { go(data.path); return; }
+  if (data.type === BRIDGE_TYPES.REQUEST_CONTEXT) {
+    post(buildBookingContext(wixLocation));
     return;
   }
-  if (data.type === "request-pricing-catalog-data") { ensurePricingCatalog().then((catalog)=>post({ type: "pricing-catalog-data", catalog: catalog || null })); return; }
+  if (data.type === BRIDGE_TYPES.REQUEST_PRICING) { ensurePricingCatalog().then((catalog)=>post({ type: BRIDGE_TYPES.PRICING, catalog: catalog || null })); return; }
   if (data.type === "request-pickup-locations-data") { ensurePricingCatalog().then((catalog)=>post({ type: "pickup-locations-data", items: Array.isArray(catalog?.pickupLocations) ? catalog.pickupLocations : [] })); return; }
   if (data.type === "request-vehicle-categories-data") { ensureVehicleCategories().then((items)=>post({ type: "vehicle-categories-data", items: items || [] })); }
 }
@@ -84,11 +72,11 @@ $w.onReady(async function () {
   [120, 400, 1000, 2200].forEach((delay) => setTimeout(() => { syncData(); }, delay));
   if (typeof window !== "undefined") {
     window.addEventListener("message", (event) => {
-      const data = normalizeMessage(event && event.data);
+      const data = normalizeBridgeMessage(event && event.data);
       if (!data) return;
-      if (data.type === "wix-booking-nav" && data.path) go(data.path);
-      if (data.type === "request-booking-context") post({ type: "booking-context", query: wixLocation.query || {}, url: wixLocation.url, path: wixLocation.path || [] });
-      if (data.type === "request-pricing-catalog-data") ensurePricingCatalog().then((catalog)=>post({ type: "pricing-catalog-data", catalog: catalog || null }));
+      if (data.type === BRIDGE_TYPES.WIX_NAV && data.path) go(data.path);
+      if (data.type === BRIDGE_TYPES.REQUEST_CONTEXT) post(buildBookingContext(wixLocation));
+      if (data.type === BRIDGE_TYPES.REQUEST_PRICING) ensurePricingCatalog().then((catalog)=>post({ type: BRIDGE_TYPES.PRICING, catalog: catalog || null }));
       if (data.type === "request-pickup-locations-data") ensurePricingCatalog().then((catalog)=>post({ type: "pickup-locations-data", items: Array.isArray(catalog?.pickupLocations) ? catalog.pickupLocations : [] }));
       if (data.type === "request-vehicle-categories-data") ensureVehicleCategories().then((items)=>post({ type: "vehicle-categories-data", items: items || [] }));
     });
