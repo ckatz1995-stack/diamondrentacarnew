@@ -22,12 +22,6 @@ function iso(v){
   const d = new Date(raw);
   return Number.isNaN(d.getTime()) ? raw : d.toISOString();
 }
-function fmtDate(v){
-  const raw = txt(v);
-  if (!raw) return '';
-  const d = new Date(raw);
-  return Number.isNaN(d.getTime()) ? raw : d.toISOString();
-}
 function money(v){
   const n = Number(v || 0);
   return Number.isFinite(n) ? Math.round(n * 100) / 100 : 0;

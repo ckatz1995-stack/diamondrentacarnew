@@ -625,7 +625,6 @@ export async function createBooking(data) {
         const computedExtrasCost = Number(computedExtrasTotal.toFixed(2));
         const computedPickupLocationFee = resolvePickupLocationFee(pricingCatalog, pickuppoint, 'pickup');
         const computedDropoffLocationFee = resolvePickupLocationFee(pricingCatalog, dropoffpoint, 'dropoff');
-        const computedLocationFee = Number((computedPickupLocationFee + computedDropoffLocationFee).toFixed(2));
 
         const hasLockedBreakdown = [baseCost, insuranceCost, extrasCost, ageFee, nightFee, locationFee].every((v) => Number.isFinite(Number(v)));
         const finalBaseCost = Number((hasLockedBreakdown ? toFiniteNumber(baseCost, computedBaseCost) : computedBaseCost).toFixed(2));
