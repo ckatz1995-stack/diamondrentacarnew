@@ -31,6 +31,7 @@ import {
   revokeStaffSessions
 } from 'backend/staffAccess.jsw';
 import { logoutBackroom, requireBackroomAccess } from 'public/backroomAuth';
+import { getBridgeTelemetrySnapshot, resetBridgeTelemetry } from 'public/bridgeUtils';
 
 const ROUTES = {
   home: '/myroom-home',
@@ -62,7 +63,12 @@ async function sendSnapshots(message = '', tone = 'success') {
       getPricingAdminSnapshot({ authToken: authState.sessionToken }),
       getStaffAccessSnapshot({ sessionToken: authState.sessionToken })
     ]);
-    post({ type: 'adminSnapshot', snapshot, accessSnapshot, meta: { user: currentUser } });
+    post({
+      type: 'adminSnapshot',
+      snapshot,
+      accessSnapshot,
+      meta: { user: currentUser, bridgeTelemetry: getBridgeTelemetrySnapshot() }
+    });
     if (message) post({ type: 'toast', tone, message });
   } catch (err) {
     post({ type: 'toast', tone: 'error', message: err?.message || String(err) || 'Αποτυχία φόρτωσης admin snapshot.' });
@@ -195,6 +201,10 @@ async function handleAction(type, payload = {}) {
     if (type === 'refreshStaffAccess') {
       return sendSnapshots();
     }
+    if (type === 'resetBridgeTelemetry') {
+      resetBridgeTelemetry();
+      return sendSnapshots('Καθαρίστηκαν οι bridge telemetry counters.');
+    }
     if (type === 'logoutBackroom') {
       await logoutBackroom();
       post({ type: 'toast', tone: 'success', message: 'Έγινε αποσύνδεση.' });
@@ -272,6 +282,7 @@ $w.onReady(async function () {
         'resetStaffPassword',
         'revokeStaffSessions',
         'refreshStaffAccess',
+        'resetBridgeTelemetry',
         'logoutBackroom'
       ].includes(msg.type)) {
         await handleAction(msg.type, msg.payload || {});
