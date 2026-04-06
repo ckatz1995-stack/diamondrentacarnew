@@ -89,7 +89,7 @@ async function getMemberPrefill() {
       postalCode: address?.postalCode || ""
     };
   } catch (_err) {
-    console.warn("Member prefill unavailable", err);
+    console.warn("Member prefill unavailable", _err);
     return null;
   }
 }
@@ -104,7 +104,7 @@ function post(component, payload) {
       component.postMessage(JSON.stringify(payload));
       return true;
     } catch (innerErr) {
-      console.warn("Failed to post payload", innerErr || err);
+      console.warn("Failed to post payload", innerErr || _err);
       return false;
     }
   }
@@ -139,7 +139,7 @@ async function handleSubmitBooking(component, payload) {
     post(component, {
       type: "booking-submit-result",
       success: false,
-      message: err?.message || String(err)
+      message: _err?.message || String(_err)
     });
   }
 }
@@ -170,7 +170,7 @@ function bindComponent(component) {
       }
     });
   } catch (_err) {
-    console.warn("Failed to bind HTML component message", err);
+    console.warn("Failed to bind HTML component message", _err);
   }
 }
 
