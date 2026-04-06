@@ -96,7 +96,8 @@ Different pages implement partially overlapping message contracts (`request-vehi
 
 ## Checks executed
 - `npm run check:undone` ✅
-- `npm run lint` ❌ (environment/dependency mismatch: ESLint v9 expects `eslint.config.js`; project currently has `.eslintrc.json` and install from npm registry was blocked with 403)
+- `npm run lint` ✅ (lint pipeline now aligned with `eslint.config.cjs`)
+- `npm run check:smoke` ✅ (`node --check` for page controllers + lint + unfinished markers check)
 
 ## Suggested next actions (ordered)
 1. Remove password echo from account settings bridge.
