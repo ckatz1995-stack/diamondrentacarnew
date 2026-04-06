@@ -24,6 +24,10 @@ let returnStartDate = "";
 let returnEndDate = "";
 let authState = null;
 
+function logSuppressed(context, error) {
+  console.warn(`[Contract] ${context}`, error?.message || error || 'unknown error');
+}
+
 $w.onReady(async function () {
   authState = await requireBackroomAccess({ area: "rentals", action: "View" });
   if (!authState?.ok) return;
@@ -126,7 +130,7 @@ $w.onReady(async function () {
 
     if (msg.type === "resize") {
       const nextHeight = Math.max(1200, Math.min(Number(msg.height || 0) || 0, 5000));
-      try { $w(CONTRACT_HTML_ID).height = nextHeight; } catch (_) {}
+      try { $w(CONTRACT_HTML_ID).height = nextHeight; } catch (error) { logSuppressed('resize height set failed', error); }
       return;
     }
   });
@@ -139,8 +143,8 @@ $w.onReady(async function () {
 function hideNonContractComponents(keepIds) {
   ["#tabsHtml", "#homeHtml", "#dailyHtml", "#bookingsHtml", "#fleetCalendarHtml", "#bpage1", "#bpage2", "#bpage3", "#bpage4", "#html1", "#html2"].forEach((id) => {
     if (keepIds.includes(id)) return;
-    try { $w(id).collapse(); } catch (_) {}
-    try { $w(id).hide(); } catch (_) {}
+    try { $w(id).collapse(); } catch (error) { logSuppressed(`collapse failed for ${id}`, error); }
+    try { $w(id).hide(); } catch (error) { logSuppressed(`hide failed for ${id}`, error); }
   });
 }
 
@@ -498,7 +502,7 @@ function toNumber(value, fallback = 0) {
 }
 
 function post(msg) {
-  try { $w(CONTRACT_HTML_ID).postMessage(msg); } catch (_) {}
+  try { $w(CONTRACT_HTML_ID).postMessage(msg); } catch (error) { logSuppressed('postMessage failed', error); }
 }
 
 function clonePlain(v) {

@@ -14,7 +14,6 @@ function asDate(x){
   const d = new Date(x);
   return Number.isNaN(d.getTime()) ? null : d;
 }
-function startOfDay(date){ const d = asDate(date) || new Date(); d.setHours(0,0,0,0); return d; }
 function addDays(date, days){ const d = new Date(date); d.setDate(d.getDate() + Number(days || 0)); return d; }
 function overlaps(start, end, rangeStart, rangeEnd){
   const s = asDate(start), e = asDate(end), rs = asDate(rangeStart), re = asDate(rangeEnd);
