@@ -2,7 +2,7 @@ import wixLocation from "wix-location";
 import { currentMember } from "wix-members-frontend";
 import { getPublicPricingCatalog } from "backend/pricingCatalog.jsw";
 import { getVehicleCategoryDetails, createBooking } from "backend/bookingEngine";
-import { BRIDGE_TYPES, buildBookingContext, normalizeBridgeMessage, postMessageSafe, resolveHtmlComponent } from "public/bridgeUtils";
+import { BRIDGE_TYPES, buildBookingContext, isTrustedBridgeOrigin, normalizeBridgeMessage, postMessageSafe, resolveHtmlComponent } from "public/bridgeUtils";
 
 const COMPONENT_CANDIDATES = ["#bpage4", "#checkoutHtml", "#bookingHtml", "#html1"];
 let htmlComponent = null;
@@ -232,6 +232,7 @@ $w.onReady(async function () {
 
   if (typeof window !== "undefined") {
     window.addEventListener("message", (event) => {
+      if (!isTrustedBridgeOrigin(event?.origin, wixLocation.url)) return;
       const data = normalizeBridgeMessage(event && event.data);
       if (!data) return;
       if (data.type === BRIDGE_TYPES.WIX_NAV && data.path) go(data.path);

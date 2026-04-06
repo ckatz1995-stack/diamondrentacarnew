@@ -1,4 +1,5 @@
 export const BRIDGE_PROTOCOL_VERSION = '2026-04-06.1';
+const TRUSTED_DOMAIN_SUFFIXES = ['wix.com', 'wixsite.com', 'parastorage.com', 'wixstatic.com'];
 
 export const BRIDGE_TYPES = {
   WIX_NAV: 'wix-booking-nav',
@@ -62,4 +63,22 @@ export function resolveHtmlComponent($w, candidates = []) {
     }
   } catch (_) {}
   return null;
+}
+
+export function isTrustedBridgeOrigin(origin, currentUrl) {
+  const raw = String(origin || '').trim().toLowerCase();
+  if (!raw) return false;
+  try {
+    const source = new URL(raw);
+    const sourceHost = String(source.hostname || '').toLowerCase();
+    if (!sourceHost) return false;
+    if (currentUrl) {
+      const current = new URL(String(currentUrl));
+      const currentHost = String(current.hostname || '').toLowerCase();
+      if (currentHost && sourceHost === currentHost) return true;
+    }
+    return TRUSTED_DOMAIN_SUFFIXES.some((suffix) => sourceHost === suffix || sourceHost.endsWith(`.${suffix}`));
+  } catch (_) {
+    return false;
+  }
 }

@@ -1,5 +1,6 @@
 import wixLocation from "wix-location";
 import { getPublicPricingCatalog } from "backend/pricingCatalog.jsw";
+import { isTrustedBridgeOrigin } from "public/bridgeUtils";
 const COMP = "#html1";
 
 function normalizeMessage(raw) {
@@ -52,6 +53,7 @@ $w.onReady(function () {
   try { wixLocation.onChange(() => resend()); } catch (_e) {}
   if (typeof window !== "undefined") {
     window.addEventListener("message", (event) => {
+      if (!isTrustedBridgeOrigin(event?.origin, wixLocation.url)) return;
       const data = normalizeMessage(event && event.data);
       if (data && data.type === "wix-booking-nav" && data.path) go(data.path);
     });

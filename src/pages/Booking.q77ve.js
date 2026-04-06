@@ -1,6 +1,7 @@
 import wixLocation from "wix-location";
 import { currentMember } from "wix-members-frontend";
 import { getVehicleCategoryDetails, createBooking } from "backend/bookingEngine";
+import { isTrustedBridgeOrigin } from "public/bridgeUtils";
 
 let categoryItem = null;
 let categoryPromise = null;
@@ -197,6 +198,7 @@ $w.onReady(async function () {
 
   if (typeof window !== "undefined") {
     window.addEventListener("message", (event) => {
+      if (!isTrustedBridgeOrigin(event?.origin, wixLocation.url)) return;
       const data = normalizeMessage(event && event.data);
       if (!data) return;
       if (data.type === "wix-booking-nav" && data.path) {

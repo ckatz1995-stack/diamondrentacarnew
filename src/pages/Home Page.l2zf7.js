@@ -1,7 +1,7 @@
 import wixLocation from "wix-location";
 import { getPublicPricingCatalog } from "backend/pricingCatalog.jsw";
 import { getVehicleCategoriesCatalog } from "backend/bookingEngine";
-import { BRIDGE_TYPES, buildBookingContext, normalizeBridgeMessage, postMessageSafe, resolveHtmlComponent } from "public/bridgeUtils";
+import { BRIDGE_TYPES, buildBookingContext, isTrustedBridgeOrigin, normalizeBridgeMessage, postMessageSafe, resolveHtmlComponent } from "public/bridgeUtils";
 const COMP = "#bpage1";
 
 let pricingCatalog = null;
@@ -72,6 +72,7 @@ $w.onReady(async function () {
   [120, 400, 1000, 2200].forEach((delay) => setTimeout(() => { syncData(); }, delay));
   if (typeof window !== "undefined") {
     window.addEventListener("message", (event) => {
+      if (!isTrustedBridgeOrigin(event?.origin, wixLocation.url)) return;
       const data = normalizeBridgeMessage(event && event.data);
       if (!data) return;
       if (data.type === BRIDGE_TYPES.WIX_NAV && data.path) go(data.path);
