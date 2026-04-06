@@ -322,6 +322,7 @@ export function getFallbackCatalogSnapshot(){ return buildCatalogSnapshot({ busi
 export function clearPricingCatalogCache(){ cache = { public: null, all: null }; return true; }
 
 export function resolveDynamicPricingRate({ categoryCode = '', vehicleCategoryId = '', billableDays = 1, pickupDateTime = null, dropoffDateTime = null, catalog = null, fallbackPricePerDay = 0 } = {}) {
+  void dropoffDateTime;
   const safeCatalog = catalog || {};
   const seasons = Array.isArray(safeCatalog.pricingSeasons) ? safeCatalog.pricingSeasons : [];
   const rules = Array.isArray(safeCatalog.categoryRateRules) ? safeCatalog.categoryRateRules : [];

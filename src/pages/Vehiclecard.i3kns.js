@@ -17,6 +17,10 @@ let authState = null;
 let fleetVehicleId = '';
 let returnTab = 'fleet';
 
+function logSuppressed(context, error) {
+  console.warn(`[Vehicle Card] ${context}`, error?.message || error || 'unknown error');
+}
+
 $w.onReady(async function () {
   authState = await requireBackroomAccess({ area: 'fleet', action: 'View' });
   if (!authState?.ok) return;
@@ -26,7 +30,7 @@ $w.onReady(async function () {
   returnTab = String(query.from || 'fleet').trim() || 'fleet';
 
   const html = $w(HTML_ID);
-  try { html.expand(); html.height = 1400; } catch (_) {}
+  try { html.expand(); html.height = 1400; } catch (error) { logSuppressed('expand/initial height failed', error); }
 
   html.onMessage(async (event) => {
     const msg = event.data || {};
@@ -42,7 +46,7 @@ $w.onReady(async function () {
     }
     if (msg.type === 'resize') {
       const h = Math.min(Math.max(Number(msg.height || 0), 900), 5000);
-      if (h) { try { html.height = h; } catch (_) {} }
+      if (h) { try { html.height = h; } catch (error) { logSuppressed('resize height set failed', error); } }
       return;
     }
     if (msg.type === 'back') {
@@ -73,7 +77,7 @@ $w.onReady(async function () {
 });
 
 function post(payload) {
-  try { $w(HTML_ID).postMessage(payload); } catch (_) {}
+  try { $w(HTML_ID).postMessage(payload); } catch (error) { logSuppressed('postMessage failed', error); }
 }
 
 async function loadVehicleCard() {
