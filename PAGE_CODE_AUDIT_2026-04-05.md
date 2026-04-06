@@ -100,8 +100,7 @@ Different pages implement partially overlapping message contracts (`request-vehi
 - `npm run check:smoke` ✅ (`node --check` for page controllers + lint + unfinished markers check)
 
 ## Suggested next actions (ordered)
-1. Remove password echo from account settings bridge.
-2. Add cache invalidation on `wixLocation.onChange` for query-dependent page caches.
-3. Introduce shared `bridgeUtils` for `normalizeMessage`, `post`, and message-type constants.
-4. Replace fully silent catches with at least `console.warn` + context in non-prod/dev mode.
-5. Align lint toolchain (pin local eslint version or migrate to flat config).
+1. Complete origin-hardening rollout on all page-level `window.message` listeners (not only `masterPage`).
+2. Keep `docs/BRIDGE_CONTRACT.md` in sync with any message-shape additions.
+3. Add lightweight runtime telemetry counters for bridge parse failures and untrusted origin drops.
+4. Verify and delete placeholder pages (`Dashboard.eh252.js`, `New Page.zv4ph.js`) after Wix editor confirmation.

@@ -1,3 +1,5 @@
+export const BRIDGE_PROTOCOL_VERSION = '2026-04-06.1';
+
 export const BRIDGE_TYPES = {
   WIX_NAV: 'wix-booking-nav',
   REQUEST_CONTEXT: 'request-booking-context',
@@ -21,6 +23,7 @@ export function normalizeBridgeMessage(raw) {
 export function buildBookingContext(wixLocation) {
   return {
     type: BRIDGE_TYPES.CONTEXT,
+    protocolVersion: BRIDGE_PROTOCOL_VERSION,
     query: wixLocation?.query || {},
     url: wixLocation?.url,
     path: wixLocation?.path || []
