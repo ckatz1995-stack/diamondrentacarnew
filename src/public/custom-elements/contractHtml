@@ -1216,6 +1216,47 @@
             <div class="finance-kpi"><div class="k">Deposit held</div><div class="v" id="finKpiDeposit">0.00 €</div><div class="sub" id="finKpiDepositSub">Guarantee amount</div></div>
           </div>
 
+          <div class="finance-kpis">
+            <div class="finance-kpi"><div class="k">Collectable</div><div class="v" id="finKpiCollectable">0.00 €</div><div class="sub" id="finKpiCollectableSub">Gross payable</div></div>
+            <div class="finance-kpi"><div class="k">Received</div><div class="v" id="finKpiReceived">0.00 €</div><div class="sub" id="finKpiReceivedSub">Prepaid + desk</div></div>
+            <div class="finance-kpi"><div class="k">Open balance</div><div class="v" id="finKpiOpen">0.00 €</div><div class="sub" id="finKpiOpenSub">Pending to collect</div></div>
+            <div class="finance-kpi"><div class="k">Deposit held</div><div class="v" id="finKpiDeposit">0.00 €</div><div class="sub" id="finKpiDepositSub">Guarantee amount</div></div>
+          </div>
+
+          <div class="financial-meta">
+            <div class="summary-box"><div class="k">Payment program</div><div class="v" id="finMetaProgram">—</div></div>
+            <div class="summary-box"><div class="k">Payment status</div><div class="v" id="finMetaStatus">—</div></div>
+            <div class="summary-box"><div class="k">Preauth active</div><div class="v" id="finMetaPreauth">0.00 €</div></div>
+            <div class="summary-box"><div class="k">Guarantee refunded</div><div class="v" id="finMetaGuaranteeRefunded">0.00 €</div></div>
+          </div>
+
+          <div class="financial-actions">
+            <button class="btn success" type="button" id="btnAddPayment">Add payment</button>
+            <button class="btn warn" type="button" id="btnAddRefund">Refund</button>
+            <button class="btn" type="button" id="btnAddPreauth">Pre-authorization</button>
+            <button class="btn" type="button" id="btnVoidPreauth">Void preauth</button>
+            <button class="btn" type="button" id="btnAddGuarantee">Add guarantee</button>
+            <button class="btn" type="button" id="btnRefundGuarantee">Refund guarantee</button>
+            <button class="btn danger" type="button" id="btnDeleteFinancialTxn">Delete selected</button>
+          </div>
+
+          <div class="ledger-preview">
+            <table>
+              <thead>
+                <tr>
+                  <th>Type</th>
+                  <th>Date</th>
+                  <th>Amount</th>
+                  <th>Method</th>
+                  <th>Reference</th>
+                  <th>User</th>
+                </tr>
+              </thead>
+              <tbody id="financialLedgerBody"></tbody>
+            </table>
+            <div class="ledger-empty hidden" id="financialLedgerEmpty">No transactions yet. Use the actions above to register financial movements.</div>
+          </div>
+
           <div class="divider"></div>
 
           <div class="charge-list" id="chargeList"></div>
