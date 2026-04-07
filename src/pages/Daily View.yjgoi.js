@@ -1,6 +1,7 @@
 import wixLocation from 'wix-location';
 import { getDailyOps, actOnDailyRequest } from 'backend/dailyOps';
 import { buildUserContext, logoutBackroom, requireBackroomAccess, getSessionToken } from 'public/backroomAuth';
+import { isTrustedBridgeOrigin, normalizeBridgeMessage, postMessageSafe, resolveHtmlComponent } from 'public/bridgeUtils';
 
 const ROUTES = {
   home: '/myroom-home',
@@ -19,6 +20,10 @@ let requestedTab = '';
 let requestedViewMode = '';
 let authState = null;
 
+function logSuppressed(context, error) {
+  console.warn(`[Daily View] ${context}`, error?.message || error || 'unknown error');
+}
+
 $w.onReady(async function () {
   authState = await requireBackroomAccess({ area: 'rentals', action: 'View' });
   if (!authState?.ok) return;
@@ -31,12 +36,13 @@ $w.onReady(async function () {
 
   const html = getHtmlComponent();
   if (!html) return;
-  try { html.expand(); html.show(); } catch (_) {}
-  try { html.height = 1400; } catch (_) {}
+  try { html.expand(); html.show(); } catch (error) { logSuppressed('expand/show failed', error); }
+  try { html.height = 1400; } catch (error) { logSuppressed('initial height set failed', error); }
 
   html.onMessage(async (event) => {
-    const msg = event.data || {};
-    if (!msg.type) return;
+    if (!isTrustedBridgeOrigin(event?.origin, wixLocation.url)) return;
+    const msg = normalizeBridgeMessage(event && event.data);
+    if (!msg || typeof msg !== 'object' || !msg.type) return;
 
     if (msg.type === 'requestUserContext') {
       post(buildUserContext(authState, { siteBase: deriveSiteBase() }));
@@ -57,7 +63,7 @@ $w.onReady(async function () {
     }
     if (msg.type === 'resizeShell') {
       const h = clampHeight(Number(msg.height || 0));
-      if (h) { try { html.height = h; } catch (_) {} }
+      if (h) { try { html.height = h; } catch (error) { logSuppressed('resizeShell height set failed', error); } }
       return;
     }
     if (msg.type === 'dailyReady' || msg.type === 'requestDailyReload' || msg.type === 'requestDailyData') {
@@ -125,13 +131,11 @@ function resolveAuthToken() { return String((authState && authState.sessionToken
 
 function getHtmlIds() {
   return HTML_IDS.filter((id) => {
-    try { return !!$w(id); } catch (_) { return false; }
+    try { return !!$w(id); } catch (error) { logSuppressed(`selector existence check failed for ${id}`, error); return false; }
   });
 }
 function getHtmlComponent() {
-  for (const id of getHtmlIds()) {
-    try { const cmp = $w(id); if (cmp) return cmp; } catch (_) {}
-  }
+  try { return resolveHtmlComponent($w, getHtmlIds()); } catch (error) { logSuppressed('HtmlComponent lookup failed', error); }
   return null;
 }
 async function loadDailyOps({ requestedDate, startISO, endISO } = {}) {
@@ -168,11 +172,31 @@ async function loadDailyOps({ requestedDate, startISO, endISO } = {}) {
     post({ type:'loadDailyOps', checkOut:[], checkIn:[], bookings:[], tabs:{}, summary:{}, stations:[], debug:{ error: error?.message || String(error), startISO: safeStart, endISO: safeEnd } });
   }
 }
-function post(payload) { try { getHtmlComponent()?.postMessage(payload); } catch (_) {} }
-function hideOtherComponents(keepIds) { ['#tabsHtml', '#homeHtml', '#fleetCalendarHtml', '#bookingsHtml', '#bpage1', '#bpage2', '#bpage3', '#bpage4', '#html1', '#html2'].forEach(id => { if (keepIds.includes(id)) return; try { $w(id).collapse(); } catch (_) {} try { $w(id).hide(); } catch (_) {} }); }
+function post(payload) {
+  const html = getHtmlComponent();
+  if (!html) return;
+  if (!postMessageSafe(html, payload, 'daily-view')) logSuppressed('postMessage failed');
+}
+function hideOtherComponents(keepIds) {
+  ['#tabsHtml', '#homeHtml', '#fleetCalendarHtml', '#bookingsHtml', '#bpage1', '#bpage2', '#bpage3', '#bpage4', '#html1', '#html2'].forEach(id => {
+    if (keepIds.includes(id)) return;
+    try { $w(id).collapse(); } catch (error) { logSuppressed(`collapse failed for ${id}`, error); }
+    try { $w(id).hide(); } catch (error) { logSuppressed(`hide failed for ${id}`, error); }
+  });
+}
 function clampHeight(value) { if (!Number.isFinite(value) || value <= 0) return null; return Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, Math.round(value))); }
 function todayYMD() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
 function normalizeDateParam(value) { const raw = String(value || '').trim(); return /^\d{4}-\d{2}-\d{2}$/.test(raw) ? raw : ''; }
 function validIso(value) { const raw = String(value || '').trim(); return raw && !Number.isNaN(new Date(raw).getTime()) ? raw : ''; }
 function makeRange(dateStr) { const [y,m,d] = String(dateStr).split('-').map(Number); const start = new Date(y, (m||1)-1, d||1, 0,0,0,0); const end = new Date(y, (m||1)-1, d||1, 24,0,0,0); return { startISO:start.toISOString(), endISO:end.toISOString() }; }
-function deriveSiteBase() { try { const u = new URL(wixLocation.url); const parts = String(u.pathname || '').split('/').filter(Boolean); if (parts.length <= 1) return u.origin; return `${u.origin}/${parts.slice(0, -1).join('/')}`; } catch (_) { return ''; } }
+function deriveSiteBase() {
+  try {
+    const u = new URL(wixLocation.url);
+    const parts = String(u.pathname || '').split('/').filter(Boolean);
+    if (parts.length <= 1) return u.origin;
+    return `${u.origin}/${parts.slice(0, -1).join('/')}`;
+  } catch (error) {
+    logSuppressed('deriveSiteBase failed', error);
+    return '';
+  }
+}
