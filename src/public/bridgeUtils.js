@@ -90,7 +90,7 @@ export function resolveHtmlComponent($w, candidates = []) {
 }
 
 export function isTrustedBridgeOrigin(origin, currentUrl) {
-  const raw = String(origin || '').trim().toLowerCase();
+  const raw = String(origin || '').trim();
   if (!raw) {
     bridgeTelemetry.untrustedOriginDrops += 1;
     markTelemetry('untrustedOriginDrops');
@@ -105,9 +105,13 @@ export function isTrustedBridgeOrigin(origin, currentUrl) {
       return false;
     }
     if (currentUrl) {
-      const current = new URL(String(currentUrl));
-      const currentHost = String(current.hostname || '').toLowerCase();
-      if (currentHost && sourceHost === currentHost) return true;
+      try {
+        const current = new URL(String(currentUrl));
+        const currentHost = String(current.hostname || '').toLowerCase();
+        if (currentHost && sourceHost === currentHost) return true;
+      } catch (_) {
+        // Ignore malformed currentUrl and fall back to trusted suffix matching.
+      }
     }
     const trusted = TRUSTED_DOMAIN_SUFFIXES.some((suffix) => sourceHost === suffix || sourceHost.endsWith(`.${suffix}`));
     if (!trusted) {
