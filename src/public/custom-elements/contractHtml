@@ -61,6 +61,8 @@
     .btn:hover{border-color:#8da1c1}
     .btn:disabled{opacity:.55;cursor:not-allowed;filter:grayscale(.12)}
     .btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+    .btn.payments-cta{background:linear-gradient(135deg,#6c522e 0%,#8e6d3d 100%);color:#fff;border-color:#6c522e}
+    .btn.payments-cta:hover{border-color:#5b4526;filter:brightness(.98)}
     .btn.success{background:#0a7a42;color:#fff;border-color:#0a7a42}
     .btn.warn{background:#fff7ec;color:#8f5200;border-color:#f2c27c}
     .btn.danger{background:#fff1f0;color:#a12f28;border-color:#f3bbb7}
@@ -144,11 +146,6 @@
     .total .amount{font-size:16px;font-weight:800}
     .total.grand .amount,.total.grand .name{font-size:18px;color:var(--accent)}
     .quick-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
-    .finance-kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:12px 0}
-    .finance-kpi{border:1px solid var(--line);border-radius:12px;background:#f8fbff;padding:10px 12px}
-    .finance-kpi .k{font-size:11px;font-weight:900;color:#54657d;text-transform:uppercase;letter-spacing:.05em}
-    .finance-kpi .v{margin-top:5px;font-size:16px;font-weight:900;color:#0f2542}
-    .finance-kpi .sub{margin-top:3px;font-size:11px;color:var(--muted)}
     .financial-meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:10px}
     .financial-meta .summary-box{padding:10px}
     .financial-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:8px 0 12px}
@@ -1206,55 +1203,7 @@
             </div>
           </div>
           <div class="quick-actions">
-            <button class="btn primary" type="button" id="btnOpenPaymentsDeskModal">Payments</button>
-          </div>
-
-          <div class="finance-kpis">
-            <div class="finance-kpi"><div class="k">Collectable</div><div class="v" id="finKpiCollectable">0.00 €</div><div class="sub" id="finKpiCollectableSub">Gross payable</div></div>
-            <div class="finance-kpi"><div class="k">Received</div><div class="v" id="finKpiReceived">0.00 €</div><div class="sub" id="finKpiReceivedSub">Prepaid + desk</div></div>
-            <div class="finance-kpi"><div class="k">Open balance</div><div class="v" id="finKpiOpen">0.00 €</div><div class="sub" id="finKpiOpenSub">Pending to collect</div></div>
-            <div class="finance-kpi"><div class="k">Deposit held</div><div class="v" id="finKpiDeposit">0.00 €</div><div class="sub" id="finKpiDepositSub">Guarantee amount</div></div>
-          </div>
-
-          <div class="finance-kpis">
-            <div class="finance-kpi"><div class="k">Collectable</div><div class="v" id="finKpiCollectable">0.00 €</div><div class="sub" id="finKpiCollectableSub">Gross payable</div></div>
-            <div class="finance-kpi"><div class="k">Received</div><div class="v" id="finKpiReceived">0.00 €</div><div class="sub" id="finKpiReceivedSub">Prepaid + desk</div></div>
-            <div class="finance-kpi"><div class="k">Open balance</div><div class="v" id="finKpiOpen">0.00 €</div><div class="sub" id="finKpiOpenSub">Pending to collect</div></div>
-            <div class="finance-kpi"><div class="k">Deposit held</div><div class="v" id="finKpiDeposit">0.00 €</div><div class="sub" id="finKpiDepositSub">Guarantee amount</div></div>
-          </div>
-
-          <div class="financial-meta">
-            <div class="summary-box"><div class="k">Payment program</div><div class="v" id="finMetaProgram">—</div></div>
-            <div class="summary-box"><div class="k">Payment status</div><div class="v" id="finMetaStatus">—</div></div>
-            <div class="summary-box"><div class="k">Preauth active</div><div class="v" id="finMetaPreauth">0.00 €</div></div>
-            <div class="summary-box"><div class="k">Guarantee refunded</div><div class="v" id="finMetaGuaranteeRefunded">0.00 €</div></div>
-          </div>
-
-          <div class="financial-actions">
-            <button class="btn success" type="button" id="btnAddPayment">Add payment</button>
-            <button class="btn warn" type="button" id="btnAddRefund">Refund</button>
-            <button class="btn" type="button" id="btnAddPreauth">Pre-authorization</button>
-            <button class="btn" type="button" id="btnVoidPreauth">Void preauth</button>
-            <button class="btn" type="button" id="btnAddGuarantee">Add guarantee</button>
-            <button class="btn" type="button" id="btnRefundGuarantee">Refund guarantee</button>
-            <button class="btn danger" type="button" id="btnDeleteFinancialTxn">Delete selected</button>
-          </div>
-
-          <div class="ledger-preview">
-            <table>
-              <thead>
-                <tr>
-                  <th>Type</th>
-                  <th>Date</th>
-                  <th>Amount</th>
-                  <th>Method</th>
-                  <th>Reference</th>
-                  <th>User</th>
-                </tr>
-              </thead>
-              <tbody id="financialLedgerBody"></tbody>
-            </table>
-            <div class="ledger-empty hidden" id="financialLedgerEmpty">No transactions yet. Use the actions above to register financial movements.</div>
+            <button class="btn payments-cta" type="button" id="btnOpenPaymentsDeskModal">Payments</button>
           </div>
 
           <div class="divider"></div>
@@ -3317,11 +3266,6 @@ function renderLookups(){
 
     const received = round2(fin.prepaid + fin.paidNow);
     const open = round2(fin.balance);
-    byId('finKpiCollectable') && (byId('finKpiCollectable').textContent = money(fin.gross));
-    byId('finKpiReceived') && (byId('finKpiReceived').textContent = money(received));
-    byId('finKpiOpen') && (byId('finKpiOpen').textContent = money(open));
-    byId('finKpiDeposit') && (byId('finKpiDeposit').textContent = money(fin.deposit));
-    byId('finKpiOpenSub') && (byId('finKpiOpenSub').textContent = open <= 0 ? 'No pending amount' : 'Pending to collect');
     const paymentStatusEl = byId('fin_paymentStatus');
     if (paymentStatusEl) {
       if (open <= 0 && received > 0) paymentStatusEl.value = 'paid';
