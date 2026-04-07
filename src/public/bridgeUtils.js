@@ -52,7 +52,7 @@ export function buildBookingContext(wixLocation) {
 }
 
 export function postMessageSafe(component, payload, label = 'bridge') {
-  if (!component || !payload) return false;
+  if (!component || payload == null || typeof component.postMessage !== 'function') return false;
   try {
     component.postMessage(payload);
     return true;
@@ -60,7 +60,8 @@ export function postMessageSafe(component, payload, label = 'bridge') {
     bridgeTelemetry.postFallbacks += 1;
     markTelemetry('postFallbacks');
     try {
-      component.postMessage(JSON.stringify(payload));
+      const fallbackPayload = typeof payload === 'string' ? payload : JSON.stringify(payload);
+      component.postMessage(fallbackPayload);
       return true;
     } catch (innerError) {
       bridgeTelemetry.postFailures += 1;
