@@ -1,6 +1,7 @@
 import wixLocation from 'wix-location';
 import { getDailyOps, actOnDailyRequest } from 'backend/dailyOps';
 import { buildUserContext, logoutBackroom, requireBackroomAccess, getSessionToken } from 'public/backroomAuth';
+import { isTrustedBridgeOrigin, normalizeBridgeMessage, postMessageSafe, resolveHtmlComponent } from 'public/bridgeUtils';
 
 const ROUTES = {
   home: '/myroom-home',
@@ -39,8 +40,9 @@ $w.onReady(async function () {
   try { html.height = 1400; } catch (error) { logSuppressed('initial height set failed', error); }
 
   html.onMessage(async (event) => {
-    const msg = event.data || {};
-    if (!msg.type) return;
+    if (!isTrustedBridgeOrigin(event?.origin, wixLocation.url)) return;
+    const msg = normalizeBridgeMessage(event && event.data);
+    if (!msg || typeof msg !== 'object' || !msg.type) return;
 
     if (msg.type === 'requestUserContext') {
       post(buildUserContext(authState, { siteBase: deriveSiteBase() }));
@@ -133,9 +135,7 @@ function getHtmlIds() {
   });
 }
 function getHtmlComponent() {
-  for (const id of getHtmlIds()) {
-    try { const cmp = $w(id); if (cmp) return cmp; } catch (error) { logSuppressed(`selector lookup failed for ${id}`, error); }
-  }
+  try { return resolveHtmlComponent($w, getHtmlIds()); } catch (error) { logSuppressed('HtmlComponent lookup failed', error); }
   return null;
 }
 async function loadDailyOps({ requestedDate, startISO, endISO } = {}) {
@@ -173,11 +173,9 @@ async function loadDailyOps({ requestedDate, startISO, endISO } = {}) {
   }
 }
 function post(payload) {
-  try {
-    getHtmlComponent()?.postMessage(payload);
-  } catch (error) {
-    logSuppressed('postMessage failed', error);
-  }
+  const html = getHtmlComponent();
+  if (!html) return;
+  if (!postMessageSafe(html, payload, 'daily-view')) logSuppressed('postMessage failed');
 }
 function hideOtherComponents(keepIds) {
   ['#tabsHtml', '#homeHtml', '#fleetCalendarHtml', '#bookingsHtml', '#bpage1', '#bpage2', '#bpage3', '#bpage4', '#html1', '#html2'].forEach(id => {
