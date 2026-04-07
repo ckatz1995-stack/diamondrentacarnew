@@ -3220,6 +3220,23 @@ function renderLookups(){
   }
 
   function chargePresetOptions(chargeKey){
+    if (chargeKey === 'transportBundle') {
+      return [
+        { key:'afterhours_delivery', label:'Χρέωση παράδοσης εκτός ωραρίου', value:15, meta:'perBooking', target:'nightFee' },
+        { key:'afterhours_pickup', label:'Χρέωση παραλαβής εκτός ωραρίου', value:15, meta:'perBooking', target:'nightFee' },
+        { key:'outbase_delivery', label:'Χρέωση παράδοσης εκτός έδρας', value:20, meta:'perBooking', target:'transport' },
+        { key:'outbase_pickup', label:'Χρέωση παραλαβής εκτός έδρας', value:20, meta:'perBooking', target:'transport' },
+        { key:'one_way', label:'Χρέωση μονής διαδρομής', value:25, meta:'perBooking', target:'transport' }
+      ];
+    }
+    if (chargeKey === 'extraFees') {
+      const rows = Array.isArray(state.lookups?.feeRules) ? state.lookups.feeRules : [];
+      return rows.filter((r) => r && r.active !== false).map((r) => {
+        const label = r.label || r.title || 'Fee';
+        const target = /age|ηλικ/i.test(String(label)) ? 'ageFee' : 'surcharges';
+        return { key: safe(r.key || r._id || label), label, value: num(r.amount ?? r.price ?? 0), meta: safe(r.billingMode || 'perBooking'), target };
+      });
+    }
     if (chargeKey === 'insurance') {
       const rows = Array.isArray(state.lookups?.insurancePlans) ? state.lookups.insurancePlans : [];
       return rows.filter((r) => r && r.active !== false).map((r) => ({ key: safe(r.key || r._id || r.label), label: r.label || r.title || 'Protection', value: num(r.pricePerDay ?? r.price ?? 0), meta: 'perDay' }));
@@ -3280,13 +3297,15 @@ function renderLookups(){
 
   function openChargeLineModal(chargeKey){
     const lines = linesFromState();
-    const currentValue = num(lines[chargeKey] ?? 0);
+    const currentValue = chargeKey === 'transportBundle'
+      ? num(lines.transport || 0) + num(lines.nightFee || 0)
+      : (chargeKey === 'extraFees' ? num(lines.ageFee || 0) + num(lines.surcharges || 0) : num(lines[chargeKey] ?? 0));
     state.ui.activeChargeLine = chargeKey;
     setVal('chargeLineAmount', currentValue);
     setVal('chargeLineNotes', '');
     const presets = chargePresetOptions(chargeKey);
     renderChargeOptionsTable(chargeKey, presets);
-    const labelMap = { rental:'Rental', insurance:'Protections', options:'Extras', ageFee:'Age fee', nightFee:'Out of hours', transport:'Transport', damages:'Damages', surcharges:'Other fees', discount:'Discount' };
+    const labelMap = { rental:'Rental', insurance:'Protections', transportBundle:'Transport', extraFees:'Extra fees', options:'Extras', damages:'Damages', discount:'Discount' };
     byId('chargeLineModalTitle') && (byId('chargeLineModalTitle').textContent = `${labelMap[chargeKey] || 'Charge'} editor`);
     byId('chargeLineHint') && (byId('chargeLineHint').textContent = presets.length ? 'Επίλεξε εταιρικό preset ή βάλε manual ποσό.' : 'Δεν βρέθηκαν εταιρικά presets για αυτή τη γραμμή. Χρησιμοποίησε manual ποσό.');
     openModal('chargeLineModal');
@@ -3297,8 +3316,26 @@ function renderLookups(){
     if (!key) return;
     const amount = round2(num(byId('chargeLineAmount')?.value || 0));
     const current = getChargeDraft();
-    current[key] = Math.max(0, amount);
-    if (key === 'discount') current[key] = Math.max(0, amount);
+    if (key === 'transportBundle') {
+      const selected = selectedChargeOptions('transportBundle');
+      if (selected.length) {
+        current.transport = round2(selected.filter((row) => row.target === 'transport').reduce((sum, row) => sum + num(row.value || 0), 0));
+        current.nightFee = round2(selected.filter((row) => row.target === 'nightFee').reduce((sum, row) => sum + num(row.value || 0), 0));
+      } else {
+        current.transport = Math.max(0, amount);
+      }
+    } else if (key === 'extraFees') {
+      const selected = selectedChargeOptions('extraFees');
+      if (selected.length) {
+        current.ageFee = round2(selected.filter((row) => row.target === 'ageFee').reduce((sum, row) => sum + num(row.value || 0), 0));
+        current.surcharges = round2(selected.filter((row) => row.target === 'surcharges').reduce((sum, row) => sum + num(row.value || 0), 0));
+      } else {
+        current.surcharges = Math.max(0, amount);
+      }
+    } else {
+      current[key] = Math.max(0, amount);
+      if (key === 'discount') current[key] = Math.max(0, amount);
+    }
     state.rental.charges = { ...(state.rental.charges || {}), ...current };
     Object.entries(current).forEach(([field, val]) => setVal(`chg_${field}`, val));
     if (key === 'insurance') {
@@ -3324,18 +3361,16 @@ function renderLookups(){
     const lines = linesFromState();
     const fin = financials();
     const rows = [
-      ['rental','Rental', lines.rental, `${billableDays()} day(s)`],
-      ['insurance','Protections', lines.insurance, state.booking?.selectedPackage || 'Package / insurance'],
-      ['options','Extras', lines.options, parseExtras(state.booking?.selectedExtras).join(', ') || 'No extras'],
-      ['ageFee','Age fee', lines.ageFee, 'Driver surcharge'],
-      ['nightFee','Out of hours', lines.nightFee, 'Night / OOH'],
-      ['transport','Transport', lines.transport, 'Delivery / collection'],
-      ['damages','Damages', lines.damages, 'Damage / admin'],
-      ['surcharges','Other fees', lines.surcharges, 'Additional fees'],
+      ['rental','Rental', lines.rental, `${billableDays()} day(s) • view only`, true],
+      ['insurance','Protections', lines.insurance, state.booking?.selectedPackage || 'Package / insurance', false],
+      ['transportBundle','Transport', round2(num(lines.transport || 0) + num(lines.nightFee || 0)), 'Delivery / pickup charges', false],
+      ['extraFees','Extra fees', round2(num(lines.ageFee || 0) + num(lines.surcharges || 0)), 'Age surcharges & misc fees', false],
+      ['options','Extras', lines.options, parseExtras(state.booking?.selectedExtras).join(', ') || 'No extras', false],
+      ['damages','Damages', lines.damages, 'Damage / admin', false],
       ['discount','Discount', -lines.discount, 'Commercial discount']
     ];
-    byId('chargeList').innerHTML = rows.map(([key,label,val,meta]) => `
-      <button class="charge" type="button" data-charge-key="${escapeAttr(key)}">
+    byId('chargeList').innerHTML = rows.map(([key,label,val,meta,readonly]) => `
+      <button class="charge" type="button" ${readonly ? 'disabled' : ''} data-charge-key="${escapeAttr(key)}">
         <div>
           <div class="label">${escapeHtml(label)}</div>
           <div class="meta">${escapeHtml(meta)}</div>
@@ -3343,7 +3378,10 @@ function renderLookups(){
         <div class="value">${money(val)}</div>
       </button>
     `).join('');
-    qa('[data-charge-key]').forEach((row) => row.addEventListener('click', () => openChargeLineModal(row.dataset.chargeKey || '')));
+    qa('[data-charge-key]').forEach((row) => row.addEventListener('click', () => {
+      if (row.hasAttribute('disabled')) return;
+      openChargeLineModal(row.dataset.chargeKey || '');
+    }));
     byId('totNet').textContent = money(fin.net);
     byId('totVat').textContent = money(fin.vat);
     byId('totGross').textContent = money(fin.gross);
