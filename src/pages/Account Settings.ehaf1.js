@@ -31,6 +31,7 @@ import {
   revokeStaffSessions
 } from 'backend/staffAccess.jsw';
 import { logoutBackroom, requireBackroomAccess } from 'public/backroomAuth';
+import { getBridgeTelemetrySnapshot, resetBridgeTelemetry } from 'public/bridgeUtils';
 
 const ROUTES = {
   home: '/myroom-home',
@@ -56,13 +57,22 @@ function post(payload) {
   try { $w(COMP).postMessage(payload); } catch (e) { console.error('pricing admin postMessage failed', e); }
 }
 
+function sendBridgeTelemetrySnapshot(message = '') {
+  post({ type: 'bridgeTelemetrySnapshot', telemetry: getBridgeTelemetrySnapshot(), message });
+}
+
 async function sendSnapshots(message = '', tone = 'success') {
   try {
     const [snapshot, accessSnapshot] = await Promise.all([
       getPricingAdminSnapshot({ authToken: authState.sessionToken }),
       getStaffAccessSnapshot({ sessionToken: authState.sessionToken })
     ]);
-    post({ type: 'adminSnapshot', snapshot, accessSnapshot, meta: { user: currentUser } });
+    post({
+      type: 'adminSnapshot',
+      snapshot,
+      accessSnapshot,
+      meta: { user: currentUser, bridgeTelemetry: getBridgeTelemetrySnapshot() }
+    });
     if (message) post({ type: 'toast', tone, message });
   } catch (err) {
     post({ type: 'toast', tone: 'error', message: err?.message || String(err) || 'Αποτυχία φόρτωσης admin snapshot.' });
@@ -174,7 +184,7 @@ async function handleAction(type, payload = {}) {
         newPassword: payload.newPassword,
         mustChangePassword: payload.mustChangePassword
       });
-      post({ type: 'staffPasswordResult', result: { mode: 'set', ...res, password: payload.newPassword } });
+      post({ type: 'staffPasswordResult', result: { mode: 'set', ...res, email: payload.email, mustChangePassword: !!payload.mustChangePassword } });
       return sendSnapshots('Το password αποθηκεύτηκε.');
     }
     if (type === 'resetStaffPassword') {
@@ -194,6 +204,11 @@ async function handleAction(type, payload = {}) {
     }
     if (type === 'refreshStaffAccess') {
       return sendSnapshots();
+    }
+    if (type === 'resetBridgeTelemetry') {
+      resetBridgeTelemetry();
+      sendBridgeTelemetrySnapshot('Καθαρίστηκαν οι bridge telemetry counters.');
+      return sendSnapshots('Καθαρίστηκαν οι bridge telemetry counters.');
     }
     if (type === 'logoutBackroom') {
       await logoutBackroom();
@@ -218,6 +233,11 @@ $w.onReady(async function () {
 
       if (msg.type === 'pricingAdminReady') {
         await sendSnapshots();
+        return;
+      }
+
+      if (msg.type === 'requestBridgeTelemetry') {
+        sendBridgeTelemetrySnapshot();
         return;
       }
 
@@ -272,6 +292,7 @@ $w.onReady(async function () {
         'resetStaffPassword',
         'revokeStaffSessions',
         'refreshStaffAccess',
+        'resetBridgeTelemetry',
         'logoutBackroom'
       ].includes(msg.type)) {
         await handleAction(msg.type, msg.payload || {});
