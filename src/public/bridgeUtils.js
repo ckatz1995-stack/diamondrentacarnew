@@ -1,9 +1,15 @@
 export const BRIDGE_PROTOCOL_VERSION = '2026-04-06.1';
 const TRUSTED_DOMAIN_SUFFIXES = ['wix.com', 'wixsite.com', 'parastorage.com', 'wixstatic.com'];
 const bridgeTelemetry = {
+  parseAttempts: 0,
+  parseSuccesses: 0,
   parseFailures: 0,
+  postAttempts: 0,
+  postSuccesses: 0,
   postFallbacks: 0,
   postFailures: 0,
+  originChecks: 0,
+  trustedOriginPasses: 0,
   untrustedOriginDrops: 0
 };
 const bridgeTelemetryHistory = [];
@@ -30,8 +36,13 @@ export const BRIDGE_TYPES = {
 export function normalizeBridgeMessage(raw) {
   if (!raw) return null;
   if (typeof raw === 'string') {
+    bridgeTelemetry.parseAttempts += 1;
+    markTelemetry('parseAttempts');
     try {
-      return JSON.parse(raw);
+      const parsed = JSON.parse(raw);
+      bridgeTelemetry.parseSuccesses += 1;
+      markTelemetry('parseSuccesses');
+      return parsed;
     } catch (_) {
       bridgeTelemetry.parseFailures += 1;
       markTelemetry('parseFailures');
@@ -53,8 +64,12 @@ export function buildBookingContext(wixLocation) {
 
 export function postMessageSafe(component, payload, label = 'bridge') {
   if (!component || payload == null || typeof component.postMessage !== 'function') return false;
+  bridgeTelemetry.postAttempts += 1;
+  markTelemetry('postAttempts');
   try {
     component.postMessage(payload);
+    bridgeTelemetry.postSuccesses += 1;
+    markTelemetry('postSuccesses');
     return true;
   } catch (error) {
     bridgeTelemetry.postFallbacks += 1;
@@ -62,6 +77,8 @@ export function postMessageSafe(component, payload, label = 'bridge') {
     try {
       const fallbackPayload = typeof payload === 'string' ? payload : JSON.stringify(payload);
       component.postMessage(fallbackPayload);
+      bridgeTelemetry.postSuccesses += 1;
+      markTelemetry('postSuccesses');
       return true;
     } catch (innerError) {
       bridgeTelemetry.postFailures += 1;
@@ -91,6 +108,8 @@ export function resolveHtmlComponent($w, candidates = []) {
 }
 
 export function isTrustedBridgeOrigin(origin, currentUrl) {
+  bridgeTelemetry.originChecks += 1;
+  markTelemetry('originChecks');
   const raw = String(origin || '').trim();
   if (!raw) {
     bridgeTelemetry.untrustedOriginDrops += 1;
@@ -109,7 +128,11 @@ export function isTrustedBridgeOrigin(origin, currentUrl) {
       try {
         const current = new URL(String(currentUrl));
         const currentHost = String(current.hostname || '').toLowerCase();
-        if (currentHost && sourceHost === currentHost) return true;
+        if (currentHost && sourceHost === currentHost) {
+          bridgeTelemetry.trustedOriginPasses += 1;
+          markTelemetry('trustedOriginPasses');
+          return true;
+        }
       } catch (_) {
         // Ignore malformed currentUrl and fall back to trusted suffix matching.
       }
@@ -118,6 +141,9 @@ export function isTrustedBridgeOrigin(origin, currentUrl) {
     if (!trusted) {
       bridgeTelemetry.untrustedOriginDrops += 1;
       markTelemetry('untrustedOriginDrops');
+    } else {
+      bridgeTelemetry.trustedOriginPasses += 1;
+      markTelemetry('trustedOriginPasses');
     }
     return trusted;
   } catch (_) {
@@ -131,24 +157,54 @@ export function getBridgeTelemetrySnapshot() {
   const now = Date.now();
   const windowStart = now - TELEMETRY_RATE_WINDOW_MS;
   const recent = bridgeTelemetryHistory.filter((entry) => entry.ts >= windowStart);
-  const perMinute = {
-    parseFailures: recent.filter((entry) => entry.type === 'parseFailures').length,
-    postFallbacks: recent.filter((entry) => entry.type === 'postFallbacks').length,
-    postFailures: recent.filter((entry) => entry.type === 'postFailures').length,
-    untrustedOriginDrops: recent.filter((entry) => entry.type === 'untrustedOriginDrops').length
-  };
+  const perMinute = recent.reduce((acc, entry) => {
+    if (!acc[entry.type]) acc[entry.type] = 0;
+    acc[entry.type] += 1;
+    return acc;
+  }, {
+    parseAttempts: 0,
+    parseSuccesses: 0,
+    parseFailures: 0,
+    postAttempts: 0,
+    postSuccesses: 0,
+    postFallbacks: 0,
+    postFailures: 0,
+    originChecks: 0,
+    trustedOriginPasses: 0,
+    untrustedOriginDrops: 0
+  });
+  const ratio = (num, denom) => (denom > 0 ? Number(((num / denom) * 100).toFixed(2)) : 0);
+  const lastEvent = bridgeTelemetryHistory.length ? bridgeTelemetryHistory[bridgeTelemetryHistory.length - 1] : null;
   return {
     ...bridgeTelemetry,
     perMinute,
+    rates: {
+      parseFailurePct: ratio(bridgeTelemetry.parseFailures, bridgeTelemetry.parseAttempts),
+      postFailurePct: ratio(bridgeTelemetry.postFailures, bridgeTelemetry.postAttempts),
+      untrustedOriginPct: ratio(bridgeTelemetry.untrustedOriginDrops, bridgeTelemetry.originChecks)
+    },
+    windowRates: {
+      parseFailurePct: ratio(perMinute.parseFailures, perMinute.parseAttempts),
+      postFailurePct: ratio(perMinute.postFailures, perMinute.postAttempts),
+      untrustedOriginPct: ratio(perMinute.untrustedOriginDrops, perMinute.originChecks)
+    },
     historyWindowMs: TELEMETRY_RATE_WINDOW_MS,
-    historySize: bridgeTelemetryHistory.length
+    historySize: bridgeTelemetryHistory.length,
+    lastEventAt: lastEvent?.ts || null,
+    lastEventType: lastEvent?.type || null
   };
 }
 
 export function resetBridgeTelemetry() {
+  bridgeTelemetry.parseAttempts = 0;
+  bridgeTelemetry.parseSuccesses = 0;
   bridgeTelemetry.parseFailures = 0;
+  bridgeTelemetry.postAttempts = 0;
+  bridgeTelemetry.postSuccesses = 0;
   bridgeTelemetry.postFallbacks = 0;
   bridgeTelemetry.postFailures = 0;
+  bridgeTelemetry.originChecks = 0;
+  bridgeTelemetry.trustedOriginPasses = 0;
   bridgeTelemetry.untrustedOriginDrops = 0;
   bridgeTelemetryHistory.splice(0, bridgeTelemetryHistory.length);
 }
