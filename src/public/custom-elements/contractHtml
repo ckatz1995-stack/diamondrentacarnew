@@ -155,6 +155,21 @@
     .ledger-preview th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#5f6f86;background:#f8fafc}
     .ledger-preview tr.active{background:#eef4ff}
     .ledger-empty{padding:10px;color:var(--muted);font-size:12px}
+    .financial-shell{display:grid;gap:14px}
+    .financial-summary-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+    .financial-summary-cards .summary-box{background:linear-gradient(180deg,#fff 0%,#faf7f0 100%);border-color:#e7dcc8}
+    .financial-actions{background:#fff;border:1px solid #eadfcf;border-radius:14px;padding:10px}
+    .financial-actions .btn{min-height:42px}
+    .financial-ledger-wrap{border:1px solid #eadfcf;border-radius:14px;overflow:hidden;background:#fff}
+    .financial-ledger-wrap .ledger-preview{border:0;border-radius:0}
+    .charge-editor-layout{display:grid;grid-template-columns:1fr;gap:12px}
+    .charge-editor-top{display:grid;grid-template-columns:180px minmax(0,1fr);gap:10px;align-items:end}
+    .charge-editor-layout .ledger-preview{border-color:#eadfcf}
+    .charge-editor-layout .ledger-preview th{background:#f7f1e7}
+    .charge-editor-layout .inline-note{background:#fff9f1;border-color:#e9d7b7}
+    .txn-modal-layout{display:grid;gap:12px}
+    .txn-modal-layout .grid{background:#fff;border:1px solid #eadfcf;border-radius:14px;padding:12px}
+    .txn-modal-layout .textarea{min-height:92px}
     .status-pill{
       display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;
       font-size:12px;font-weight:800;border:1px solid var(--line)
@@ -1948,36 +1963,40 @@
       <button class="btn ghost" type="button" data-close="paymentsDeskModal">✕</button>
     </div>
     <div class="modal-bd">
-      <div class="financial-meta">
-        <div class="summary-box"><div class="k">Payment program</div><div class="v" id="finMetaProgram">—</div></div>
-        <div class="summary-box"><div class="k">Payment status</div><div class="v" id="finMetaStatus">—</div></div>
-        <div class="summary-box"><div class="k">Preauth active</div><div class="v" id="finMetaPreauth">0.00 €</div></div>
-        <div class="summary-box"><div class="k">Guarantee refunded</div><div class="v" id="finMetaGuaranteeRefunded">0.00 €</div></div>
-      </div>
-      <div class="financial-actions">
-        <button class="btn success" type="button" id="btnAddPayment">Add payment</button>
-        <button class="btn warn" type="button" id="btnAddRefund">Refund</button>
-        <button class="btn" type="button" id="btnAddPreauth">Pre-authorization</button>
-        <button class="btn" type="button" id="btnVoidPreauth">Void preauth</button>
-        <button class="btn" type="button" id="btnAddGuarantee">Add guarantee</button>
-        <button class="btn" type="button" id="btnRefundGuarantee">Refund guarantee</button>
-        <button class="btn danger" type="button" id="btnDeleteFinancialTxn">Delete selected</button>
-      </div>
-      <div class="ledger-preview">
-        <table>
-          <thead>
-            <tr>
-              <th>Type</th>
-              <th>Date</th>
-              <th>Amount</th>
-              <th>Method</th>
-              <th>Reference</th>
-              <th>User</th>
-            </tr>
-          </thead>
-          <tbody id="financialLedgerBody"></tbody>
-        </table>
-        <div class="ledger-empty hidden" id="financialLedgerEmpty">No transactions yet. Use the actions above to register financial movements.</div>
+      <div class="financial-shell">
+        <div class="financial-summary-cards">
+          <div class="summary-box"><div class="k">Payment program</div><div class="v" id="finMetaProgram">—</div></div>
+          <div class="summary-box"><div class="k">Payment status</div><div class="v" id="finMetaStatus">—</div></div>
+          <div class="summary-box"><div class="k">Preauth active</div><div class="v" id="finMetaPreauth">0.00 €</div></div>
+          <div class="summary-box"><div class="k">Guarantee refunded</div><div class="v" id="finMetaGuaranteeRefunded">0.00 €</div></div>
+        </div>
+        <div class="financial-actions">
+          <button class="btn success" type="button" id="btnAddPayment">Add payment</button>
+          <button class="btn warn" type="button" id="btnAddRefund">Refund</button>
+          <button class="btn" type="button" id="btnAddPreauth">Pre-authorization</button>
+          <button class="btn" type="button" id="btnVoidPreauth">Void preauth</button>
+          <button class="btn" type="button" id="btnAddGuarantee">Add guarantee</button>
+          <button class="btn" type="button" id="btnRefundGuarantee">Refund guarantee</button>
+          <button class="btn danger" type="button" id="btnDeleteFinancialTxn">Delete selected</button>
+        </div>
+        <div class="financial-ledger-wrap">
+          <div class="ledger-preview">
+            <table>
+              <thead>
+                <tr>
+                  <th>Type</th>
+                  <th>Date</th>
+                  <th>Amount</th>
+                  <th>Method</th>
+                  <th>Reference</th>
+                  <th>User</th>
+                </tr>
+              </thead>
+              <tbody id="financialLedgerBody"></tbody>
+            </table>
+            <div class="ledger-empty hidden" id="financialLedgerEmpty">No transactions yet. Use the actions above to register financial movements.</div>
+          </div>
+        </div>
       </div>
     </div>
     <div class="modal-ft">
@@ -1996,17 +2015,21 @@
       <button class="btn ghost" type="button" data-close="chargeLineModal">✕</button>
     </div>
     <div class="modal-bd">
-      <div class="field"><label>Line amount</label><input class="input" id="chargeLineAmount" type="number" step="0.01" /></div>
-      <div class="ledger-preview">
-        <table>
-          <thead><tr><th>Option</th><th>Company price</th><th>Billing</th><th>Action</th></tr></thead>
-          <tbody id="chargeOptionTableBody"></tbody>
-        </table>
-        <div class="ledger-empty hidden" id="chargeOptionTableEmpty">No configured options for this line.</div>
+      <div class="charge-editor-layout">
+        <div class="charge-editor-top">
+          <div class="field"><label>Line amount</label><input class="input" id="chargeLineAmount" type="number" step="0.01" /></div>
+          <div class="inline-note" id="chargeSelectionSummary">No selected options.</div>
+        </div>
+        <div class="ledger-preview">
+          <table>
+            <thead><tr><th>Option</th><th>Company price</th><th>Billing</th><th>Action</th></tr></thead>
+            <tbody id="chargeOptionTableBody"></tbody>
+          </table>
+          <div class="ledger-empty hidden" id="chargeOptionTableEmpty">No configured options for this line.</div>
+        </div>
+        <div class="field"><label>Notes</label><textarea class="textarea" id="chargeLineNotes"></textarea></div>
+        <div class="inline-note" id="chargeLineHint">Οι επιλογές φορτώνονται από pricing catalog όπου υπάρχουν.</div>
       </div>
-      <div class="inline-note" id="chargeSelectionSummary">No selected options.</div>
-      <div class="field"><label>Notes</label><textarea class="textarea" id="chargeLineNotes"></textarea></div>
-      <div class="inline-note" id="chargeLineHint">Οι επιλογές φορτώνονται από pricing catalog όπου υπάρχουν.</div>
     </div>
     <div class="modal-ft">
       <button class="btn ghost" type="button" data-close="chargeLineModal">Cancel</button>
@@ -2026,19 +2049,21 @@
       <button class="btn ghost" type="button" data-close="financialTxnModal">✕</button>
     </div>
     <div class="modal-bd">
-      <div class="grid cols-2">
-        <div class="field"><label>Transaction type</label><select class="select" id="txn_type"></select></div>
-        <div class="field"><label>Amount</label><input class="input" id="txn_amount" type="number" step="0.01" min="0" /></div>
-        <div class="field"><label>Date / time</label><input class="input" id="txn_at" type="datetime-local" /></div>
-        <div class="field"><label>Method</label><select class="select" id="txn_method"><option value="card">Card</option><option value="cash">Cash</option><option value="bank">Bank transfer</option><option value="voucher">Voucher</option><option value="other">Other</option></select></div>
-        <div class="field"><label>Payee / payer</label><input class="input" id="txn_party" placeholder="Customer / company / OTA" /></div>
-        <div class="field"><label>Reference</label><input class="input" id="txn_reference" placeholder="POS ref / ext ref / cheque no" /></div>
-        <div class="field"><label>Receipt no</label><input class="input" id="txn_receiptNo" /></div>
-        <div class="field"><label>POS / terminal</label><input class="input" id="txn_terminal" /></div>
-        <div class="field"><label>Station</label><input class="input" id="txn_station" /></div>
-        <div class="field"><label>User</label><input class="input" id="txn_user" /></div>
+      <div class="txn-modal-layout">
+        <div class="grid cols-2">
+          <div class="field"><label>Transaction type</label><select class="select" id="txn_type"></select></div>
+          <div class="field"><label>Amount</label><input class="input" id="txn_amount" type="number" step="0.01" min="0" /></div>
+          <div class="field"><label>Date / time</label><input class="input" id="txn_at" type="datetime-local" /></div>
+          <div class="field"><label>Method</label><select class="select" id="txn_method"><option value="card">Card</option><option value="cash">Cash</option><option value="bank">Bank transfer</option><option value="voucher">Voucher</option><option value="other">Other</option></select></div>
+          <div class="field"><label>Payee / payer</label><input class="input" id="txn_party" placeholder="Customer / company / OTA" /></div>
+          <div class="field"><label>Reference</label><input class="input" id="txn_reference" placeholder="POS ref / ext ref / cheque no" /></div>
+          <div class="field"><label>Receipt no</label><input class="input" id="txn_receiptNo" /></div>
+          <div class="field"><label>POS / terminal</label><input class="input" id="txn_terminal" /></div>
+          <div class="field"><label>Station</label><input class="input" id="txn_station" /></div>
+          <div class="field"><label>User</label><input class="input" id="txn_user" /></div>
+        </div>
+        <div class="field"><label>Notes</label><textarea class="textarea" id="txn_notes"></textarea></div>
       </div>
-      <div class="field" style="margin-top:10px"><label>Notes</label><textarea class="textarea" id="txn_notes"></textarea></div>
     </div>
     <div class="modal-ft">
       <button class="btn ghost" type="button" data-close="financialTxnModal">Cancel</button>
