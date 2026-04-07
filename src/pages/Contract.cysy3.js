@@ -167,12 +167,21 @@ async function loadContract() {
     const pickupLocations = Array.isArray(pricingCatalog?.pickupLocations)
       ? pricingCatalog.pickupLocations.filter((row) => row && row.active !== false)
       : [];
+    const insurancePlans = Array.isArray(pricingCatalog?.insurancePlans)
+      ? pricingCatalog.insurancePlans.filter((row) => row && row.active !== false)
+      : [];
+    const extraServices = Array.isArray(pricingCatalog?.extraServices)
+      ? pricingCatalog.extraServices.filter((row) => row && row.active !== false)
+      : [];
+    const feeRules = Array.isArray(pricingCatalog?.feeRules)
+      ? pricingCatalog.feeRules.filter((row) => row && row.active !== false)
+      : [];
 
     post({
       type: "loadContractData",
       booking: clonePlain(res.booking || {}),
       rental: normalizeRentalDraft(clonePlain(res.rental || {})),
-      lookups: clonePlain({ ...(res.lookups || {}), pickupLocations }),
+      lookups: clonePlain({ ...(res.lookups || {}), pickupLocations, insurancePlans, extraServices, feeRules }),
       context: {
         user: currentUserLabel,
         from: returnTab,
