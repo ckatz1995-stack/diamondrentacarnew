@@ -144,6 +144,18 @@
     .total .amount{font-size:16px;font-weight:800}
     .total.grand .amount,.total.grand .name{font-size:18px;color:var(--accent)}
     .quick-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+    .finance-kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:12px 0}
+    .finance-kpi{border:1px solid var(--line);border-radius:12px;background:#f8fbff;padding:10px 12px}
+    .finance-kpi .k{font-size:11px;font-weight:900;color:#54657d;text-transform:uppercase;letter-spacing:.05em}
+    .finance-kpi .v{margin-top:5px;font-size:16px;font-weight:900;color:#0f2542}
+    .finance-kpi .sub{margin-top:3px;font-size:11px;color:var(--muted)}
+    .payment-ops{border:1px solid var(--line);border-radius:12px;background:#fff;padding:10px 12px;display:grid;gap:8px;margin:8px 0 12px}
+    .payment-ops-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:8px}
+    .payment-ops-row{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px}
+    .payment-ledger{display:grid;gap:6px;max-height:180px;overflow:auto}
+    .payment-entry{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;padding:8px 10px;border:1px dashed var(--line-strong);border-radius:10px;background:#fff}
+    .payment-entry .t{font-size:11px;color:var(--muted)}
+    .payment-entry .n{font-size:12px;font-weight:700}
     .status-pill{
       display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;
       font-size:12px;font-weight:800;border:1px solid var(--line)
@@ -1198,6 +1210,32 @@
             <button class="btn" data-open="notesModal">Notes</button>
           </div>
 
+          <div class="finance-kpis">
+            <div class="finance-kpi"><div class="k">Collectable</div><div class="v" id="finKpiCollectable">0.00 €</div><div class="sub" id="finKpiCollectableSub">Gross payable</div></div>
+            <div class="finance-kpi"><div class="k">Received</div><div class="v" id="finKpiReceived">0.00 €</div><div class="sub" id="finKpiReceivedSub">Prepaid + desk</div></div>
+            <div class="finance-kpi"><div class="k">Open balance</div><div class="v" id="finKpiOpen">0.00 €</div><div class="sub" id="finKpiOpenSub">Pending to collect</div></div>
+            <div class="finance-kpi"><div class="k">Deposit held</div><div class="v" id="finKpiDeposit">0.00 €</div><div class="sub" id="finKpiDepositSub">Guarantee amount</div></div>
+          </div>
+
+          <div class="payment-ops">
+            <div class="panel-hd" style="padding:0;border:0"><h3 style="font-size:14px">Payment operations</h3><span class="muted" style="font-size:11px">Γρήγορη καταχώρηση +/− στα ποσά</span></div>
+            <div class="payment-ops-grid">
+              <input class="input" id="paymentOpAmount" type="number" min="0" step="0.01" placeholder="Amount" />
+              <select class="select" id="paymentOpType">
+                <option value="prepaid">Prepaid / voucher</option>
+                <option value="desk">Paid on desk</option>
+                <option value="deposit_hold">Deposit hold</option>
+                <option value="deposit_release">Deposit release</option>
+              </select>
+            </div>
+            <div class="payment-ops-row">
+              <input class="input" id="paymentOpNote" placeholder="Note (optional)" />
+              <button class="btn success" type="button" id="btnPaymentOpAdd">+ Add</button>
+              <button class="btn warn" type="button" id="btnPaymentOpRemove">− Remove</button>
+            </div>
+            <div class="payment-ledger" id="paymentLedger"></div>
+          </div>
+
           <div class="divider"></div>
 
           <div class="charge-list" id="chargeList"></div>
@@ -1933,7 +1971,7 @@
     rental: {},
     lookups: { categories: [], vehicles: [], customers: [], companies: [], pickupLocations: [] },
     context: {},
-    ui: { activeModal: '', saveState: '', additionalDriversOpen: false, driverLookupDrafts: {}, companyLookupDraft: null, activeDriverSlot: 0, customerSearchTarget: 0, customerSearchSelectedIndex: -1, activeDriverTab: 'general', activeCompanyTab: 'general', activeDriverRegistryMatch: null, activeCompanyRegistryMatch: null, mainDriverCustomerId: '', selectedCompanyId: '', driverInsightsKey: '', driverInsightsLoading: false, driverInsights: null, companyInsightsKey: '', companyInsightsLoading: false, companyInsights: null, vehicleSelectorQuery: '', vehicleSelectorFilter: 'all', vehicleSelectorSelectedId: '', vehicleSelectorCategoryCode: '' }
+    ui: { activeModal: '', saveState: '', additionalDriversOpen: false, driverLookupDrafts: {}, companyLookupDraft: null, activeDriverSlot: 0, customerSearchTarget: 0, customerSearchSelectedIndex: -1, activeDriverTab: 'general', activeCompanyTab: 'general', activeDriverRegistryMatch: null, activeCompanyRegistryMatch: null, mainDriverCustomerId: '', selectedCompanyId: '', driverInsightsKey: '', driverInsightsLoading: false, driverInsights: null, companyInsightsKey: '', companyInsightsLoading: false, companyInsights: null, vehicleSelectorQuery: '', vehicleSelectorFilter: 'all', vehicleSelectorSelectedId: '', vehicleSelectorCategoryCode: '', paymentTimeline: [] }
   };
 
   const q = (sel, root=document) => root.querySelector(sel);
@@ -2194,6 +2232,7 @@
     state.ui.driverInsights = null;
     state.ui.driverInsightsKey = '';
     state.ui.activeDriverRegistryMatch = null;
+    state.ui.paymentTimeline = [];
 
     setVal('bill_invoiceType', billing.invoiceType || '');
     setVal('bill_companyName', billing.companyName || '');
@@ -2912,6 +2951,59 @@ function renderLookups(){
     }
   }
 
+
+  function paymentOperationLabel(type){
+    const map = {
+      prepaid: 'Prepaid / voucher',
+      desk: 'Paid on desk',
+      deposit_hold: 'Deposit hold',
+      deposit_release: 'Deposit release'
+    };
+    return map[type] || 'Payment op';
+  }
+
+  function applyPaymentOperation(sign){
+    const amount = round2(num(byId('paymentOpAmount')?.value || 0));
+    if (!(amount > 0)) { toast('Βάλε ποσό > 0 για payment operation.'); return; }
+    const type = safe(byId('paymentOpType')?.value || 'desk').trim();
+    const note = safe(byId('paymentOpNote')?.value || '').trim();
+    const signedAmount = round2(amount * (sign >= 0 ? 1 : -1));
+
+    if (type === 'prepaid') {
+      setVal('fin_prepaid', round2(num(byId('fin_prepaid')?.value || 0) + signedAmount));
+    } else if (type === 'desk') {
+      setVal('fin_paidNow', round2(num(byId('fin_paidNow')?.value || 0) + signedAmount));
+    } else if (type === 'deposit_hold') {
+      setVal('fin_deposit', round2(num(byId('fin_deposit')?.value || 0) + signedAmount));
+    } else if (type === 'deposit_release') {
+      setVal('fin_deposit', round2(num(byId('fin_deposit')?.value || 0) - signedAmount));
+    }
+
+    const entryAmount = type === 'deposit_release' ? -signedAmount : signedAmount;
+    state.ui.paymentTimeline = Array.isArray(state.ui.paymentTimeline) ? state.ui.paymentTimeline : [];
+    state.ui.paymentTimeline.unshift({ at: new Date().toISOString(), type, amount: round2(entryAmount), note });
+    state.ui.paymentTimeline = state.ui.paymentTimeline.slice(0, 30);
+    if (byId('paymentOpNote')) byId('paymentOpNote').value = '';
+    renderSummary();
+    renderChargeRail();
+  }
+
+  function renderPaymentLedger(){
+    const wrap = byId('paymentLedger');
+    if (!wrap) return;
+    const rows = Array.isArray(state.ui.paymentTimeline) ? state.ui.paymentTimeline : [];
+    if (!rows.length) {
+      wrap.innerHTML = '<div class="muted" style="font-size:12px">No manual payment operations in this session.</div>';
+      return;
+    }
+    wrap.innerHTML = rows.map((row) => {
+      const dt = humanDateTime(row.at);
+      const label = paymentOperationLabel(row.type);
+      const note = safe(row.note).trim();
+      return `<div class="payment-entry"><div class="t">${escapeHtml(dt)}</div><div><div class="n">${escapeHtml(label)}</div>${note ? `<div class="t">${escapeHtml(note)}</div>` : ''}</div><div class="n">${money(row.amount)}</div></div>`;
+    }).join('');
+  }
+
   function renderChargeRail(){
     const lines = linesFromState();
     const fin = financials();
@@ -2942,6 +3034,23 @@ function renderLookups(){
     byId('totPaidDesk').textContent = money(fin.paidNow);
     byId('totDeposit').textContent = money(fin.deposit);
     byId('totBalance').textContent = money(fin.balance);
+
+    const received = round2(fin.prepaid + fin.paidNow);
+    const open = round2(fin.balance);
+    byId('finKpiCollectable') && (byId('finKpiCollectable').textContent = money(fin.gross));
+    byId('finKpiReceived') && (byId('finKpiReceived').textContent = money(received));
+    byId('finKpiOpen') && (byId('finKpiOpen').textContent = money(open));
+    byId('finKpiDeposit') && (byId('finKpiDeposit').textContent = money(fin.deposit));
+    byId('finKpiOpenSub') && (byId('finKpiOpenSub').textContent = open <= 0 ? 'No pending amount' : 'Pending to collect');
+
+    const paymentStatusEl = byId('fin_paymentStatus');
+    if (paymentStatusEl) {
+      if (open <= 0 && received > 0) paymentStatusEl.value = 'paid';
+      else if (received > 0 && open > 0) paymentStatusEl.value = 'partial';
+      else if (received <= 0 && fin.gross > 0) paymentStatusEl.value = 'pending';
+    }
+
+    renderPaymentLedger();
   }
 
   function getMainDriverDraft(){
@@ -3730,6 +3839,15 @@ function renderLookups(){
       setVal('book_selectedExtras', byId('veh_extras')?.value || '');
       renderProductsPreview();
       renderSummary();
+    });
+
+    byId('btnPaymentOpAdd')?.addEventListener('click', () => applyPaymentOperation(1));
+    byId('btnPaymentOpRemove')?.addEventListener('click', () => applyPaymentOperation(-1));
+    byId('paymentOpAmount')?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        applyPaymentOperation(1);
+      }
     });
 
     const bindDriverAutoLookup = (index) => {
