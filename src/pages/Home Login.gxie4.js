@@ -1,6 +1,7 @@
 import wixLocation from 'wix-location';
 import { getPublicAuthHealth, getPublicLoginBootstrap, loginStaff, requestAccessRecovery } from 'backend/staffAccess.jsw';
 import { buildUserContext, readBackroomSession, storeSessionToken } from 'public/backroomAuth';
+import { isTrustedBridgeOrigin, normalizeBridgeMessage, postMessageSafe, resolveHtmlComponent } from 'public/bridgeUtils';
 
 const ROUTES = {
   home: '/myroom-home'
@@ -21,8 +22,9 @@ $w.onReady(async function () {
   try { html.expand(); html.show(); } catch (error) { logSuppressed('expand/show failed', error); }
 
   html.onMessage(async (event) => {
-    const msg = event.data || {};
-    if (!msg.type) return;
+    if (!isTrustedBridgeOrigin(event?.origin, wixLocation.url)) return;
+    const msg = normalizeBridgeMessage(event && event.data);
+    if (!msg || typeof msg !== 'object' || !msg.type) return;
 
     if (msg.type === 'loginReady' || msg.type === 'requestAuthState' || msg.type === 'requestLoginBootstrap') {
       await refreshAuthState();
@@ -114,16 +116,14 @@ async function refreshAuthState(message = '') {
 }
 
 function getLoginComponent() {
-  for (const id of LOGIN_COMPONENT_IDS) {
-    try { const cmp = $w(id); if (cmp) return cmp; } catch (error) { logSuppressed(`selector lookup failed for ${id}`, error); }
-  }
+  try { return resolveHtmlComponent($w, LOGIN_COMPONENT_IDS); } catch (error) { logSuppressed('HtmlComponent lookup failed', error); }
   return null;
 }
 
 function post(payload) {
   const html = getLoginComponent();
   if (!html) return;
-  try { html.postMessage(payload); } catch (error) { logSuppressed('postMessage failed', error); }
+  if (!postMessageSafe(html, payload, 'home-login')) logSuppressed('postMessage failed');
 }
 
 function clampHeight(value) {

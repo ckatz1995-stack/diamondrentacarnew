@@ -2,6 +2,7 @@
 import wixLocation from 'wix-location';
 import { getFleetCalendarData, moveBookingVehicleOnly, confirmAndAutoAssign } from 'backend/fleetCalendar';
 import { buildUserContext, logoutBackroom, requireBackroomAccess } from 'public/backroomAuth';
+import { isTrustedBridgeOrigin, normalizeBridgeMessage, postMessageSafe, resolveHtmlComponent } from 'public/bridgeUtils';
 
 const ROUTES = {
   home: '/myroom-home',
@@ -36,8 +37,9 @@ $w.onReady(async function () {
   try { html.height = 1250; } catch (error) { logSuppressed('initial height set failed', error); }
 
   html.onMessage(async (event) => {
-    const msg = event.data || {};
-    if (!msg.type) return;
+    if (!isTrustedBridgeOrigin(event?.origin, wixLocation.url)) return;
+    const msg = normalizeBridgeMessage(event && event.data);
+    if (!msg || typeof msg !== 'object' || !msg.type) return;
 
     if (msg.type === 'requestUserContext') {
       post(buildUserContext(authState));
@@ -191,21 +193,12 @@ async function loadCalendar(range = {}, full = true) {
 function post(payload) {
   const html = getHtmlComponent();
   if (!html) return;
-  try { html.postMessage(payload); } catch (error) { logSuppressed('postMessage failed', error); }
+  if (!postMessageSafe(html, payload, 'fleet-chart')) logSuppressed('postMessage failed');
 }
 
 function getHtmlComponent() {
-  try { return $w(HTML_ID); } catch (error) { logSuppressed(`selector lookup failed for ${HTML_ID}`, error); }
-  try {
-    const selection = $w('HtmlComponent');
-    if (!selection || typeof selection.forEach !== 'function') return null;
-    let first = null;
-    selection.forEach((component) => { if (!first) first = component; });
-    return first;
-  } catch (error) {
-    logSuppressed('HtmlComponent fallback lookup failed', error);
-    return null;
-  }
+  try { return resolveHtmlComponent($w, [HTML_ID]); } catch (error) { logSuppressed('HtmlComponent lookup failed', error); }
+  return null;
 }
 
 function hideOtherComponents(keepIds) {

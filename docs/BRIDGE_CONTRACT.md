@@ -46,11 +46,59 @@ This document defines the common cross-frame message contract used by page contr
 
 ## Telemetry hooks
 - Runtime bridge telemetry lives in `src/public/bridgeUtils.js`.
-- Available counters:
+- Available aggregate counters:
+  - `parseAttempts`
+  - `parseSuccesses`
   - `parseFailures`
+  - `postAttempts`
+  - `postSuccesses`
   - `postFallbacks`
   - `postFailures`
+  - `originChecks`
+  - `trustedOriginPasses`
   - `untrustedOriginDrops`
 - Access helpers:
   - `getBridgeTelemetrySnapshot()`
   - `resetBridgeTelemetry()`
+
+### Snapshot shape (example)
+```json
+{
+  "parseAttempts": 42,
+  "parseSuccesses": 39,
+  "parseFailures": 3,
+  "postAttempts": 120,
+  "postSuccesses": 119,
+  "postFallbacks": 5,
+  "postFailures": 1,
+  "originChecks": 84,
+  "trustedOriginPasses": 80,
+  "untrustedOriginDrops": 4,
+  "perMinute": {
+    "parseAttempts": 8,
+    "parseSuccesses": 8,
+    "parseFailures": 0,
+    "postAttempts": 16,
+    "postSuccesses": 16,
+    "postFallbacks": 1,
+    "postFailures": 0,
+    "originChecks": 14,
+    "trustedOriginPasses": 13,
+    "untrustedOriginDrops": 1
+  },
+  "rates": {
+    "parseFailurePct": 7.14,
+    "postFailurePct": 0.83,
+    "untrustedOriginPct": 4.76
+  },
+  "windowRates": {
+    "parseFailurePct": 0,
+    "postFailurePct": 0,
+    "untrustedOriginPct": 7.14
+  },
+  "historyWindowMs": 60000,
+  "historySize": 235,
+  "lastEventAt": 1775512800000,
+  "lastEventType": "postSuccesses"
+}
+```

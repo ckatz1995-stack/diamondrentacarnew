@@ -1,6 +1,7 @@
 import wixLocation from 'wix-location';
 import { getPublicAuthHealth } from 'backend/staffAccess.jsw';
 import { buildUserContext, clearSessionToken, logoutBackroom, readBackroomSession } from 'public/backroomAuth';
+import { isTrustedBridgeOrigin, normalizeBridgeMessage, postMessageSafe, resolveHtmlComponent } from 'public/bridgeUtils';
 
 const ROUTES = {
   login: '/home-login',
@@ -31,8 +32,9 @@ $w.onReady(async function () {
   }
 
   html.onMessage(async (event) => {
-    const msg = event.data || {};
-    if (!msg.type) return;
+    if (!isTrustedBridgeOrigin(event?.origin, wixLocation.url)) return;
+    const msg = normalizeBridgeMessage(event && event.data);
+    if (!msg || typeof msg !== 'object' || !msg.type) return;
 
     if (msg.type === 'navigate') {
       const state = await readBackroomSession({ touch: true });
@@ -100,16 +102,14 @@ async function refreshAuthState(message = '') {
 }
 
 function getHomeComponent() {
-  for (const id of HOME_IDS) {
-    try { const cmp = $w(id); if (cmp) return cmp; } catch (error) { logSuppressed(`selector lookup failed for ${id}`, error); }
-  }
+  try { return resolveHtmlComponent($w, HOME_IDS); } catch (error) { logSuppressed('HtmlComponent lookup failed', error); }
   return null;
 }
 
 function post(payload) {
   const html = getHomeComponent();
   if (!html) return;
-  try { html.postMessage(payload); } catch (error) { logSuppressed('postMessage failed', error); }
+  if (!postMessageSafe(html, payload, 'myroom-home')) logSuppressed('postMessage failed');
 }
 
 function clampHeight(value) {
