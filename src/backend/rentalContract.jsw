@@ -391,12 +391,15 @@ async function ensureRentalForBooking(booking){
     financials: {
       paymentMethod: safeText(booking.paymentMethod || "cash") || "cash",
       paymentStatus: safeText(booking.paymentStatus || "pending") || "pending",
+      collectionMode: safeText(booking.collectionMode || "pay_arrival") || "pay_arrival",
       prepaid: safeNum(booking.prepaidAmount || 0),
       paidNow: safeNum(booking.paidNowAmount || 0),
       deposit: safeNum(booking.depositAmount || 0)
     },
+    financialTransactions: Array.isArray(booking.financialTransactions) ? booking.financialTransactions : [],
     paymentMethod: safeText(booking.paymentMethod || "cash") || "cash",
     paymentStatus: safeText(booking.paymentStatus || "pending") || "pending",
+    collectionMode: safeText(booking.collectionMode || "pay_arrival") || "pay_arrival",
     prepaidAmount: safeNum(booking.prepaidAmount || 0),
     paidNowAmount: safeNum(booking.paidNowAmount || 0),
     depositAmount: safeNum(booking.depositAmount || 0),
@@ -433,10 +436,12 @@ async function mirrorToBooking(booking, rental){
   if (rental.financials && typeof rental.financials === "object") {
     b.paymentMethod = safeText(rental.financials.paymentMethod || b.paymentMethod || "cash") || "cash";
     b.paymentStatus = safeText(rental.financials.paymentStatus || b.paymentStatus || "pending") || "pending";
+    b.collectionMode = safeText(rental.financials.collectionMode || b.collectionMode || "pay_arrival") || "pay_arrival";
     b.prepaidAmount = safeNum(rental.financials.prepaid ?? b.prepaidAmount ?? 0);
     b.paidNowAmount = safeNum(rental.financials.paidNow ?? b.paidNowAmount ?? 0);
     b.depositAmount = safeNum(rental.financials.deposit ?? b.depositAmount ?? 0);
   }
+  b.financialTransactions = Array.isArray(rental.financialTransactions) ? rental.financialTransactions : (Array.isArray(b.financialTransactions) ? b.financialTransactions : []);
   b.internalMemo = safeText(rental.internalMemo || b.internalMemo || "");
 
   if (rental.checkinStage) b.checkinStage = rental.checkinStage;
@@ -497,6 +502,7 @@ function applyFinancialsPayload(booking, rental, payload){
   rental.financials = {
     paymentMethod: safeText(f.paymentMethod ?? cur.paymentMethod ?? rental.paymentMethod ?? booking.paymentMethod ?? "cash") || "cash",
     paymentStatus: safeText(f.paymentStatus ?? cur.paymentStatus ?? rental.paymentStatus ?? booking.paymentStatus ?? "pending") || "pending",
+    collectionMode: safeText(f.collectionMode ?? cur.collectionMode ?? rental.collectionMode ?? booking.collectionMode ?? "pay_arrival") || "pay_arrival",
     prepaid: safeNum(f.prepaid ?? cur.prepaid ?? rental.prepaidAmount ?? booking.prepaidAmount ?? 0),
     paidNow: safeNum(f.paidNow ?? cur.paidNow ?? rental.paidNowAmount ?? booking.paidNowAmount ?? 0),
     deposit: safeNum(f.deposit ?? cur.deposit ?? rental.depositAmount ?? booking.depositAmount ?? 0)
@@ -504,6 +510,7 @@ function applyFinancialsPayload(booking, rental, payload){
 
   rental.paymentMethod = rental.financials.paymentMethod;
   rental.paymentStatus = rental.financials.paymentStatus;
+  rental.collectionMode = rental.financials.collectionMode;
   rental.prepaidAmount = rental.financials.prepaid;
   rental.paidNowAmount = rental.financials.paidNow;
   rental.depositAmount = rental.financials.deposit;
@@ -511,9 +518,38 @@ function applyFinancialsPayload(booking, rental, payload){
   booking.financials = { ...(booking.financials || {}), ...rental.financials };
   booking.paymentMethod = rental.financials.paymentMethod;
   booking.paymentStatus = rental.financials.paymentStatus;
+  booking.collectionMode = rental.financials.collectionMode;
   booking.prepaidAmount = rental.financials.prepaid;
   booking.paidNowAmount = rental.financials.paidNow;
   booking.depositAmount = rental.financials.deposit;
+}
+
+function applyFinancialTransactionsPayload(booking, rental, payload){
+  const rows = Array.isArray(payload?.financialTransactions) ? payload.financialTransactions : null;
+  if (!rows) return;
+  rental.financialTransactions = rows
+    .map((row) => {
+      if (!row || typeof row !== "object") return null;
+      const amount = safeNum(row.amount);
+      if (!(amount > 0)) return null;
+      return {
+        id: safeText(row.id) || `${Date.now()}_${Math.random().toString(16).slice(2,8)}`,
+        type: safeText(row.type),
+        amount,
+        at: asDate(row.at) || new Date(),
+        method: safeText(row.method),
+        party: safeText(row.party),
+        reference: safeText(row.reference),
+        receiptNo: safeText(row.receiptNo),
+        terminal: safeText(row.terminal),
+        station: safeText(row.station),
+        user: safeText(row.user),
+        notes: safeText(row.notes)
+      };
+    })
+    .filter(Boolean)
+    .slice(0, 400);
+  booking.financialTransactions = rental.financialTransactions;
 }
 
 async function buildContractLookups(booking = {}){
@@ -1122,6 +1158,7 @@ function mergeFinancialsFallback(booking = {}, rental = {}){
   return {
     paymentMethod: safeText(rentalFinancials.paymentMethod || rental.paymentMethod || bookingFinancials.paymentMethod || booking.paymentMethod || 'cash') || 'cash',
     paymentStatus: safeText(rentalFinancials.paymentStatus || rental.paymentStatus || bookingFinancials.paymentStatus || booking.paymentStatus || 'pending') || 'pending',
+    collectionMode: safeText(rentalFinancials.collectionMode || rental.collectionMode || bookingFinancials.collectionMode || booking.collectionMode || 'pay_arrival') || 'pay_arrival',
     prepaid: safeNum(rentalFinancials.prepaid ?? rental.prepaidAmount ?? bookingFinancials.prepaid ?? booking.prepaidAmount ?? 0),
     paidNow: safeNum(rentalFinancials.paidNow ?? rental.paidNowAmount ?? bookingFinancials.paidNow ?? booking.paidNowAmount ?? 0),
     deposit: safeNum(rentalFinancials.deposit ?? rental.depositAmount ?? bookingFinancials.deposit ?? booking.depositAmount ?? 0),
@@ -1169,15 +1206,19 @@ export async function getContract({ authToken, bookingId }) {
     rental.financials = mergeFinancialsFallback(booking, rental);
     rental.paymentMethod = rental.financials.paymentMethod;
     rental.paymentStatus = rental.financials.paymentStatus;
+    rental.collectionMode = rental.financials.collectionMode;
     rental.prepaidAmount = rental.financials.prepaid;
     rental.paidNowAmount = rental.financials.paidNow;
     rental.depositAmount = rental.financials.deposit;
+    rental.financialTransactions = Array.isArray(rental.financialTransactions) ? rental.financialTransactions : (Array.isArray(booking.financialTransactions) ? booking.financialTransactions : []);
     booking.financials = { ...(booking.financials || {}), ...rental.financials };
     booking.paymentMethod = rental.financials.paymentMethod;
     booking.paymentStatus = rental.financials.paymentStatus;
+    booking.collectionMode = rental.financials.collectionMode;
     booking.prepaidAmount = rental.financials.prepaid;
     booking.paidNowAmount = rental.financials.paidNow;
     booking.depositAmount = rental.financials.deposit;
+    booking.financialTransactions = rental.financialTransactions;
     syncBookingChargeFields(booking, rental);
 
     if (!booking.pricingSnapshot) booking.pricingSnapshot = buildPricingSnapshot(booking, rental);
@@ -1373,6 +1414,7 @@ export async function saveContract({ authToken, bookingId, payload, stage }) {
     if (payload?.totalPrice !== undefined && !payload?.charges) booking.totalPrice = safeNum(payload.totalPrice);
     applyBillingPayload(rental, payload);
     applyFinancialsPayload(booking, rental, payload);
+    applyFinancialTransactionsPayload(booking, rental, payload);
 
     const s = safeText(stage).toLowerCase();
     if (s === "checkout") {

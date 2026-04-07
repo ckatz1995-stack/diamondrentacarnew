@@ -144,6 +144,20 @@
     .total .amount{font-size:16px;font-weight:800}
     .total.grand .amount,.total.grand .name{font-size:18px;color:var(--accent)}
     .quick-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+    .finance-kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:12px 0}
+    .finance-kpi{border:1px solid var(--line);border-radius:12px;background:#f8fbff;padding:10px 12px}
+    .finance-kpi .k{font-size:11px;font-weight:900;color:#54657d;text-transform:uppercase;letter-spacing:.05em}
+    .finance-kpi .v{margin-top:5px;font-size:16px;font-weight:900;color:#0f2542}
+    .finance-kpi .sub{margin-top:3px;font-size:11px;color:var(--muted)}
+    .financial-meta{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:10px}
+    .financial-meta .summary-box{padding:10px}
+    .financial-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:8px 0 12px}
+    .ledger-preview{border:1px solid var(--line);border-radius:12px;background:#fff;overflow:hidden}
+    .ledger-preview table{width:100%;border-collapse:collapse;font-size:12px}
+    .ledger-preview th,.ledger-preview td{padding:8px;border-bottom:1px solid #edf2f7;text-align:left;vertical-align:top}
+    .ledger-preview th{font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#5f6f86;background:#f8fafc}
+    .ledger-preview tr.active{background:#eef4ff}
+    .ledger-empty{padding:10px;color:var(--muted);font-size:12px}
     .status-pill{
       display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;
       font-size:12px;font-weight:800;border:1px solid var(--line)
@@ -1192,10 +1206,14 @@
             </div>
           </div>
           <div class="quick-actions">
-            <button class="btn" data-open="chargesModal">Pricing</button>
-            <button class="btn" data-open="billingModal">Payments</button>
-            <button class="btn" data-open="vehicleModal">Products</button>
-            <button class="btn" data-open="notesModal">Notes</button>
+            <button class="btn primary" type="button" id="btnOpenPaymentsDeskModal">Payments</button>
+          </div>
+
+          <div class="finance-kpis">
+            <div class="finance-kpi"><div class="k">Collectable</div><div class="v" id="finKpiCollectable">0.00 €</div><div class="sub" id="finKpiCollectableSub">Gross payable</div></div>
+            <div class="finance-kpi"><div class="k">Received</div><div class="v" id="finKpiReceived">0.00 €</div><div class="sub" id="finKpiReceivedSub">Prepaid + desk</div></div>
+            <div class="finance-kpi"><div class="k">Open balance</div><div class="v" id="finKpiOpen">0.00 €</div><div class="sub" id="finKpiOpenSub">Pending to collect</div></div>
+            <div class="finance-kpi"><div class="k">Deposit held</div><div class="v" id="finKpiDeposit">0.00 €</div><div class="sub" id="finKpiDepositSub">Guarantee amount</div></div>
           </div>
 
           <div class="divider"></div>
@@ -1619,6 +1637,14 @@
                     <option value="voucher">Voucher covered</option>
                   </select>
                 </div>
+                <div class="field">
+                  <label>Collection program</label>
+                  <select class="select" id="fin_collectionMode">
+                    <option value="pay_arrival">Pay on arrival</option>
+                    <option value="partial_prepaid">Partial pre-paid</option>
+                    <option value="prepaid">Pre-paid</option>
+                  </select>
+                </div>
               </div>
             </section>
 
@@ -1922,6 +1948,108 @@
   </div>
 </div>
 
+<div class="modal-wrap" id="paymentsDeskModalWrap" data-modal-wrap="paymentsDeskModal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="paymentsDeskModalTitle">
+    <div class="modal-hd">
+      <div>
+        <h3 class="modal-title" id="paymentsDeskModalTitle">Payments</h3>
+        <div class="modal-sub">Όλες οι κινήσεις πληρωμών / refunds / preauth / guarantees και το ledger της κράτησης.</div>
+      </div>
+      <button class="btn ghost" type="button" data-close="paymentsDeskModal">✕</button>
+    </div>
+    <div class="modal-bd">
+      <div class="financial-meta">
+        <div class="summary-box"><div class="k">Payment program</div><div class="v" id="finMetaProgram">—</div></div>
+        <div class="summary-box"><div class="k">Payment status</div><div class="v" id="finMetaStatus">—</div></div>
+        <div class="summary-box"><div class="k">Preauth active</div><div class="v" id="finMetaPreauth">0.00 €</div></div>
+        <div class="summary-box"><div class="k">Guarantee refunded</div><div class="v" id="finMetaGuaranteeRefunded">0.00 €</div></div>
+      </div>
+      <div class="financial-actions">
+        <button class="btn success" type="button" id="btnAddPayment">Add payment</button>
+        <button class="btn warn" type="button" id="btnAddRefund">Refund</button>
+        <button class="btn" type="button" id="btnAddPreauth">Pre-authorization</button>
+        <button class="btn" type="button" id="btnVoidPreauth">Void preauth</button>
+        <button class="btn" type="button" id="btnAddGuarantee">Add guarantee</button>
+        <button class="btn" type="button" id="btnRefundGuarantee">Refund guarantee</button>
+        <button class="btn danger" type="button" id="btnDeleteFinancialTxn">Delete selected</button>
+      </div>
+      <div class="ledger-preview">
+        <table>
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>Date</th>
+              <th>Amount</th>
+              <th>Method</th>
+              <th>Reference</th>
+              <th>User</th>
+            </tr>
+          </thead>
+          <tbody id="financialLedgerBody"></tbody>
+        </table>
+        <div class="ledger-empty hidden" id="financialLedgerEmpty">No transactions yet. Use the actions above to register financial movements.</div>
+      </div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn ghost" type="button" data-close="paymentsDeskModal">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-wrap" id="chargeLineModalWrap" data-modal-wrap="chargeLineModal">
+  <div class="modal sm" role="dialog" aria-modal="true" aria-labelledby="chargeLineModalTitle">
+    <div class="modal-hd">
+      <div>
+        <h3 class="modal-title" id="chargeLineModalTitle">Charge line editor</h3>
+        <div class="modal-sub" id="chargeLineModalSub">Προσθήκη / αφαίρεση / επεξεργασία τιμών χρέωσης.</div>
+      </div>
+      <button class="btn ghost" type="button" data-close="chargeLineModal">✕</button>
+    </div>
+    <div class="modal-bd">
+      <div class="field"><label>Line amount</label><input class="input" id="chargeLineAmount" type="number" step="0.01" /></div>
+      <div class="field"><label>Preset options</label><select class="select" id="chargeLinePreset"><option value="">Manual</option></select></div>
+      <div class="field"><label>Notes</label><textarea class="textarea" id="chargeLineNotes"></textarea></div>
+      <div class="inline-note" id="chargeLineHint">Οι επιλογές φορτώνονται από pricing catalog όπου υπάρχουν.</div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn ghost" type="button" data-close="chargeLineModal">Cancel</button>
+      <button class="btn danger" type="button" id="btnChargeLineClear">Clear amount</button>
+      <button class="btn primary" type="button" id="btnChargeLineSave">Apply</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-wrap" id="financialTxnModalWrap" data-modal-wrap="financialTxnModal">
+  <div class="modal sm" role="dialog" aria-modal="true" aria-labelledby="financialTxnModalTitle">
+    <div class="modal-hd">
+      <div>
+        <h3 class="modal-title" id="financialTxnModalTitle">Financial transaction</h3>
+        <div class="modal-sub" id="financialTxnModalSub">Καταχώρηση πληρωμής / refund / preauth / guarantee με audit στοιχεία.</div>
+      </div>
+      <button class="btn ghost" type="button" data-close="financialTxnModal">✕</button>
+    </div>
+    <div class="modal-bd">
+      <div class="grid cols-2">
+        <div class="field"><label>Transaction type</label><select class="select" id="txn_type"></select></div>
+        <div class="field"><label>Amount</label><input class="input" id="txn_amount" type="number" step="0.01" min="0" /></div>
+        <div class="field"><label>Date / time</label><input class="input" id="txn_at" type="datetime-local" /></div>
+        <div class="field"><label>Method</label><select class="select" id="txn_method"><option value="card">Card</option><option value="cash">Cash</option><option value="bank">Bank transfer</option><option value="voucher">Voucher</option><option value="other">Other</option></select></div>
+        <div class="field"><label>Payee / payer</label><input class="input" id="txn_party" placeholder="Customer / company / OTA" /></div>
+        <div class="field"><label>Reference</label><input class="input" id="txn_reference" placeholder="POS ref / ext ref / cheque no" /></div>
+        <div class="field"><label>Receipt no</label><input class="input" id="txn_receiptNo" /></div>
+        <div class="field"><label>POS / terminal</label><input class="input" id="txn_terminal" /></div>
+        <div class="field"><label>Station</label><input class="input" id="txn_station" /></div>
+        <div class="field"><label>User</label><input class="input" id="txn_user" /></div>
+      </div>
+      <div class="field" style="margin-top:10px"><label>Notes</label><textarea class="textarea" id="txn_notes"></textarea></div>
+    </div>
+    <div class="modal-ft">
+      <button class="btn ghost" type="button" data-close="financialTxnModal">Cancel</button>
+      <button class="btn primary" type="button" id="btnFinancialTxnSave">Save transaction</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -1933,7 +2061,15 @@
     rental: {},
     lookups: { categories: [], vehicles: [], customers: [], companies: [], pickupLocations: [] },
     context: {},
-    ui: { activeModal: '', saveState: '', additionalDriversOpen: false, driverLookupDrafts: {}, companyLookupDraft: null, activeDriverSlot: 0, customerSearchTarget: 0, customerSearchSelectedIndex: -1, activeDriverTab: 'general', activeCompanyTab: 'general', activeDriverRegistryMatch: null, activeCompanyRegistryMatch: null, mainDriverCustomerId: '', selectedCompanyId: '', driverInsightsKey: '', driverInsightsLoading: false, driverInsights: null, companyInsightsKey: '', companyInsightsLoading: false, companyInsights: null, vehicleSelectorQuery: '', vehicleSelectorFilter: 'all', vehicleSelectorSelectedId: '', vehicleSelectorCategoryCode: '' }
+    ui: { activeModal: '', saveState: '', additionalDriversOpen: false, driverLookupDrafts: {}, companyLookupDraft: null, activeDriverSlot: 0, customerSearchTarget: 0, customerSearchSelectedIndex: -1, activeDriverTab: 'general', activeCompanyTab: 'general', activeDriverRegistryMatch: null, activeCompanyRegistryMatch: null, mainDriverCustomerId: '', selectedCompanyId: '', driverInsightsKey: '', driverInsightsLoading: false, driverInsights: null, companyInsightsKey: '', companyInsightsLoading: false, companyInsights: null, vehicleSelectorQuery: '', vehicleSelectorFilter: 'all', vehicleSelectorSelectedId: '', vehicleSelectorCategoryCode: '', selectedFinancialTxnId: '', financialTxnPreset: 'payment', activeChargeLine: '' }
+  };
+  const FINANCIAL_TXN_TYPES = {
+    payment: { label:'Payment', bucket:'rental', sign:1 },
+    refund: { label:'Refund', bucket:'rental', sign:-1 },
+    guarantee_hold: { label:'Guarantee hold', bucket:'guarantee', sign:1 },
+    guarantee_refund: { label:'Guarantee refund', bucket:'guarantee', sign:-1 },
+    preauth_hold: { label:'Pre-authorization', bucket:'preauth', sign:1 },
+    preauth_void: { label:'Void preauth', bucket:'preauth', sign:-1 }
   };
 
   const q = (sel, root=document) => root.querySelector(sel);
@@ -1992,7 +2128,10 @@
       vehicles: toArray(lookups.vehicles || lookups.fleetVehicles || lookups.fleet),
       customers: toArray(lookups.customers || lookups.customerList),
       companies: toArray(lookups.companies || lookups.companyList),
-      pickupLocations: toArray(lookups.pickupLocations || lookups.locations || lookups.stationLocations)
+      pickupLocations: toArray(lookups.pickupLocations || lookups.locations || lookups.stationLocations),
+      insurancePlans: toArray(lookups.insurancePlans || lookups.insuranceOptions),
+      extraServices: toArray(lookups.extraServices || lookups.extraOptions),
+      feeRules: toArray(lookups.feeRules || lookups.fees)
     };
   }
 
@@ -2047,11 +2186,19 @@
     const gross = linesFromState().gross;
     const net = vatRate > 0 ? round2(gross / (1 + vatRate)) : gross;
     const vat = round2(gross - net);
-    const prepaid = round2(state.rental?.financials?.prepaid ?? 0);
-    const paidNow = round2(state.rental?.financials?.paidNow ?? 0);
-    const deposit = round2(state.rental?.financials?.deposit ?? 0);
+    const txnAgg = financialAggregation();
+    const hasTransactions = financialTransactions().length > 0;
+    const prepaid = hasTransactions
+      ? round2(financialTransactions().filter((tx) => safe(tx.type) === 'payment' && safe(tx.method) === 'voucher').reduce((sum, tx) => sum + num(tx.amount || 0), 0))
+      : round2(state.rental?.financials?.prepaid ?? 0);
+    const paidNow = hasTransactions
+      ? round2(Math.max(0, txnAgg.rental - prepaid))
+      : round2(state.rental?.financials?.paidNow ?? 0);
+    const deposit = hasTransactions
+      ? round2(Math.max(0, txnAgg.guaranteeHeld))
+      : round2(state.rental?.financials?.deposit ?? 0);
     const balance = round2(gross - prepaid - paidNow);
-    return { gross, net, vat, prepaid, paidNow, deposit, balance };
+    return { gross, net, vat, prepaid, paidNow, deposit, balance, preauthActive: round2(Math.max(0, txnAgg.preauthActive)), guaranteeRefunded: round2(txnAgg.guaranteeRefunded) };
   }
 
   function billableDays(){
@@ -2132,6 +2279,7 @@
   function syncMainFieldsFromState(){
     const b = state.booking || {};
     const r = state.rental || {};
+    state.rental.financialTransactions = Array.isArray(r.financialTransactions) ? r.financialTransactions : [];
     const billing = r.billing || {};
     const fin = r.financials || {};
     const drv = r.mainDriver || b.mainDriver || b.mainDriverDefault || {};
@@ -2194,6 +2342,7 @@
     state.ui.driverInsights = null;
     state.ui.driverInsightsKey = '';
     state.ui.activeDriverRegistryMatch = null;
+    state.ui.selectedFinancialTxnId = '';
 
     setVal('bill_invoiceType', billing.invoiceType || '');
     setVal('bill_companyName', billing.companyName || '');
@@ -2215,6 +2364,7 @@
 
     setVal('fin_paymentMethod', fin.paymentMethod || 'cash');
     setVal('fin_paymentStatus', fin.paymentStatus || 'pending');
+    setVal('fin_collectionMode', fin.collectionMode || 'pay_arrival');
     setVal('fin_prepaid', fin.prepaid ?? b.prepaidAmount ?? 0);
     setVal('fin_paidNow', fin.paidNow ?? b.paidNowAmount ?? 0);
     setVal('fin_deposit', fin.deposit ?? b.depositAmount ?? 0);
@@ -2912,29 +3062,210 @@ function renderLookups(){
     }
   }
 
+
+  function financialTransactions(){
+    const list = state.rental?.financialTransactions;
+    return Array.isArray(list) ? list : [];
+  }
+
+  function financialAggregation(){
+    const txns = financialTransactions();
+    const totals = { rental:0, guaranteeHeld:0, guaranteeRefunded:0, preauthActive:0, preauthTotal:0 };
+    txns.forEach((tx) => {
+      const type = FINANCIAL_TXN_TYPES[safe(tx.type)] || null;
+      const amount = round2(num(tx.amount || 0));
+      if (!type || amount <= 0) return;
+      const signed = round2(type.sign * amount);
+      if (type.bucket === 'rental') totals.rental = round2(totals.rental + signed);
+      if (safe(tx.type) === 'guarantee_hold') totals.guaranteeHeld = round2(totals.guaranteeHeld + amount);
+      if (safe(tx.type) === 'guarantee_refund') totals.guaranteeRefunded = round2(totals.guaranteeRefunded + amount);
+      if (type.bucket === 'guarantee') totals.guaranteeHeld = round2(totals.guaranteeHeld + (safe(tx.type) === 'guarantee_refund' ? -amount : 0));
+      if (safe(tx.type) === 'preauth_hold') totals.preauthTotal = round2(totals.preauthTotal + amount);
+      if (type.bucket === 'preauth') totals.preauthActive = round2(totals.preauthActive + signed);
+    });
+    return totals;
+  }
+
+  function seedFinancialTxnModal(preset='payment'){
+    const dateVal = isoLocal(new Date());
+    const typeEl = byId('txn_type');
+    if (typeEl) {
+      typeEl.innerHTML = Object.entries(FINANCIAL_TXN_TYPES).map(([key, cfg]) => `<option value="${escapeAttr(key)}">${escapeHtml(cfg.label)}</option>`).join('');
+      typeEl.value = preset;
+    }
+    setVal('txn_amount', '');
+    setVal('txn_at', dateVal);
+    setVal('txn_method', byId('fin_paymentMethod')?.value || 'card');
+    setVal('txn_party', byId('book_customerName')?.value || state.booking?.customerName || '');
+    setVal('txn_reference', '');
+    setVal('txn_receiptNo', '');
+    setVal('txn_terminal', '');
+    setVal('txn_station', byId('loc_pickuppoint')?.value || state.booking?.pickuppoint || '');
+    setVal('txn_user', state.context?.user || '');
+    setVal('txn_notes', '');
+    const label = FINANCIAL_TXN_TYPES[preset]?.label || 'Financial transaction';
+    byId('financialTxnModalTitle') && (byId('financialTxnModalTitle').textContent = label);
+    byId('financialTxnModalSub') && (byId('financialTxnModalSub').textContent = 'Καταχώρηση με audit στοιχεία για το ledger του contract.');
+  }
+
+  function openFinancialTxnModal(preset='payment'){
+    state.ui.financialTxnPreset = preset;
+    seedFinancialTxnModal(preset);
+    openModal('financialTxnModal');
+  }
+
+  function saveFinancialTransaction(){
+    const type = safe(byId('txn_type')?.value || state.ui.financialTxnPreset || 'payment').trim();
+    if (!FINANCIAL_TXN_TYPES[type]) { toast('Invalid transaction type.'); return; }
+    const amount = round2(num(byId('txn_amount')?.value || 0));
+    if (!(amount > 0)) { toast('Amount πρέπει να είναι > 0.'); return; }
+    const at = fromLocalInput(byId('txn_at')?.value || '') || new Date().toISOString();
+    const tx = {
+      id: `tx_${Date.now()}_${Math.random().toString(16).slice(2,8)}`,
+      type,
+      amount,
+      at,
+      method: safe(byId('txn_method')?.value || 'other'),
+      party: safe(byId('txn_party')?.value || ''),
+      reference: safe(byId('txn_reference')?.value || ''),
+      receiptNo: safe(byId('txn_receiptNo')?.value || ''),
+      terminal: safe(byId('txn_terminal')?.value || ''),
+      station: safe(byId('txn_station')?.value || ''),
+      user: safe(byId('txn_user')?.value || state.context?.user || ''),
+      notes: safe(byId('txn_notes')?.value || '')
+    };
+    state.rental.financialTransactions = financialTransactions();
+    state.rental.financialTransactions.unshift(tx);
+    syncLegacyFinancialFieldsFromTransactions();
+    closeModal('financialTxnModal');
+    renderSummary();
+    renderChargeRail();
+    toast(`${FINANCIAL_TXN_TYPES[type].label} recorded.`);
+  }
+
+  function deleteSelectedFinancialTransaction(){
+    const id = safe(state.ui.selectedFinancialTxnId || '').trim();
+    if (!id) { toast('Select transaction row first.'); return; }
+    state.rental.financialTransactions = financialTransactions().filter((tx) => safe(tx.id) !== id);
+    state.ui.selectedFinancialTxnId = '';
+    syncLegacyFinancialFieldsFromTransactions();
+    renderSummary();
+    renderChargeRail();
+    toast('Transaction deleted.');
+  }
+
+  function syncLegacyFinancialFieldsFromTransactions(){
+    const agg = financialAggregation();
+    const prepaidLegacy = round2(financialTransactions().filter((tx) => safe(tx.type) === 'payment' && safe(tx.method) === 'voucher').reduce((sum, tx) => sum + num(tx.amount || 0), 0));
+    const paidNowLegacy = round2(Math.max(0, agg.rental - prepaidLegacy));
+    setVal('fin_prepaid', prepaidLegacy);
+    setVal('fin_paidNow', paidNowLegacy);
+    setVal('fin_deposit', Math.max(0, agg.guaranteeHeld));
+  }
+
+  function renderFinancialLedgerPreview(){
+    const body = byId('financialLedgerBody');
+    const empty = byId('financialLedgerEmpty');
+    if (!body || !empty) return;
+    const rows = [...financialTransactions()].sort((a,b) => new Date(b.at || 0) - new Date(a.at || 0));
+    if (!rows.length) {
+      body.innerHTML = '';
+      empty.classList.remove('hidden');
+      return;
+    }
+    empty.classList.add('hidden');
+    body.innerHTML = rows.slice(0, 18).map((tx) => {
+      const cfg = FINANCIAL_TXN_TYPES[safe(tx.type)] || { label: safe(tx.type), sign:1 };
+      const amount = cfg.sign < 0 ? -Math.abs(num(tx.amount || 0)) : Math.abs(num(tx.amount || 0));
+      const active = safe(state.ui.selectedFinancialTxnId) === safe(tx.id) ? 'active' : '';
+      return `<tr class="${active}" data-fin-tx-id="${escapeAttr(safe(tx.id))}"><td>${escapeHtml(cfg.label)}</td><td>${escapeHtml(humanDateTime(tx.at))}</td><td>${money(amount)}</td><td>${escapeHtml(tx.method || '—')}</td><td>${escapeHtml(tx.reference || tx.receiptNo || '—')}</td><td>${escapeHtml(tx.user || '—')}</td></tr>`;
+    }).join('');
+    qa('[data-fin-tx-id]').forEach((row) => row.addEventListener('click', () => {
+      state.ui.selectedFinancialTxnId = row.dataset.finTxId || '';
+      renderFinancialLedgerPreview();
+    }));
+  }
+
+  function chargePresetOptions(chargeKey){
+    if (chargeKey === 'insurance') {
+      const rows = Array.isArray(state.lookups?.insurancePlans) ? state.lookups.insurancePlans : [];
+      return rows.filter((r) => r && r.active !== false).map((r) => ({ label: r.label || r.title || 'Protection', value: num(r.pricePerDay ?? r.price ?? 0), meta: `${num(r.pricePerDay ?? r.price ?? 0)} / day` }));
+    }
+    if (chargeKey === 'options') {
+      const rows = Array.isArray(state.lookups?.extraServices) ? state.lookups.extraServices : [];
+      return rows.filter((r) => r && r.active !== false).map((r) => ({ label: r.label || r.title || 'Extra', value: num(r.price ?? r.pricePerDay ?? 0), meta: safe(r.billingMode || 'perDay') }));
+    }
+    if (chargeKey === 'ageFee' || chargeKey === 'nightFee' || chargeKey === 'transport' || chargeKey === 'damages' || chargeKey === 'surcharges') {
+      const rows = Array.isArray(state.lookups?.feeRules) ? state.lookups.feeRules : [];
+      return rows.filter((r) => r && r.active !== false).map((r) => ({ label: r.label || r.title || 'Fee', value: num(r.amount ?? r.price ?? 0), meta: safe(r.billingMode || 'perBooking') }));
+    }
+    return [];
+  }
+
+  function openChargeLineModal(chargeKey){
+    const lines = linesFromState();
+    const currentValue = num(lines[chargeKey] ?? 0);
+    state.ui.activeChargeLine = chargeKey;
+    setVal('chargeLineAmount', currentValue);
+    setVal('chargeLineNotes', '');
+    const presetEl = byId('chargeLinePreset');
+    const presets = chargePresetOptions(chargeKey);
+    if (presetEl) {
+      presetEl.innerHTML = ['<option value="">Manual</option>', ...presets.map((p, i) => `<option value="${i}">${escapeHtml(p.label)} · ${money(p.value)}</option>`)].join('');
+      presetEl.onchange = () => {
+        const idx = Number(presetEl.value);
+        if (Number.isFinite(idx) && idx >= 0 && presets[idx]) setVal('chargeLineAmount', presets[idx].value);
+      };
+    }
+    const labelMap = { rental:'Rental', insurance:'Protections', options:'Extras', ageFee:'Age fee', nightFee:'Out of hours', transport:'Transport', damages:'Damages', surcharges:'Other fees', discount:'Discount' };
+    byId('chargeLineModalTitle') && (byId('chargeLineModalTitle').textContent = `${labelMap[chargeKey] || 'Charge'} editor`);
+    byId('chargeLineHint') && (byId('chargeLineHint').textContent = presets.length ? 'Επίλεξε εταιρικό preset ή βάλε manual ποσό.' : 'Δεν βρέθηκαν εταιρικά presets για αυτή τη γραμμή. Χρησιμοποίησε manual ποσό.');
+    openModal('chargeLineModal');
+  }
+
+  function saveChargeLineModal(){
+    const key = safe(state.ui.activeChargeLine || '').trim();
+    if (!key) return;
+    const amount = round2(num(byId('chargeLineAmount')?.value || 0));
+    const current = getChargeDraft();
+    current[key] = Math.max(0, amount);
+    if (key === 'discount') current[key] = Math.max(0, amount);
+    Object.entries(current).forEach(([field, val]) => setVal(`chg_${field}`, val));
+    mirrorVehicleChargeFields();
+    closeModal('chargeLineModal');
+    renderSummary();
+    renderChargeRail();
+  }
+
+  function clearChargeLineModal(){
+    setVal('chargeLineAmount', 0);
+    saveChargeLineModal();
+  }
+
   function renderChargeRail(){
     const lines = linesFromState();
     const fin = financials();
     const rows = [
-      ['Rental', lines.rental, `${billableDays()} day(s)`],
-      ['Protection', lines.insurance, state.booking?.selectedPackage || 'Package / insurance'],
-      ['Extras', lines.options, parseExtras(state.booking?.selectedExtras).join(', ') || 'No extras'],
-      ['Age fee', lines.ageFee, 'Driver surcharge'],
-      ['Out of hours', lines.nightFee, 'Night / OOH'],
-      ['Transport', lines.transport, 'Delivery / collection'],
-      ['Damages', lines.damages, 'Damage / admin'],
-      ['Other fees', lines.surcharges, 'Additional fees'],
-      ['Discount', -lines.discount, 'Commercial discount']
+      ['rental','Rental', lines.rental, `${billableDays()} day(s)`],
+      ['insurance','Protections', lines.insurance, state.booking?.selectedPackage || 'Package / insurance'],
+      ['options','Extras', lines.options, parseExtras(state.booking?.selectedExtras).join(', ') || 'No extras'],
+      ['ageFee','Age fee', lines.ageFee, 'Driver surcharge'],
+      ['nightFee','Out of hours', lines.nightFee, 'Night / OOH'],
+      ['transport','Transport', lines.transport, 'Delivery / collection'],
+      ['damages','Damages', lines.damages, 'Damage / admin'],
+      ['surcharges','Other fees', lines.surcharges, 'Additional fees'],
+      ['discount','Discount', -lines.discount, 'Commercial discount']
     ];
-    byId('chargeList').innerHTML = rows.map(([label,val,meta]) => `
-      <div class="charge">
+    byId('chargeList').innerHTML = rows.map(([key,label,val,meta]) => `
+      <button class="charge" type="button" data-charge-key="${escapeAttr(key)}">
         <div>
           <div class="label">${escapeHtml(label)}</div>
           <div class="meta">${escapeHtml(meta)}</div>
         </div>
         <div class="value">${money(val)}</div>
-      </div>
+      </button>
     `).join('');
+    qa('[data-charge-key]').forEach((row) => row.addEventListener('click', () => openChargeLineModal(row.dataset.chargeKey || '')));
     byId('totNet').textContent = money(fin.net);
     byId('totVat').textContent = money(fin.vat);
     byId('totGross').textContent = money(fin.gross);
@@ -2942,6 +3273,28 @@ function renderLookups(){
     byId('totPaidDesk').textContent = money(fin.paidNow);
     byId('totDeposit').textContent = money(fin.deposit);
     byId('totBalance').textContent = money(fin.balance);
+
+    const received = round2(fin.prepaid + fin.paidNow);
+    const open = round2(fin.balance);
+    byId('finKpiCollectable') && (byId('finKpiCollectable').textContent = money(fin.gross));
+    byId('finKpiReceived') && (byId('finKpiReceived').textContent = money(received));
+    byId('finKpiOpen') && (byId('finKpiOpen').textContent = money(open));
+    byId('finKpiDeposit') && (byId('finKpiDeposit').textContent = money(fin.deposit));
+    byId('finKpiOpenSub') && (byId('finKpiOpenSub').textContent = open <= 0 ? 'No pending amount' : 'Pending to collect');
+    const paymentStatusEl = byId('fin_paymentStatus');
+    if (paymentStatusEl) {
+      if (open <= 0 && received > 0) paymentStatusEl.value = 'paid';
+      else if (received > 0 && open > 0) paymentStatusEl.value = 'partial';
+      else if (received <= 0 && fin.gross > 0) paymentStatusEl.value = 'pending';
+    }
+    const collectionMode = safe(state.rental?.financials?.collectionMode || 'pay_arrival');
+    const collectionMap = { partial_prepaid:'Partial pre-paid', pay_arrival:'Pay on arrival', prepaid:'Pre-paid' };
+    byId('finMetaProgram') && (byId('finMetaProgram').textContent = collectionMap[collectionMode] || collectionMode || 'Pay on arrival');
+    byId('finMetaStatus') && (byId('finMetaStatus').textContent = labelForPaymentStatus(paymentStatusEl?.value || state.rental?.financials?.paymentStatus || 'pending'));
+    byId('finMetaPreauth') && (byId('finMetaPreauth').textContent = money(fin.preauthActive || 0));
+    byId('finMetaGuaranteeRefunded') && (byId('finMetaGuaranteeRefunded').textContent = money(fin.guaranteeRefunded || 0));
+
+    renderFinancialLedgerPreview();
   }
 
   function getMainDriverDraft(){
@@ -2991,6 +3344,7 @@ function renderLookups(){
     return {
       paymentMethod: byId('fin_paymentMethod')?.value || 'cash',
       paymentStatus: byId('fin_paymentStatus')?.value || 'pending',
+      collectionMode: byId('fin_collectionMode')?.value || 'pay_arrival',
       prepaid: num(byId('fin_prepaid')?.value || 0),
       paidNow: num(byId('fin_paidNow')?.value || 0),
       deposit: num(byId('fin_deposit')?.value || 0)
@@ -3372,6 +3726,7 @@ function renderLookups(){
 
     // keep draft values mirrored into state for live re-render
     state.rental.financials = { ...(state.rental.financials || {}), ...financialDraft };
+    state.rental.financialTransactions = financialTransactions();
     state.rental.billing = getBillingDraft();
     state.rental.charges = chargeDraft;
     state.rental.mainDriver = mainDriver;
@@ -3416,6 +3771,7 @@ function renderLookups(){
       additionalDrivers: collectExtraDrivers(),
       billing: getBillingDraft(),
       financials: financialDraft,
+      financialTransactions: financialTransactions(),
       charges: chargeDraft,
       checkoutOdometer: num(byId('checkoutOdometer')?.value || 0),
       checkinOdometer: num(byId('checkinOdometer')?.value || 0),
@@ -3731,6 +4087,18 @@ function renderLookups(){
       renderProductsPreview();
       renderSummary();
     });
+
+    byId('btnAddPayment')?.addEventListener('click', () => openFinancialTxnModal('payment'));
+    byId('btnAddRefund')?.addEventListener('click', () => openFinancialTxnModal('refund'));
+    byId('btnAddPreauth')?.addEventListener('click', () => openFinancialTxnModal('preauth_hold'));
+    byId('btnVoidPreauth')?.addEventListener('click', () => openFinancialTxnModal('preauth_void'));
+    byId('btnAddGuarantee')?.addEventListener('click', () => openFinancialTxnModal('guarantee_hold'));
+    byId('btnRefundGuarantee')?.addEventListener('click', () => openFinancialTxnModal('guarantee_refund'));
+    byId('btnDeleteFinancialTxn')?.addEventListener('click', () => deleteSelectedFinancialTransaction());
+    byId('btnFinancialTxnSave')?.addEventListener('click', () => saveFinancialTransaction());
+    byId('btnOpenPaymentsDeskModal')?.addEventListener('click', () => openModal('paymentsDeskModal'));
+    byId('btnChargeLineSave')?.addEventListener('click', () => saveChargeLineModal());
+    byId('btnChargeLineClear')?.addEventListener('click', () => clearChargeLineModal());
 
     const bindDriverAutoLookup = (index) => {
       const input = byId(driverFieldId(index));
