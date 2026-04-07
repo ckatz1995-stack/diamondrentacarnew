@@ -1997,7 +1997,14 @@
     </div>
     <div class="modal-bd">
       <div class="field"><label>Line amount</label><input class="input" id="chargeLineAmount" type="number" step="0.01" /></div>
-      <div class="field"><label>Preset options</label><select class="select" id="chargeLinePreset"><option value="">Manual</option></select></div>
+      <div class="ledger-preview">
+        <table>
+          <thead><tr><th>Option</th><th>Company price</th><th>Billing</th><th>Action</th></tr></thead>
+          <tbody id="chargeOptionTableBody"></tbody>
+        </table>
+        <div class="ledger-empty hidden" id="chargeOptionTableEmpty">No configured options for this line.</div>
+      </div>
+      <div class="inline-note" id="chargeSelectionSummary">No selected options.</div>
       <div class="field"><label>Notes</label><textarea class="textarea" id="chargeLineNotes"></textarea></div>
       <div class="inline-note" id="chargeLineHint">Οι επιλογές φορτώνονται από pricing catalog όπου υπάρχουν.</div>
     </div>
@@ -2051,7 +2058,7 @@
     rental: {},
     lookups: { categories: [], vehicles: [], customers: [], companies: [], pickupLocations: [] },
     context: {},
-    ui: { activeModal: '', saveState: '', additionalDriversOpen: false, driverLookupDrafts: {}, companyLookupDraft: null, activeDriverSlot: 0, customerSearchTarget: 0, customerSearchSelectedIndex: -1, activeDriverTab: 'general', activeCompanyTab: 'general', activeDriverRegistryMatch: null, activeCompanyRegistryMatch: null, mainDriverCustomerId: '', selectedCompanyId: '', driverInsightsKey: '', driverInsightsLoading: false, driverInsights: null, companyInsightsKey: '', companyInsightsLoading: false, companyInsights: null, vehicleSelectorQuery: '', vehicleSelectorFilter: 'all', vehicleSelectorSelectedId: '', vehicleSelectorCategoryCode: '', selectedFinancialTxnId: '', financialTxnPreset: 'payment', activeChargeLine: '' }
+    ui: { activeModal: '', saveState: '', additionalDriversOpen: false, driverLookupDrafts: {}, companyLookupDraft: null, activeDriverSlot: 0, customerSearchTarget: 0, customerSearchSelectedIndex: -1, activeDriverTab: 'general', activeCompanyTab: 'general', activeDriverRegistryMatch: null, activeCompanyRegistryMatch: null, mainDriverCustomerId: '', selectedCompanyId: '', driverInsightsKey: '', driverInsightsLoading: false, driverInsights: null, companyInsightsKey: '', companyInsightsLoading: false, companyInsights: null, vehicleSelectorQuery: '', vehicleSelectorFilter: 'all', vehicleSelectorSelectedId: '', vehicleSelectorCategoryCode: '', selectedFinancialTxnId: '', financialTxnPreset: 'payment', activeChargeLine: '', chargeSelections: {} }
   };
   const FINANCIAL_TXN_TYPES = {
     payment: { label:'Payment', bucket:'rental', sign:1 },
@@ -2306,6 +2313,9 @@
     setVal('veh_assignedPlate', b.assignedVehiclePlate || '');
     setVal('book_selectedPackage', b.selectedPackage || '');
     setVal('book_selectedExtras', parseExtras(b.selectedExtras).join(', '));
+    state.ui.chargeSelections = state.ui.chargeSelections || {};
+    state.ui.chargeSelections.insurance = safe(b.selectedPackage || '').trim() ? [{ key: safe(b.selectedPackage).trim(), label: safe(b.selectedPackage).trim(), value: num((r.charges || b.charges || {}).insurance || 0), meta:'perDay' }] : [];
+    state.ui.chargeSelections.options = parseExtras(b.selectedExtras).map((label) => ({ key: safe(label), label: safe(label), value: 0, meta:'perDay' }));
 
     setVal('modal_customerName', b.customerName || '');
     setVal('modal_customerPhone', b.phone || '');
@@ -3179,17 +3189,60 @@ function renderLookups(){
   function chargePresetOptions(chargeKey){
     if (chargeKey === 'insurance') {
       const rows = Array.isArray(state.lookups?.insurancePlans) ? state.lookups.insurancePlans : [];
-      return rows.filter((r) => r && r.active !== false).map((r) => ({ label: r.label || r.title || 'Protection', value: num(r.pricePerDay ?? r.price ?? 0), meta: `${num(r.pricePerDay ?? r.price ?? 0)} / day` }));
+      return rows.filter((r) => r && r.active !== false).map((r) => ({ key: safe(r.key || r._id || r.label), label: r.label || r.title || 'Protection', value: num(r.pricePerDay ?? r.price ?? 0), meta: 'perDay' }));
     }
     if (chargeKey === 'options') {
       const rows = Array.isArray(state.lookups?.extraServices) ? state.lookups.extraServices : [];
-      return rows.filter((r) => r && r.active !== false).map((r) => ({ label: r.label || r.title || 'Extra', value: num(r.price ?? r.pricePerDay ?? 0), meta: safe(r.billingMode || 'perDay') }));
+      return rows.filter((r) => r && r.active !== false).map((r) => ({ key: safe(r.key || r._id || r.label), label: r.label || r.title || 'Extra', value: num(r.price ?? r.pricePerDay ?? 0), meta: safe(r.billingMode || 'perDay') }));
     }
     if (chargeKey === 'ageFee' || chargeKey === 'nightFee' || chargeKey === 'transport' || chargeKey === 'damages' || chargeKey === 'surcharges') {
       const rows = Array.isArray(state.lookups?.feeRules) ? state.lookups.feeRules : [];
-      return rows.filter((r) => r && r.active !== false).map((r) => ({ label: r.label || r.title || 'Fee', value: num(r.amount ?? r.price ?? 0), meta: safe(r.billingMode || 'perBooking') }));
+      return rows.filter((r) => r && r.active !== false).map((r) => ({ key: safe(r.key || r._id || r.label), label: r.label || r.title || 'Fee', value: num(r.amount ?? r.price ?? 0), meta: safe(r.billingMode || 'perBooking') }));
     }
     return [];
+  }
+
+  function selectedChargeOptions(chargeKey){
+    const map = state.ui.chargeSelections && typeof state.ui.chargeSelections === 'object' ? state.ui.chargeSelections : {};
+    return Array.isArray(map[chargeKey]) ? map[chargeKey] : [];
+  }
+
+  function renderChargeOptionsTable(chargeKey, presets){
+    const body = byId('chargeOptionTableBody');
+    const empty = byId('chargeOptionTableEmpty');
+    const summary = byId('chargeSelectionSummary');
+    if (!body || !empty || !summary) return;
+    const selected = selectedChargeOptions(chargeKey);
+    const selectedKeys = new Set(selected.map((row) => safe(row.key)));
+    if (!presets.length) {
+      body.innerHTML = '';
+      empty.classList.remove('hidden');
+      summary.textContent = 'No selected options.';
+      return;
+    }
+    empty.classList.add('hidden');
+    body.innerHTML = presets.map((row) => {
+      const used = selectedKeys.has(safe(row.key));
+      return `<tr><td>${escapeHtml(row.label)}</td><td>${money(row.value)}</td><td>${escapeHtml(row.meta || 'perBooking')}</td><td><button class="btn ${used ? 'danger' : ''}" type="button" data-charge-option-key="${escapeAttr(row.key)}">${used ? 'Remove' : 'Add'}</button></td></tr>`;
+    }).join('');
+    const selectedTotal = round2(selected.reduce((sum, row) => sum + num(row.value || 0), 0));
+    summary.textContent = selected.length ? `${selected.length} selected · ${money(selectedTotal)}` : 'No selected options.';
+    qa('[data-charge-option-key]').forEach((btn) => btn.addEventListener('click', () => {
+      const optionKey = btn.dataset.chargeOptionKey || '';
+      const row = presets.find((r) => safe(r.key) === optionKey);
+      if (!row) return;
+      const current = selectedChargeOptions(chargeKey);
+      const exists = current.some((entry) => safe(entry.key) === optionKey);
+      let next = current;
+      if (exists) next = current.filter((entry) => safe(entry.key) !== optionKey);
+      else if (chargeKey === 'insurance') next = [row];
+      else next = [...current, row];
+      state.ui.chargeSelections = state.ui.chargeSelections || {};
+      state.ui.chargeSelections[chargeKey] = next;
+      const nextTotal = round2(next.reduce((sum, entry) => sum + num(entry.value || 0), 0));
+      setVal('chargeLineAmount', nextTotal);
+      renderChargeOptionsTable(chargeKey, presets);
+    }));
   }
 
   function openChargeLineModal(chargeKey){
@@ -3198,15 +3251,8 @@ function renderLookups(){
     state.ui.activeChargeLine = chargeKey;
     setVal('chargeLineAmount', currentValue);
     setVal('chargeLineNotes', '');
-    const presetEl = byId('chargeLinePreset');
     const presets = chargePresetOptions(chargeKey);
-    if (presetEl) {
-      presetEl.innerHTML = ['<option value="">Manual</option>', ...presets.map((p, i) => `<option value="${i}">${escapeHtml(p.label)} · ${money(p.value)}</option>`)].join('');
-      presetEl.onchange = () => {
-        const idx = Number(presetEl.value);
-        if (Number.isFinite(idx) && idx >= 0 && presets[idx]) setVal('chargeLineAmount', presets[idx].value);
-      };
-    }
+    renderChargeOptionsTable(chargeKey, presets);
     const labelMap = { rental:'Rental', insurance:'Protections', options:'Extras', ageFee:'Age fee', nightFee:'Out of hours', transport:'Transport', damages:'Damages', surcharges:'Other fees', discount:'Discount' };
     byId('chargeLineModalTitle') && (byId('chargeLineModalTitle').textContent = `${labelMap[chargeKey] || 'Charge'} editor`);
     byId('chargeLineHint') && (byId('chargeLineHint').textContent = presets.length ? 'Επίλεξε εταιρικό preset ή βάλε manual ποσό.' : 'Δεν βρέθηκαν εταιρικά presets για αυτή τη γραμμή. Χρησιμοποίησε manual ποσό.');
@@ -3221,6 +3267,14 @@ function renderLookups(){
     current[key] = Math.max(0, amount);
     if (key === 'discount') current[key] = Math.max(0, amount);
     Object.entries(current).forEach(([field, val]) => setVal(`chg_${field}`, val));
+    if (key === 'insurance') {
+      const selected = selectedChargeOptions('insurance');
+      if (selected.length) setVal('book_selectedPackage', selected[0].label || '');
+    }
+    if (key === 'options') {
+      const selected = selectedChargeOptions('options');
+      if (selected.length) setVal('book_selectedExtras', selected.map((row) => row.label).join(', '));
+    }
     mirrorVehicleChargeFields();
     closeModal('chargeLineModal');
     renderSummary();
