@@ -1,7 +1,6 @@
 // backend/fleetCalendar.jsw
 import wixData from "wix-data";
 import { requireStaffAccess } from "backend/staffAccess.jsw";
-import wixUsersBackend from "wix-users-backend";
 
 /**
  * =========================
@@ -433,10 +432,6 @@ export async function confirmAndAutoAssign({ authToken, bookingId } = {}) {
 export async function acknowledgeUnassignedInRange({ from, to } = {}) {
   await ensureFieldMapping();
 
-  const nowIso = new Date().toISOString();
-  const user = wixUsersBackend.currentUser;
-  const userId = user ? user.id : "";
-
   const now = new Date();
   const f = toDate(from) || new Date(new Date(now).setHours(0,0,0,0));
   const t = toDate(to) || new Date(now.getTime() + 14 * 86400000);
@@ -448,7 +443,7 @@ export async function acknowledgeUnassignedInRange({ from, to } = {}) {
   );
 
   let updated = 0;
-  for (const b of unassignedBookings) {
+  for (const _b of unassignedBookings) {
     // If you have ACK fields, set them here; otherwise skip
     // b["ackAt"] = nowIso;
     // b["ackBy"] = userId;
