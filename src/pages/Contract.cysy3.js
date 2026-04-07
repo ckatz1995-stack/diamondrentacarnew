@@ -373,10 +373,12 @@ function normalizeRentalDraft(rental) {
   draft.financials = {
     paymentMethod: safeText(financials.paymentMethod || draft.paymentMethod || "cash"),
     paymentStatus: safeText(financials.paymentStatus || draft.paymentStatus || "pending"),
+    collectionMode: safeText(financials.collectionMode || draft.collectionMode || "pay_arrival"),
     prepaid: toNumber(financials.prepaid ?? draft.prepaidAmount ?? 0),
     paidNow: toNumber(financials.paidNow ?? draft.paidNowAmount ?? 0),
     deposit: toNumber(financials.deposit ?? draft.depositAmount ?? 0)
   };
+  draft.financialTransactions = Array.isArray(draft.financialTransactions) ? draft.financialTransactions : [];
   return draft;
 }
 
@@ -418,6 +420,7 @@ function normalizePayload(payload) {
     internalMemo: safeText(draft.internalMemo),
     charges: normalizeCharges(draft.charges),
     billing: normalizeBilling(draft.billing),
+    financialTransactions: Array.isArray(draft.financialTransactions) ? draft.financialTransactions.map(normalizeFinancialTransaction).filter(Boolean) : [],
     mainDriver: normalizeDriver(draft.mainDriver),
     additionalDrivers: Array.isArray(draft.additionalDrivers) ? draft.additionalDrivers.map(normalizeDriver).filter(Boolean) : []
   };
@@ -447,6 +450,24 @@ function normalizeDriver(driver) {
   };
 }
 
+function normalizeFinancialTransaction(tx) {
+  if (!tx || typeof tx !== "object") return null;
+  return {
+    id: safeText(tx.id),
+    type: safeText(tx.type),
+    amount: toNumber(tx.amount),
+    at: tx.at ? new Date(tx.at) : null,
+    method: safeText(tx.method),
+    party: safeText(tx.party),
+    reference: safeText(tx.reference),
+    receiptNo: safeText(tx.receiptNo),
+    terminal: safeText(tx.terminal),
+    station: safeText(tx.station),
+    user: safeText(tx.user),
+    notes: safeText(tx.notes)
+  };
+}
+
 function normalizeBilling(billing) {
   const draft = billing && typeof billing === "object" ? billing : {};
   return {
@@ -471,6 +492,7 @@ function normalizeFinancials(financials) {
   return {
     paymentMethod: safeText(draft.paymentMethod || "cash"),
     paymentStatus: safeText(draft.paymentStatus || "pending"),
+    collectionMode: safeText(draft.collectionMode || "pay_arrival"),
     prepaid: toNumber(draft.prepaid),
     paidNow: toNumber(draft.paidNow),
     deposit: toNumber(draft.deposit)
