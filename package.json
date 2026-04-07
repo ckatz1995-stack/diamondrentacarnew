@@ -12,6 +12,8 @@
     "postinstall": "wix sync-types",
     "dev": "wix dev",
     "lint": "eslint .",
-    "check:undone": "bash scripts/check-undone.sh"
+    "lint:strict": "eslint . --max-warnings=0",
+    "check:undone": "bash scripts/check-undone.sh",
+    "check:smoke": "bash scripts/smoke-frontend.sh"
   }
 }

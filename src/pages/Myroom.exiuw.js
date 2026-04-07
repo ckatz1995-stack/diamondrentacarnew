@@ -1,6 +1,7 @@
 import wixLocation from 'wix-location';
 import { getPublicAuthHealth } from 'backend/staffAccess.jsw';
 import { buildUserContext, clearSessionToken, logoutBackroom, readBackroomSession } from 'public/backroomAuth';
+import { isTrustedBridgeOrigin, normalizeBridgeMessage, postMessageSafe, resolveHtmlComponent } from 'public/bridgeUtils';
 
 const ROUTES = {
   login: '/home-login',
@@ -15,11 +16,15 @@ const HOME_IDS = ['#homeHtml', '#bpage1'];
 const MIN_HEIGHT = 720;
 const MAX_HEIGHT = 3200;
 
+function logSuppressed(context, error) {
+  console.warn(`[Myroom] ${context}`, error?.message || error || 'unknown error');
+}
+
 $w.onReady(async function () {
   const html = getHomeComponent();
   if (!html) return;
   hideOtherComponents();
-  try { html.expand(); html.show(); } catch (_) {}
+  try { html.expand(); html.show(); } catch (error) { logSuppressed('expand/show failed', error); }
 
   const initialState = await readBackroomSession({ touch: true });
   if (!initialState?.authenticated) {
@@ -27,8 +32,9 @@ $w.onReady(async function () {
   }
 
   html.onMessage(async (event) => {
-    const msg = event.data || {};
-    if (!msg.type) return;
+    if (!isTrustedBridgeOrigin(event?.origin, wixLocation.url)) return;
+    const msg = normalizeBridgeMessage(event && event.data);
+    if (!msg || typeof msg !== 'object' || !msg.type) return;
 
     if (msg.type === 'navigate') {
       const state = await readBackroomSession({ touch: true });
@@ -45,7 +51,7 @@ $w.onReady(async function () {
 
     if (msg.type === 'resizeShell') {
       const h = clampHeight(Number(msg.height || 0));
-      if (h) { try { html.height = h; } catch (_) {} }
+      if (h) { try { html.height = h; } catch (error) { logSuppressed('resizeShell height set failed', error); } }
       return;
     }
 
@@ -96,16 +102,14 @@ async function refreshAuthState(message = '') {
 }
 
 function getHomeComponent() {
-  for (const id of HOME_IDS) {
-    try { const cmp = $w(id); if (cmp) return cmp; } catch (_) {}
-  }
+  try { return resolveHtmlComponent($w, HOME_IDS); } catch (error) { logSuppressed('HtmlComponent lookup failed', error); }
   return null;
 }
 
 function post(payload) {
   const html = getHomeComponent();
   if (!html) return;
-  try { html.postMessage(payload); } catch (_) {}
+  if (!postMessageSafe(html, payload, 'myroom-home')) logSuppressed('postMessage failed');
 }
 
 function clampHeight(value) {
@@ -115,7 +119,7 @@ function clampHeight(value) {
 
 function hideOtherComponents() {
   ['#tabsHtml', '#dailyHtml', '#fleetCalendarHtml', '#bookingsHtml'].forEach(id => {
-    try { $w(id).collapse(); } catch (_) {}
-    try { $w(id).hide(); } catch (_) {}
+    try { $w(id).collapse(); } catch (error) { logSuppressed(`collapse failed for ${id}`, error); }
+    try { $w(id).hide(); } catch (error) { logSuppressed(`hide failed for ${id}`, error); }
   });
 }

@@ -1,6 +1,7 @@
 import wixLocation from 'wix-location';
 import { getPublicAuthHealth, getPublicLoginBootstrap, loginStaff, requestAccessRecovery } from 'backend/staffAccess.jsw';
 import { buildUserContext, readBackroomSession, storeSessionToken } from 'public/backroomAuth';
+import { isTrustedBridgeOrigin, normalizeBridgeMessage, postMessageSafe, resolveHtmlComponent } from 'public/bridgeUtils';
 
 const ROUTES = {
   home: '/myroom-home'
@@ -10,15 +11,20 @@ const LOGIN_COMPONENT_IDS = ['#loginHtml', '#homeHtml', '#bpage1', '#html1', '#h
 const MIN_HEIGHT = 640;
 const MAX_HEIGHT = 2400;
 
+function logSuppressed(context, error) {
+  console.warn(`[Home Login] ${context}`, error?.message || error || 'unknown error');
+}
+
 $w.onReady(async function () {
   const html = getLoginComponent();
   if (!html) return;
 
-  try { html.expand(); html.show(); } catch (_) {}
+  try { html.expand(); html.show(); } catch (error) { logSuppressed('expand/show failed', error); }
 
   html.onMessage(async (event) => {
-    const msg = event.data || {};
-    if (!msg.type) return;
+    if (!isTrustedBridgeOrigin(event?.origin, wixLocation.url)) return;
+    const msg = normalizeBridgeMessage(event && event.data);
+    if (!msg || typeof msg !== 'object' || !msg.type) return;
 
     if (msg.type === 'loginReady' || msg.type === 'requestAuthState' || msg.type === 'requestLoginBootstrap') {
       await refreshAuthState();
@@ -27,7 +33,7 @@ $w.onReady(async function () {
 
     if (msg.type === 'resizeShell') {
       const h = clampHeight(Number(msg.height || 0));
-      if (h) { try { html.height = h; } catch (_) {} }
+      if (h) { try { html.height = h; } catch (error) { logSuppressed('resizeShell height set failed', error); } }
       return;
     }
 
@@ -110,16 +116,14 @@ async function refreshAuthState(message = '') {
 }
 
 function getLoginComponent() {
-  for (const id of LOGIN_COMPONENT_IDS) {
-    try { const cmp = $w(id); if (cmp) return cmp; } catch (_) {}
-  }
+  try { return resolveHtmlComponent($w, LOGIN_COMPONENT_IDS); } catch (error) { logSuppressed('HtmlComponent lookup failed', error); }
   return null;
 }
 
 function post(payload) {
   const html = getLoginComponent();
   if (!html) return;
-  try { html.postMessage(payload); } catch (_) {}
+  if (!postMessageSafe(html, payload, 'home-login')) logSuppressed('postMessage failed');
 }
 
 function clampHeight(value) {
