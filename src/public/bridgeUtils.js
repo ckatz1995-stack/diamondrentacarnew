@@ -6,6 +6,18 @@ const bridgeTelemetry = {
   postFailures: 0,
   untrustedOriginDrops: 0
 };
+const bridgeTelemetryHistory = [];
+const TELEMETRY_HISTORY_LIMIT = 500;
+const TELEMETRY_RATE_WINDOW_MS = 60_000;
+
+function markTelemetry(eventType) {
+  const type = String(eventType || '').trim();
+  if (!type) return;
+  bridgeTelemetryHistory.push({ ts: Date.now(), type });
+  if (bridgeTelemetryHistory.length > TELEMETRY_HISTORY_LIMIT) {
+    bridgeTelemetryHistory.splice(0, bridgeTelemetryHistory.length - TELEMETRY_HISTORY_LIMIT);
+  }
+}
 
 export const BRIDGE_TYPES = {
   WIX_NAV: 'wix-booking-nav',
@@ -22,6 +34,7 @@ export function normalizeBridgeMessage(raw) {
       return JSON.parse(raw);
     } catch (_) {
       bridgeTelemetry.parseFailures += 1;
+      markTelemetry('parseFailures');
       return null;
     }
   }
@@ -45,11 +58,13 @@ export function postMessageSafe(component, payload, label = 'bridge') {
     return true;
   } catch (error) {
     bridgeTelemetry.postFallbacks += 1;
+    markTelemetry('postFallbacks');
     try {
       component.postMessage(JSON.stringify(payload));
       return true;
     } catch (innerError) {
       bridgeTelemetry.postFailures += 1;
+      markTelemetry('postFailures');
       console.error(`[${label}] postMessage failed`, innerError || error);
       return false;
     }
@@ -78,6 +93,7 @@ export function isTrustedBridgeOrigin(origin, currentUrl) {
   const raw = String(origin || '').trim().toLowerCase();
   if (!raw) {
     bridgeTelemetry.untrustedOriginDrops += 1;
+    markTelemetry('untrustedOriginDrops');
     return false;
   }
   try {
@@ -85,6 +101,7 @@ export function isTrustedBridgeOrigin(origin, currentUrl) {
     const sourceHost = String(source.hostname || '').toLowerCase();
     if (!sourceHost) {
       bridgeTelemetry.untrustedOriginDrops += 1;
+      markTelemetry('untrustedOriginDrops');
       return false;
     }
     if (currentUrl) {
@@ -93,16 +110,34 @@ export function isTrustedBridgeOrigin(origin, currentUrl) {
       if (currentHost && sourceHost === currentHost) return true;
     }
     const trusted = TRUSTED_DOMAIN_SUFFIXES.some((suffix) => sourceHost === suffix || sourceHost.endsWith(`.${suffix}`));
-    if (!trusted) bridgeTelemetry.untrustedOriginDrops += 1;
+    if (!trusted) {
+      bridgeTelemetry.untrustedOriginDrops += 1;
+      markTelemetry('untrustedOriginDrops');
+    }
     return trusted;
   } catch (_) {
     bridgeTelemetry.untrustedOriginDrops += 1;
+    markTelemetry('untrustedOriginDrops');
     return false;
   }
 }
 
 export function getBridgeTelemetrySnapshot() {
-  return { ...bridgeTelemetry };
+  const now = Date.now();
+  const windowStart = now - TELEMETRY_RATE_WINDOW_MS;
+  const recent = bridgeTelemetryHistory.filter((entry) => entry.ts >= windowStart);
+  const perMinute = {
+    parseFailures: recent.filter((entry) => entry.type === 'parseFailures').length,
+    postFallbacks: recent.filter((entry) => entry.type === 'postFallbacks').length,
+    postFailures: recent.filter((entry) => entry.type === 'postFailures').length,
+    untrustedOriginDrops: recent.filter((entry) => entry.type === 'untrustedOriginDrops').length
+  };
+  return {
+    ...bridgeTelemetry,
+    perMinute,
+    historyWindowMs: TELEMETRY_RATE_WINDOW_MS,
+    historySize: bridgeTelemetryHistory.length
+  };
 }
 
 export function resetBridgeTelemetry() {
@@ -110,4 +145,5 @@ export function resetBridgeTelemetry() {
   bridgeTelemetry.postFallbacks = 0;
   bridgeTelemetry.postFailures = 0;
   bridgeTelemetry.untrustedOriginDrops = 0;
+  bridgeTelemetryHistory.splice(0, bridgeTelemetryHistory.length);
 }
