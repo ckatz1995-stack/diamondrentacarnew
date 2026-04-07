@@ -58,7 +58,6 @@ function getCrypto() {
   if (_cryptoApi !== undefined) return _cryptoApi;
   try {
     // In Wix/Velo runtime, lazy require is often more reliable than a top-level default import.
-    // eslint-disable-next-line no-undef
     _cryptoApi = typeof require === 'function' ? require('crypto') : null;
   } catch (_) {
     _cryptoApi = null;
@@ -496,7 +495,7 @@ async function getCollectionHealth(collectionName) {
   }
 }
 
-async function getAuthHealthDetails() {
+async function _getAuthHealthDetails() {
   const [usersCol, rolesCol, credsCol, sessionsCol, auditCol] = await Promise.all([
     getCollectionHealth(COLLECTIONS.users),
     getCollectionHealth(COLLECTIONS.roles),
@@ -1044,5 +1043,4 @@ export async function getBootstrapHelp() {
 function hasSpecialPermission(state = {}, key = '') {
   return Array.isArray(state?.specialPermissions) && state.specialPermissions.includes(String(key || ''));
 }
-
 
