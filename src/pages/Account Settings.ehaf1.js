@@ -57,6 +57,10 @@ function post(payload) {
   try { $w(COMP).postMessage(payload); } catch (e) { console.error('pricing admin postMessage failed', e); }
 }
 
+function sendBridgeTelemetrySnapshot(message = '') {
+  post({ type: 'bridgeTelemetrySnapshot', telemetry: getBridgeTelemetrySnapshot(), message });
+}
+
 async function sendSnapshots(message = '', tone = 'success') {
   try {
     const [snapshot, accessSnapshot] = await Promise.all([
@@ -203,6 +207,7 @@ async function handleAction(type, payload = {}) {
     }
     if (type === 'resetBridgeTelemetry') {
       resetBridgeTelemetry();
+      sendBridgeTelemetrySnapshot('Καθαρίστηκαν οι bridge telemetry counters.');
       return sendSnapshots('Καθαρίστηκαν οι bridge telemetry counters.');
     }
     if (type === 'logoutBackroom') {
@@ -228,6 +233,11 @@ $w.onReady(async function () {
 
       if (msg.type === 'pricingAdminReady') {
         await sendSnapshots();
+        return;
+      }
+
+      if (msg.type === 'requestBridgeTelemetry') {
+        sendBridgeTelemetrySnapshot();
         return;
       }
 

@@ -102,5 +102,5 @@ Different pages implement partially overlapping message contracts (`request-vehi
 ## Suggested next actions (ordered)
 1. Complete origin-hardening rollout on all page-level `window.message` listeners (not only `masterPage`).
 2. Keep `docs/BRIDGE_CONTRACT.md` in sync with any message-shape additions.
-3. Expose bridge telemetry controls (`resetBridgeTelemetry`) in admin HTML UI controls.
+3. Add visual widgets in admin HTML for bridge telemetry trends (history chart / rate per minute).
 4. Verify and delete placeholder pages (`Dashboard.eh252.js`, `New Page.zv4ph.js`) after Wix editor confirmation.
