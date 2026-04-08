@@ -180,8 +180,15 @@ function post(payload) {
 function hideOtherComponents(keepIds) {
   ['#tabsHtml', '#homeHtml', '#fleetCalendarHtml', '#bookingsHtml', '#bpage1', '#bpage2', '#bpage3', '#bpage4', '#html1', '#html2'].forEach(id => {
     if (keepIds.includes(id)) return;
-    try { $w(id).collapse(); } catch (error) { logSuppressed(`collapse failed for ${id}`, error); }
-    try { $w(id).hide(); } catch (error) { logSuppressed(`hide failed for ${id}`, error); }
+    let component = null;
+    try { component = $w(id); } catch (error) { logSuppressed(`lookup failed for ${id}`, error); }
+    if (!component) return;
+    if (typeof component.collapse === 'function') {
+      try { component.collapse(); } catch (error) { logSuppressed(`collapse failed for ${id}`, error); }
+    }
+    if (typeof component.hide === 'function') {
+      try { component.hide(); } catch (error) { logSuppressed(`hide failed for ${id}`, error); }
+    }
   });
 }
 function clampHeight(value) { if (!Number.isFinite(value) || value <= 0) return null; return Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, Math.round(value))); }

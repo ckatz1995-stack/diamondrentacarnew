@@ -32,7 +32,11 @@ $w.onReady(async function () {
   }
 
   html.onMessage(async (event) => {
-    if (!isTrustedBridgeOrigin(event?.origin, wixLocation.url)) return;
+    const origin = String(event?.origin || '').trim();
+    const trustedOrigin = isTrustedBridgeOrigin(origin, wixLocation.url);
+    // Wix HtmlComponent messages may be delivered without origin metadata.
+    // Accept only empty-origin events; still block explicit untrusted origins.
+    if (origin && !trustedOrigin) return;
     const msg = normalizeBridgeMessage(event && event.data);
     if (!msg || typeof msg !== 'object' || !msg.type) return;
 
@@ -119,7 +123,14 @@ function clampHeight(value) {
 
 function hideOtherComponents() {
   ['#tabsHtml', '#dailyHtml', '#fleetCalendarHtml', '#bookingsHtml'].forEach(id => {
-    try { $w(id).collapse(); } catch (error) { logSuppressed(`collapse failed for ${id}`, error); }
-    try { $w(id).hide(); } catch (error) { logSuppressed(`hide failed for ${id}`, error); }
+    let component = null;
+    try { component = $w(id); } catch (error) { logSuppressed(`lookup failed for ${id}`, error); }
+    if (!component) return;
+    if (typeof component.collapse === 'function') {
+      try { component.collapse(); } catch (error) { logSuppressed(`collapse failed for ${id}`, error); }
+    }
+    if (typeof component.hide === 'function') {
+      try { component.hide(); } catch (error) { logSuppressed(`hide failed for ${id}`, error); }
+    }
   });
 }
