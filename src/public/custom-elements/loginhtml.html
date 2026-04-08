@@ -112,18 +112,20 @@
         <div id="notice" class="note">Έλεγχος κατάστασης σύνδεσης...</div>
         <div id="bootstrap" class="note hidden"></div>
 
-        <div class="grid2">
-          <div class="field"><label for="email">Email</label><input id="email" type="email" placeholder="you@company.gr" autocomplete="username" /></div>
-          <div class="field"><label for="password">Password</label><input id="password" type="password" placeholder="••••••••" autocomplete="current-password" /></div>
-        </div>
-
-        <div class="actions">
-          <label class="check"><input id="remember" type="checkbox" /> Να με θυμάται</label>
-          <div class="btns">
-            <button id="recoverBtn" class="btn ghost" type="button">Ξέχασα πρόσβαση</button>
-            <button id="loginBtn" class="btn primary" type="button">Είσοδος</button>
+        <form id="loginForm" novalidate>
+          <div class="grid2">
+            <div class="field"><label for="email">Email</label><input id="email" type="email" placeholder="you@company.gr" autocomplete="username" /></div>
+            <div class="field"><label for="password">Password</label><input id="password" type="password" placeholder="••••••••" autocomplete="current-password" /></div>
           </div>
-        </div>
+
+          <div class="actions">
+            <label class="check"><input id="remember" type="checkbox" /> Να με θυμάται</label>
+            <div class="btns">
+              <button id="recoverBtn" class="btn ghost" type="button">Ξέχασα πρόσβαση</button>
+              <button id="loginBtn" class="btn primary" type="submit">Είσοδος</button>
+            </div>
+          </div>
+        </form>
       </section>
 
       <aside class="card side">
@@ -144,6 +146,7 @@
   <script>
     const $ = (id) => document.getElementById(id);
     const els = {
+      loginForm: $('loginForm'),
       notice: $('notice'), bootstrap: $('bootstrap'), email: $('email'), password: $('password'), remember: $('remember'),
       loginBtn: $('loginBtn'), recoverBtn: $('recoverBtn'), statusValue: $('statusValue'), roleValue: $('roleValue'), userValue: $('userValue'), nextValue: $('nextValue'), todayChip: $('todayChip')
     };
@@ -176,7 +179,8 @@
       }
     }
 
-    els.loginBtn.addEventListener('click', () => {
+    els.loginForm.addEventListener('submit', (event) => {
+      event.preventDefault();
       post('staffLogin', { email: els.email.value.trim(), password: els.password.value, remember: !!els.remember.checked });
     });
 

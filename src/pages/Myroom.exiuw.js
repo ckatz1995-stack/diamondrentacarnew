@@ -32,7 +32,11 @@ $w.onReady(async function () {
   }
 
   html.onMessage(async (event) => {
-    if (!isTrustedBridgeOrigin(event?.origin, wixLocation.url)) return;
+    const origin = String(event?.origin || '').trim();
+    const trustedOrigin = isTrustedBridgeOrigin(origin, wixLocation.url);
+    // Wix HtmlComponent messages may be delivered without origin metadata.
+    // Accept only empty-origin events; still block explicit untrusted origins.
+    if (origin && !trustedOrigin) return;
     const msg = normalizeBridgeMessage(event && event.data);
     if (!msg || typeof msg !== 'object' || !msg.type) return;
 
