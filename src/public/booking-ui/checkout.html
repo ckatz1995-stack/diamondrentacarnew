@@ -836,6 +836,12 @@ async function loadVehicle(){
     renderVehicle(storedOptions?.vehicle || fallback);
     return;
   }
+  if (isEmbedded()) {
+    // In Wix HtmlComponent the document origin is filesusr.com, so direct fetch to wixsite _functions
+    // can be blocked by CORS. We wait for vehicle-category-data from the parent page bridge.
+    renderVehicle(storedOptions?.vehicle || fallback);
+    return;
+  }
   try {
     const res = await fetch(`${API_BASE}/vehicle?id=${encodeURIComponent(state.vehicleId)}`);
     const data = await res.json();
