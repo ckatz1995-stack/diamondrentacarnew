@@ -112,9 +112,11 @@ export function isTrustedBridgeOrigin(origin, currentUrl) {
   markTelemetry('originChecks');
   const raw = String(origin || '').trim();
   if (!raw) {
-    bridgeTelemetry.untrustedOriginDrops += 1;
-    markTelemetry('untrustedOriginDrops');
-    return false;
+    // Wix HtmlComponent can emit postMessage events without origin metadata.
+    // Accept empty-origin events and rely on page-level message type validation.
+    bridgeTelemetry.trustedOriginPasses += 1;
+    markTelemetry('trustedOriginPasses');
+    return true;
   }
   try {
     const source = new URL(raw);
