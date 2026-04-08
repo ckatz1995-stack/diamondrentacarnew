@@ -22,7 +22,11 @@ $w.onReady(async function () {
   try { html.expand(); html.show(); } catch (error) { logSuppressed('expand/show failed', error); }
 
   html.onMessage(async (event) => {
-    if (!isTrustedBridgeOrigin(event?.origin, wixLocation.url)) return;
+    const origin = String(event?.origin || '').trim();
+    const trustedOrigin = isTrustedBridgeOrigin(origin, wixLocation.url);
+    // Wix HtmlComponent messages can occasionally arrive without origin metadata.
+    // In that case we still accept the payload and rely on strict message-type handling below.
+    if (origin && !trustedOrigin) return;
     const msg = normalizeBridgeMessage(event && event.data);
     if (!msg || typeof msg !== 'object' || !msg.type) return;
 

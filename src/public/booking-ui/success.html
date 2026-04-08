@@ -247,6 +247,11 @@ async function loadSummary(force = false){
   if (sameBooking(stored, booking)) renderSummary(stored, booking);
   if (!booking) return;
   if (!force && booking === lastLoadedBooking) return;
+  if (isEmbedded()) {
+    // In embedded HtmlComponent mode the frame origin is filesusr.com, so cross-origin
+    // fetch to wixsite _functions can be blocked by CORS. Keep the stored summary.
+    return;
+  }
   lastLoadedBooking = booking;
   try {
     const res = await fetch(`${currentApiBase()}/bookingSummary?booking=${encodeURIComponent(booking)}`, { cache:'no-store' });
