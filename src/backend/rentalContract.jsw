@@ -418,7 +418,9 @@ async function getFleetMapByIds(ids){
         mileage: safeNum(f.mileage),
         fuelLevel: safeNum(f.fuelLevel),
         excess: safeNum(f.excess),
-        operationalStatus: safeText(f.operationalStatus || f.status || '')
+        operationalStatus: safeText(f.operationalStatus || f.status || ''),
+        readyToGo: f.readyToGo === true || safeText(f.readyToGo).toLowerCase() === 'true',
+        hardHold: f.hardHold === true || safeText(f.hardHold).toLowerCase() === 'true'
       });
     });
   };
@@ -768,11 +770,15 @@ async function buildContractLookups(booking = {}){
       const activeFlag = activeValue !== false && activeLower !== 'false' && activeLower !== '0' && activeLower !== 'no';
       const currentStationCode = safeText(item.currentStationCode || '');
       const currentStationLabel = safeText(item.currentStationLabel || '');
+      const readyToGo = item.readyToGo === true || safeText(item.readyToGo).toLowerCase() === 'true';
+      const hardHold = item.hardHold === true || safeText(item.hardHold).toLowerCase() === 'true';
       const assignedThis = !!currentAssignedId && currentAssignedId === recordId;
       const serviceBlocked = !activeFlag || ['service','blocked','inactive'].includes(operationalStatus.toLowerCase()) || ['service','blocked','inactive'].includes(status.toLowerCase());
       const hardUnavailable = ['assigned','unavailable','out'].includes(operationalStatus.toLowerCase()) || ['assigned','unavailable','out'].includes(status.toLowerCase());
       const busyConflict = !assignedThis && (busyVehicleIds.has(recordId) || hardUnavailable);
       const wrongStation = !assignedThis && !busyConflict && !serviceBlocked && !stationMatchesBooking(requestedStationRaw, currentStationCode, currentStationLabel);
+      const readinessBlocked = !assignedThis && !serviceBlocked && !busyConflict && !wrongStation && !readyToGo;
+      const holdBlocked = !assignedThis && !serviceBlocked && hardHold;
 
       let selectorStatusKey = 'available';
       let selectorStatusLabel = 'Available';
@@ -792,6 +798,12 @@ async function buildContractLookups(booking = {}){
         selectorTone = 'danger';
         selectorStatusReason = 'Vehicle is not operationally available.';
         assignable = false;
+      } else if (holdBlocked) {
+        selectorStatusKey = 'hardHold';
+        selectorStatusLabel = 'Hard hold';
+        selectorTone = 'danger';
+        selectorStatusReason = 'Vehicle is under hard hold and cannot be assigned.';
+        assignable = false;
       } else if (busyConflict) {
         selectorStatusKey = 'busy';
         selectorStatusLabel = 'Busy / conflict';
@@ -803,6 +815,12 @@ async function buildContractLookups(booking = {}){
         selectorStatusLabel = 'Wrong station';
         selectorTone = 'warn';
         selectorStatusReason = `Vehicle currently belongs to ${currentStationLabel || currentStationCode || 'another station'}.`;
+        assignable = false;
+      } else if (readinessBlocked) {
+        selectorStatusKey = 'notReady';
+        selectorStatusLabel = 'Not ready';
+        selectorTone = 'warn';
+        selectorStatusReason = 'Vehicle is not marked ready-to-go for checkout.';
         assignable = false;
       }
 
@@ -824,6 +842,8 @@ async function buildContractLookups(booking = {}){
         excess: safeNum(item.excess),
         ownershipState: safeText(item.ownershipState || ''),
         poolType: safeText(item.poolType || ''),
+        readyToGo,
+        hardHold,
         available: selectorStatusKey === 'available',
         assignable,
         thisBookingAssigned: assignedThis,
