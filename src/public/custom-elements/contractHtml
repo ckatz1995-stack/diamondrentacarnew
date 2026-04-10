@@ -2218,17 +2218,20 @@
     const vat = round2(gross - net);
     const txnAgg = financialAggregation();
     const hasTransactions = financialTransactions().length > 0;
-    const prepaid = hasTransactions
-      ? round2(financialTransactions().filter((tx) => safe(tx.type) === 'payment' && safe(tx.method) === 'voucher').reduce((sum, tx) => sum + num(tx.amount || 0), 0))
-      : round2(state.rental?.financials?.prepaid ?? 0);
-    const paidNow = hasTransactions
-      ? round2(Math.max(0, txnAgg.rental - prepaid))
-      : round2(state.rental?.financials?.paidNow ?? 0);
-    const deposit = hasTransactions
-      ? round2(Math.max(0, txnAgg.guaranteeHeld))
-      : round2(state.rental?.financials?.deposit ?? 0);
-    const balance = round2(gross - prepaid - paidNow);
-    return { gross, net, vat, prepaid, paidNow, deposit, balance, preauthActive: round2(Math.max(0, txnAgg.preauthActive)), guaranteeRefunded: round2(txnAgg.guaranteeRefunded) };
+    const prepaid = hasTransactions ? txnAgg.prepaidVoucher : round2(state.rental?.financials?.prepaid ?? 0);
+    const paidNow = hasTransactions ? round2(Math.max(0, txnAgg.rental - prepaid)) : round2(state.rental?.financials?.paidNow ?? 0);
+    const deposit = hasTransactions ? round2(Math.max(0, txnAgg.guaranteeHeld)) : round2(state.rental?.financials?.deposit ?? 0);
+    const paidTotal = round2(prepaid + paidNow);
+    const balance = round2(gross - paidTotal);
+    const paymentStatus = balance <= 0 ? 'paid' : (paidTotal > 0 ? 'partial' : 'pending');
+    return {
+      gross, net, vat, prepaid, paidNow, paidTotal, deposit, balance,
+      paymentStatus,
+      preauthActive: round2(Math.max(0, txnAgg.preauthActive)),
+      guaranteeRefunded: round2(txnAgg.guaranteeRefunded),
+      paymentsReceived: round2(txnAgg.payments),
+      refunds: round2(txnAgg.refunds)
+    };
   }
 
   function billableDays(){
@@ -3103,17 +3106,23 @@ function renderLookups(){
 
   function financialAggregation(){
     const txns = financialTransactions();
-    const totals = { rental:0, guaranteeHeld:0, guaranteeRefunded:0, preauthActive:0, preauthTotal:0 };
+    const totals = { rental:0, payments:0, refunds:0, guaranteeHeld:0, guaranteeRefunded:0, preauthActive:0, preauthTotal:0, prepaidVoucher:0 };
     txns.forEach((tx) => {
-      const type = FINANCIAL_TXN_TYPES[safe(tx.type)] || null;
-      const amount = round2(num(tx.amount || 0));
+      const typeKey = safe(tx.type);
+      const type = FINANCIAL_TXN_TYPES[typeKey] || null;
+      const amount = round2(Math.abs(num(tx.amount || 0)));
       if (!type || amount <= 0) return;
       const signed = round2(type.sign * amount);
       if (type.bucket === 'rental') totals.rental = round2(totals.rental + signed);
-      if (safe(tx.type) === 'guarantee_hold') totals.guaranteeHeld = round2(totals.guaranteeHeld + amount);
-      if (safe(tx.type) === 'guarantee_refund') totals.guaranteeRefunded = round2(totals.guaranteeRefunded + amount);
-      if (type.bucket === 'guarantee') totals.guaranteeHeld = round2(totals.guaranteeHeld + (safe(tx.type) === 'guarantee_refund' ? -amount : 0));
-      if (safe(tx.type) === 'preauth_hold') totals.preauthTotal = round2(totals.preauthTotal + amount);
+      if (typeKey === 'payment') {
+        totals.payments = round2(totals.payments + amount);
+        if (safe(tx.method).toLowerCase() === 'voucher') totals.prepaidVoucher = round2(totals.prepaidVoucher + amount);
+      }
+      if (typeKey === 'refund') totals.refunds = round2(totals.refunds + amount);
+      if (typeKey === 'guarantee_hold') totals.guaranteeHeld = round2(totals.guaranteeHeld + amount);
+      if (typeKey === 'guarantee_refund') totals.guaranteeRefunded = round2(totals.guaranteeRefunded + amount);
+      if (type.bucket === 'guarantee') totals.guaranteeHeld = round2(totals.guaranteeHeld + (typeKey === 'guarantee_refund' ? -amount : 0));
+      if (typeKey === 'preauth_hold') totals.preauthTotal = round2(totals.preauthTotal + amount);
       if (type.bucket === 'preauth') totals.preauthActive = round2(totals.preauthActive + signed);
     });
     return totals;
@@ -3188,12 +3197,11 @@ function renderLookups(){
   }
 
   function syncLegacyFinancialFieldsFromTransactions(){
-    const agg = financialAggregation();
-    const prepaidLegacy = round2(financialTransactions().filter((tx) => safe(tx.type) === 'payment' && safe(tx.method) === 'voucher').reduce((sum, tx) => sum + num(tx.amount || 0), 0));
-    const paidNowLegacy = round2(Math.max(0, agg.rental - prepaidLegacy));
-    setVal('fin_prepaid', prepaidLegacy);
-    setVal('fin_paidNow', paidNowLegacy);
-    setVal('fin_deposit', Math.max(0, agg.guaranteeHeld));
+    const fin = financials();
+    setVal('fin_prepaid', fin.prepaid);
+    setVal('fin_paidNow', fin.paidNow);
+    setVal('fin_deposit', Math.max(0, fin.deposit));
+    setVal('fin_paymentStatus', fin.paymentStatus);
   }
 
   function renderFinancialLedgerPreview(){
@@ -3401,7 +3409,7 @@ function renderLookups(){
     const collectionMode = safe(state.rental?.financials?.collectionMode || 'pay_arrival');
     const collectionMap = { partial_prepaid:'Partial pre-paid', pay_arrival:'Pay on arrival', prepaid:'Pre-paid' };
     byId('finMetaProgram') && (byId('finMetaProgram').textContent = collectionMap[collectionMode] || collectionMode || 'Pay on arrival');
-    byId('finMetaStatus') && (byId('finMetaStatus').textContent = labelForPaymentStatus(paymentStatusEl?.value || state.rental?.financials?.paymentStatus || 'pending'));
+    byId('finMetaStatus') && (byId('finMetaStatus').textContent = labelForPaymentStatus(paymentStatusEl?.value || fin.paymentStatus || state.rental?.financials?.paymentStatus || 'pending'));
     byId('finMetaPreauth') && (byId('finMetaPreauth').textContent = money(fin.preauthActive || 0));
     byId('finMetaGuaranteeRefunded') && (byId('finMetaGuaranteeRefunded').textContent = money(fin.guaranteeRefunded || 0));
 
@@ -3883,6 +3891,13 @@ function renderLookups(){
       billing: getBillingDraft(),
       financials: financialDraft,
       financialTransactions: financialTransactions(),
+      chargeLines: Array.isArray(state.rental?.chargeLines) ? state.rental.chargeLines : [],
+      commercialState: {
+        paymentStatus: financials().paymentStatus,
+        settlementState: financials().balance <= 0 ? 'settled' : (financials().paidTotal > 0 ? 'partial' : 'open'),
+        outstanding: financials().balance,
+        paidTotal: financials().paidTotal
+      },
       charges: chargeDraft,
       checkoutOdometer: num(byId('checkoutOdometer')?.value || 0),
       checkinOdometer: num(byId('checkinOdometer')?.value || 0),
