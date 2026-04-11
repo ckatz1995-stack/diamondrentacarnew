@@ -95,7 +95,11 @@ async function getFleetMapByIds(ids){
     if (f.category && typeof f.category === "object") assignedCategoryCode = extractCode(f.category.category || f.category.code || f.category.title || f.category.name || "");
     else assignedCategoryCode = extractCode(f.category || f.Category || "");
     const label = plate ? (model ? `${plate} - ${model}` : plate) : (model || "");
-    map.set(String(f._id), { plate, model, label, assignedCategoryCode });
+    const operationalStatus = safeText(f.operationalStatus || f.status || "");
+    const readyToGo = f.readyToGo === true || safeText(f.readyToGo).toLowerCase() === "true";
+    const hardHold = f.hardHold === true || safeText(f.hardHold).toLowerCase() === "true";
+    const serviceBlocked = ["service","blocked","inactive"].includes(norm(operationalStatus));
+    map.set(String(f._id), { plate, model, label, assignedCategoryCode, operationalStatus, readyToGo, hardHold, serviceBlocked });
   });
   return map;
 }
@@ -111,6 +115,11 @@ function mapFleetLite(f){
   const station = safeText(f.station || f.location || f.pickupStation || "");
   const state = safeText(f.state || f.status || f.condition || f.availability || "");
   const notes = safeText(f.notes || f.internalMemo || f.remarks || "");
+  const operationalStatus = safeText(f.operationalStatus || f.status || "");
+  const readyToGo = f.readyToGo === true || safeText(f.readyToGo).toLowerCase() === "true";
+  const hardHold = f.hardHold === true || safeText(f.hardHold).toLowerCase() === "true";
+  const serviceBlocked = ["service","blocked","inactive"].includes(norm(operationalStatus));
+  const assignable = !serviceBlocked && !hardHold && readyToGo;
   const categoryObj = f.category || f.Category || "";
   const categoryCode = extractCode(categoryObj && typeof categoryObj === "object" ? (categoryObj.category || categoryObj.code || categoryObj.title || categoryObj.name || "") : categoryObj);
   return {
@@ -122,6 +131,11 @@ function mapFleetLite(f){
     assignedVehicleModel: model,
     station,
     state,
+    operationalStatus,
+    readyToGo,
+    hardHold,
+    serviceBlocked,
+    assignable,
     notes,
     categoryCode,
     group: categoryCode,
@@ -139,10 +153,29 @@ function mapBookingLite(b, fleet){
   const assignedVehicleLabel = safeText(b.assignedVehicleLabel || (fleet ? fleet.label : "") || b.assignedVehiclePlate || "");
   const rentalState = safeText(b.rentalState || "Booking") || "Booking";
   const selectedExtrasList = Array.isArray(b.selectedExtras) ? b.selectedExtras.map((x)=> safeText(x)).filter(Boolean) : [];
+  const paymentStatus = safeText((b.financialSnapshot && b.financialSnapshot.settlement && b.financialSnapshot.settlement.paymentStatus) || b.paymentStatus || "");
+  const totalBalance = safeNum((b.financialSnapshot && b.financialSnapshot.settlement && b.financialSnapshot.settlement.balance) || 0);
+  const assignedVehicle = safeText(b.assignedVehicle || "");
+  const vehicleServiceBlocked = !!fleet?.serviceBlocked;
+  const vehicleHardHold = !!fleet?.hardHold;
+  const vehicleReadyToGo = fleet?.readyToGo === true;
+  const hasVehicle = !!safeText(assignedVehicle || b.assignedVehicleLabel || b.assignedVehiclePlate || "");
+  const status = safeText(b.status || "");
+  const rentalStateLower = norm(rentalState);
+  const confirmed = isConfirmedStatus(status);
+  const canceled = isCanceledStatus(status);
+  const checkoutEligible = confirmed && hasVehicle && !vehicleServiceBlocked && !vehicleHardHold && vehicleReadyToGo && !/active rental|closed rental/i.test(rentalStateLower);
+  const checkinEligible = confirmed && hasVehicle && /active rental|pre check-in/i.test(rentalStateLower);
+  const gateReasons = [];
+  if (!hasVehicle) gateReasons.push("No assigned vehicle");
+  if (vehicleServiceBlocked) gateReasons.push("Vehicle is service-blocked");
+  if (vehicleHardHold) gateReasons.push("Vehicle is under hard hold");
+  if (!vehicleReadyToGo && hasVehicle) gateReasons.push("Vehicle is not ready-to-go");
+  if (canceled) gateReasons.push("Booking is canceled");
   return {
     _id: safeText(b._id),
     itemType: "booking",
-    status: safeText(b.status || ""),
+    status,
     bookingNumber: safeText(b.bookingNumber || b._id || ""),
     confirmedAt,
     canceledAt,
@@ -159,6 +192,8 @@ function mapBookingLite(b, fleet){
     categoryId: safeText(b.categoryId),
     categoryCode: safeText(deriveBookingCategoryCode(b, fleet)),
     totalPrice: safeNum(b.totalPrice),
+    totalBalance,
+    paymentStatus,
     billableDays: diffDays(pickupDateTime, dropoffDateTime),
     source: safeText(b.source || b.channel || b.agent || b.cdp || ""),
     agent: safeText(b.agent || ""),
@@ -181,11 +216,24 @@ function mapBookingLite(b, fleet){
     selectedExtrasList,
     transmission: safeText(b.transmission || b.vehicleTransmission || ""),
     fuelType: safeText(b.fuelType || b.vehicleFuelType || ""),
-    assignedVehicle: safeText(b.assignedVehicle || ""),
+    assignedVehicle,
     assignedVehicleLabel,
     assignedVehicleModel: fleet?.model ? safeText(fleet.model) : safeText(b.assignedVehicleModel || b.model || ""),
     assignedVehiclePlate: fleet?.plate ? safeText(fleet.plate) : safeText(b.assignedVehiclePlate || ""),
-    rentalState
+    vehicleOperationalStatus: safeText(fleet?.operationalStatus || ""),
+    vehicleReadyToGo,
+    vehicleHardHold,
+    vehicleServiceBlocked,
+    rentalState,
+    actionGate: {
+      contractEnabled: true,
+      fleetEnabled: !canceled,
+      bookingsEnabled: true,
+      vehicleEnabled: hasVehicle,
+      checkoutEligible,
+      checkinEligible,
+      reasons: gateReasons
+    }
   };
 }
 function byStart(a,b){ return (asDate(a.pickupDateTime || a.start)?.getTime() || 0) - (asDate(b.pickupDateTime || b.start)?.getTime() || 0); }
