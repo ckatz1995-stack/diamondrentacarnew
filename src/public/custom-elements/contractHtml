@@ -149,6 +149,16 @@
     .guardrail-actions{display:grid;gap:6px}
     .guardrail-actions .textarea{min-height:72px}
     .guardrail-actions .field-inline-actions{justify-content:flex-end}
+    .doc-panel{margin-top:10px;padding-top:10px;border-top:1px solid var(--line);display:grid;gap:8px}
+    .doc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px}
+    .doc-card{border:1px solid var(--line);border-radius:12px;background:#fafafa;padding:8px;display:grid;gap:6px}
+    .doc-card h5{margin:0;font-size:12px}
+    .doc-status{display:inline-flex;align-items:center;border-radius:999px;padding:4px 8px;font-size:11px;font-weight:800;border:1px solid var(--line)}
+    .doc-status.ready{background:#edf8f1;color:#0f6a3d;border-color:#9ed3b3}
+    .doc-status.review{background:#fff7e7;color:#8a5600;border-color:#f3d192}
+    .doc-status.blocked{background:#fff1f0;color:#a12f28;border-color:#f0b8b4}
+    .doc-mini-list{margin:0;padding-left:16px;display:grid;gap:4px}
+    .doc-mini-list li{font-size:11px;color:#5f5f66;line-height:1.35}
     .total{
       display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center
     }
@@ -1257,6 +1267,21 @@
               <div class="inline-note" id="checkoutGuardrailOverrideMeta">No override recorded.</div>
             </div>
           </div>
+          <div class="doc-panel">
+            <div class="guardrail-pill review" id="documentPipelinePill">Document package review</div>
+            <div class="doc-grid" id="documentPipelineGrid"></div>
+            <ul class="guardrail-list" id="documentPipelineMissing"></ul>
+            <div class="field"><label>Signature state</label>
+              <select class="select" id="doc_signatureState">
+                <option value="not_started">Not started</option>
+                <option value="pending">Pending signature</option>
+                <option value="captured">Captured</option>
+                <option value="waived">Waived</option>
+              </select>
+            </div>
+            <div class="field"><label>Signature note</label><input class="input" id="doc_signatureNote" placeholder="Optional signer/waiver note..." /></div>
+            <div class="inline-note" id="docSignatureMeta">No signature update recorded.</div>
+          </div>
         </div>
       </section>
     </aside>
@@ -2329,6 +2354,92 @@
       actor: safe(state.context?.user || 'Operator'),
       updatedAt: new Date().toISOString()
     } : null;
+  }
+
+  function currentSignatureState(){
+    const s = state.rental?.signatureState;
+    if (!s || typeof s !== 'object') return { status:'not_started', signerName:'', signedAt:'', note:'', actor:'', updatedAt:'' };
+    const status = safe(s.status || s.state || '').toLowerCase();
+    return {
+      status: ['not_started','pending','captured','waived'].includes(status) ? status : 'not_started',
+      signerName: safe(s.signerName || s.customerName || ''),
+      signedAt: safe(s.signedAt || s.at || ''),
+      note: safe(s.note || s.reason || ''),
+      actor: safe(s.actor || s.user || ''),
+      updatedAt: safe(s.updatedAt || '')
+    };
+  }
+
+  function applySignatureState(status, note){
+    const cleanStatus = ['not_started','pending','captured','waived'].includes(safe(status).toLowerCase()) ? safe(status).toLowerCase() : 'not_started';
+    const previous = currentSignatureState();
+    state.rental.signatureState = {
+      ...previous,
+      status: cleanStatus,
+      note: safe(note || '').trim(),
+      actor: safe(state.context?.user || previous.actor || 'Operator'),
+      signerName: safe(previous.signerName || state.rental?.mainDriver?.fullName || state.booking?.customerName || ''),
+      signedAt: cleanStatus === 'captured' ? (previous.signedAt || new Date().toISOString()) : (cleanStatus === 'waived' ? '' : previous.signedAt),
+      updatedAt: new Date().toISOString()
+    };
+  }
+
+  function deriveDocumentPipeline(){
+    const fin = financials();
+    const billing = getBillingDraft();
+    const b = state.booking || {};
+    const driver = state.rental?.mainDriver || {};
+    const sign = currentSignatureState();
+    const hasOverride = !!currentGuardrailOverride();
+    const hasMovement = !!safe(b.pickuppoint) && !!safe(b.dropoffpoint) && !!safe(b.pickupDateTime) && !!safe(b.dropoffDateTime);
+    const hasVehicle = !!safe(selectedVehicleId() || b.assignedVehicleLabel || b.assignedVehiclePlate || state.rental?.assignedVehicleLabel);
+    const hasDriverIdentity = !!safe(driver.fullName) && (!!safe(driver.idNo) || !!safe(driver.licenseNo));
+    const invoiceMode = !/^receipt$/i.test(String(billing.invoiceType || '').trim());
+    const make = (blockers = [], warnings = []) => ({ status: blockers.length ? 'blocked' : (warnings.length ? 'review' : 'ready'), blockers, warnings });
+    const agreement = make(
+      [
+        !safe(b.customerName) ? 'Missing customer name.' : '',
+        !hasMovement ? 'Missing pickup/dropoff movement.' : '',
+        !hasVehicle ? 'No vehicle assigned.' : ''
+      ].filter(Boolean),
+      [!hasDriverIdentity ? 'Main driver identity incomplete.' : ''].filter(Boolean)
+    );
+    const voucher = make(
+      [
+        !safe(b.bookingNumber) ? 'Missing booking number.' : '',
+        !hasMovement ? 'Missing movement details.' : ''
+      ].filter(Boolean),
+      [(!safe(b.voucherNumber) && !safe(b.confirmationNumber)) ? 'Voucher/confirmation reference missing.' : ''].filter(Boolean)
+    );
+    const invoice = make(
+      [
+        invoiceMode && !safe(billing.companyName) ? 'Company name missing for invoice mode.' : ''
+      ].filter(Boolean),
+      [
+        invoiceMode && !safe(billing.vatNumber) ? 'VAT number missing.' : '',
+        fin.balance > 0.01 && !hasOverride ? `Outstanding balance ${money(fin.balance)}.` : ''
+      ].filter(Boolean)
+    );
+    const receipt = make(
+      [fin.paidTotal <= 0.01 && fin.balance > 0.01 ? 'No posted payment captured yet.' : ''].filter(Boolean),
+      [fin.balance > 0.01 && !hasOverride ? 'Open balance: issue partial receipt only.' : ''].filter(Boolean)
+    );
+    const signature = sign.status === 'captured'
+      ? { status:'ready', blockers:[], warnings:[] }
+      : make(
+        [
+          agreement.status === 'blocked' ? 'Agreement data is blocked.' : '',
+          !hasDriverIdentity ? 'Driver identity incomplete.' : ''
+        ].filter(Boolean),
+        [
+          sign.status === 'waived' ? 'Signature waived; keep waiver note.' : '',
+          (sign.status === 'not_started' || sign.status === 'pending') ? 'Signature not captured.' : ''
+        ].filter(Boolean)
+      );
+    const docs = { agreement, voucher, invoice, receipt, signature };
+    const order = { ready:0, review:1, blocked:2 };
+    const overall = Object.values(docs).reduce((acc, d) => (order[d.status] > order[acc] ? d.status : acc), 'ready');
+    return { docs, overall, signature: sign };
   }
 
   function billableDays(){
@@ -3557,6 +3668,33 @@ function renderLookups(){
     const overrideInput = byId('checkoutGuardrailOverrideReason');
     if (overrideInput && document.activeElement !== overrideInput) overrideInput.value = safe(override?.reason || '');
 
+    const doc = deriveDocumentPipeline();
+    const docPill = byId('documentPipelinePill');
+    if (docPill) {
+      const txt = doc.overall === 'ready' ? 'Document package ready' : (doc.overall === 'blocked' ? 'Document package blocked' : 'Document package review');
+      docPill.textContent = txt;
+      docPill.className = `guardrail-pill ${doc.overall}`;
+    }
+    const docGrid = byId('documentPipelineGrid');
+    if (docGrid) {
+      const names = { agreement:'Agreement', voucher:'Voucher pack', invoice:'Invoice readiness', receipt:'Receipt readiness', signature:'Signature-ready' };
+      docGrid.innerHTML = Object.entries(doc.docs).map(([key, item]) => {
+        const reasons = [...item.blockers.map((x)=> `Blocker: ${x}`), ...item.warnings.map((x)=> `Review: ${x}`)].slice(0, 2);
+        return `<div class="doc-card"><h5>${escapeHtml(names[key] || key)}</h5><span class="doc-status ${item.status}">${escapeHtml(item.status)}</span><ul class="doc-mini-list">${(reasons.length ? reasons : ['No issues.']).map((r)=> `<li>${escapeHtml(r)}</li>`).join('')}</ul></div>`;
+      }).join('');
+    }
+    const docMissing = byId('documentPipelineMissing');
+    if (docMissing) {
+      const top = Object.entries(doc.docs).flatMap(([k, item]) => item.blockers.map((r)=> `${k}: ${r}`)).slice(0, 4);
+      docMissing.innerHTML = top.length ? top.map((r)=> `<li><strong>Missing:</strong> ${escapeHtml(r)}</li>`).join('') : '<li>No blocking document prerequisites.</li>';
+    }
+    const sigStateInput = byId('doc_signatureState');
+    if (sigStateInput && document.activeElement !== sigStateInput) sigStateInput.value = safe(doc.signature.status || 'not_started');
+    const sigNoteInput = byId('doc_signatureNote');
+    if (sigNoteInput && document.activeElement !== sigNoteInput) sigNoteInput.value = safe(doc.signature.note || '');
+    const sigMeta = byId('docSignatureMeta');
+    if (sigMeta) sigMeta.textContent = doc.signature.updatedAt ? `Updated by ${safe(doc.signature.actor || 'Operator')} at ${humanDateTime(doc.signature.updatedAt)}` : 'No signature update recorded.';
+
     renderFinancialLedgerPreview();
   }
 
@@ -4043,6 +4181,7 @@ function renderLookups(){
         paidTotal: financials().paidTotal
       },
       checkoutGuardrailOverride: currentGuardrailOverride(),
+      signatureState: currentSignatureState(),
       charges: chargeDraft,
       checkoutOdometer: num(byId('checkoutOdometer')?.value || 0),
       checkinOdometer: num(byId('checkinOdometer')?.value || 0),
@@ -4381,6 +4520,14 @@ function renderLookups(){
       applyCheckoutGuardrailOverride('');
       renderChargeRail();
       toast('Checkout override cleared.');
+    });
+    byId('doc_signatureState')?.addEventListener('change', (e) => {
+      applySignatureState(e.target.value || 'not_started', byId('doc_signatureNote')?.value || '');
+      renderChargeRail();
+    });
+    byId('doc_signatureNote')?.addEventListener('input', (e) => {
+      applySignatureState(byId('doc_signatureState')?.value || 'not_started', e.target.value || '');
+      renderChargeRail();
     });
 
     const bindDriverAutoLookup = (index) => {
@@ -5155,6 +5302,7 @@ function renderLookups(){
           deposit: state.booking.depositAmount || 0
         };
       }
+      state.rental.signatureState = currentSignatureState();
       syncMainFieldsFromState();
       postResize();
       return;

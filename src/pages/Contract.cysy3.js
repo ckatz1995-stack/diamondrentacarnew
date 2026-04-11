@@ -434,6 +434,7 @@ function normalizePayload(payload) {
     financialTransactions: Array.isArray(draft.financialTransactions) ? draft.financialTransactions.map(normalizeFinancialTransaction).filter(Boolean) : [],
     commercialState: normalizeCommercialState(draft.commercialState),
     checkoutGuardrailOverride: normalizeCheckoutGuardrailOverride(draft.checkoutGuardrailOverride),
+    signatureState: normalizeSignatureState(draft.signatureState),
     mainDriver: normalizeDriver(draft.mainDriver),
     additionalDrivers: Array.isArray(draft.additionalDrivers) ? draft.additionalDrivers.map(normalizeDriver).filter(Boolean) : []
   };
@@ -524,6 +525,19 @@ function normalizeCheckoutGuardrailOverride(raw) {
     reason,
     actor: safeText(raw.actor || raw.user || ""),
     updatedAt: safeText(raw.updatedAt || raw.at || "")
+  };
+}
+
+function normalizeSignatureState(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const status = safeText(raw.status || raw.state || "not_started").toLowerCase();
+  return {
+    status: ["not_started", "pending", "captured", "waived"].includes(status) ? status : "not_started",
+    signerName: safeText(raw.signerName || raw.customerName || ""),
+    signedAt: safeText(raw.signedAt || raw.at || ""),
+    note: safeText(raw.note || raw.reason || ""),
+    actor: safeText(raw.actor || raw.user || ""),
+    updatedAt: safeText(raw.updatedAt || "")
   };
 }
 
