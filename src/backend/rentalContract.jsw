@@ -146,6 +146,157 @@ function deriveChargeLines(booking = {}, charges = {}){
   return { rental: base, insurance, options, ageFee, nightFee, transport, damages, surcharges, discount, gross, days };
 }
 
+const CHARGE_LINE_SPECS = [
+  { code:'rental_base', key:'rental', label:'Rental base', category:'rental', derived:true, sign:1, order:10 },
+  { code:'insurance', key:'insurance', label:'Insurance / protection', category:'insurance', derived:true, sign:1, order:20 },
+  { code:'extras', key:'options', label:'Extras / services', category:'extras', derived:true, sign:1, order:30 },
+  { code:'age_fee', key:'ageFee', label:'Age fee', category:'fee', derived:true, sign:1, order:40 },
+  { code:'night_fee', key:'nightFee', label:'Night fee', category:'fee', derived:true, sign:1, order:50 },
+  { code:'transport_fee', key:'transport', label:'Transport fee', category:'fee', derived:false, sign:1, order:60 },
+  { code:'damage_fee', key:'damages', label:'Damages', category:'damage', derived:false, sign:1, order:70 },
+  { code:'surcharge', key:'surcharges', label:'Surcharges', category:'fee', derived:false, sign:1, order:80 },
+  { code:'discount', key:'discount', label:'Discount', category:'discount', derived:false, sign:-1, order:90 }
+];
+
+function buildChargeLinesFromCharges(charges = {}, existing = []){
+  const previous = Array.isArray(existing) ? existing : [];
+  return CHARGE_LINE_SPECS.map((spec) => {
+    const match = previous.find((row) => safeText(row?.code) === spec.code) || {};
+    const rawValue = safeNum(charges?.[spec.key]);
+    const amount = spec.sign < 0 ? -Math.abs(rawValue) : Math.abs(rawValue);
+    return {
+      id: safeText(match.id || `${spec.code}_line`),
+      code: spec.code,
+      key: spec.key,
+      label: safeText(match.label || spec.label),
+      category: safeText(match.category || spec.category),
+      amount: round2(amount),
+      absAmount: round2(Math.abs(amount)),
+      sign: spec.sign,
+      derived: spec.derived,
+      editable: match.editable === false ? false : true,
+      source: safeText(match.source || (spec.derived ? 'derived' : 'manual')),
+      notes: safeText(match.notes || ''),
+      order: safeNum(match.order || spec.order || 0),
+      taxable: match.taxable !== false
+    };
+  }).filter((line) => line.absAmount > 0 || line.code === 'discount');
+}
+
+function normalizeChargeLinesPayload(rawLines = []){
+  const rows = Array.isArray(rawLines) ? rawLines : [];
+  return rows.map((line) => {
+    if (!line || typeof line !== "object") return null;
+    const code = safeText(line.code || line.key || '').trim();
+    const amountRaw = safeNum(line.amount ?? line.value ?? line.absAmount ?? 0);
+    const sign = safeNum(line.sign) || (code === 'discount' || safeText(line.category).toLowerCase() === 'discount' ? -1 : 1);
+    const amount = sign < 0 ? -Math.abs(amountRaw) : Math.abs(amountRaw);
+    return {
+      id: safeText(line.id || `${Date.now()}_${Math.random().toString(16).slice(2,8)}`),
+      code,
+      key: safeText(line.key || ''),
+      label: safeText(line.label || line.name || code || 'Line'),
+      category: safeText(line.category || ''),
+      amount: round2(amount),
+      absAmount: round2(Math.abs(amount)),
+      sign: sign < 0 ? -1 : 1,
+      derived: !!line.derived,
+      editable: line.editable !== false,
+      source: safeText(line.source || (line.derived ? 'derived' : 'manual')),
+      notes: safeText(line.notes || ''),
+      order: safeNum(line.order || 0),
+      taxable: line.taxable !== false
+    };
+  }).filter(Boolean).slice(0, 200);
+}
+
+function buildFinancialSnapshot({ booking = {}, rental = {}, totals = null } = {}){
+  const lines = totals || deriveChargeLines(booking, rental?.charges || {});
+  const billing = mergeBillingFallback(booking, rental);
+  const transactions = Array.isArray(rental?.financialTransactions) ? rental.financialTransactions : [];
+  const vatRate = safeNum(billing?.vatRate ?? 0.24);
+  const gross = round2(lines.gross);
+  const vat = computeVatBreakdown(gross, vatRate);
+
+  let rentalFlow = 0;
+  let guaranteeHeld = 0;
+  let preauthActive = 0;
+  let refunds = 0;
+  let paymentsReceived = 0;
+
+  transactions.forEach((tx) => {
+    const type = safeText(tx?.type);
+    const amount = round2(Math.abs(safeNum(tx?.amount)));
+    if (!(amount > 0)) return;
+    if (type === 'payment') {
+      rentalFlow = round2(rentalFlow + amount);
+      paymentsReceived = round2(paymentsReceived + amount);
+    } else if (type === 'refund') {
+      rentalFlow = round2(rentalFlow - amount);
+      refunds = round2(refunds + amount);
+    } else if (type === 'guarantee_hold') {
+      guaranteeHeld = round2(guaranteeHeld + amount);
+    } else if (type === 'guarantee_refund') {
+      guaranteeHeld = round2(guaranteeHeld - amount);
+    } else if (type === 'preauth_hold') {
+      preauthActive = round2(preauthActive + amount);
+    } else if (type === 'preauth_void') {
+      preauthActive = round2(preauthActive - amount);
+    }
+  });
+
+  const fallbackFinancials = mergeFinancialsFallback(booking, rental);
+  const hasLedger = transactions.length > 0;
+  const prepaid = hasLedger
+    ? round2(transactions.filter((tx) => safeText(tx?.type) === 'payment' && safeText(tx?.method) === 'voucher').reduce((sum, tx) => sum + safeNum(tx?.amount), 0))
+    : round2(safeNum(fallbackFinancials.prepaid));
+  const paidNow = hasLedger ? round2(Math.max(0, rentalFlow - prepaid)) : round2(safeNum(fallbackFinancials.paidNow));
+  const deposit = hasLedger ? round2(Math.max(0, guaranteeHeld)) : round2(safeNum(fallbackFinancials.deposit));
+  const paidTotal = round2(prepaid + paidNow);
+  const balance = round2(gross - paidTotal);
+
+  let paymentStatus = 'pending';
+  if (gross <= 0 || balance <= 0) paymentStatus = 'paid';
+  else if (paidTotal > 0) paymentStatus = 'partial';
+
+  return {
+    generatedAt: new Date().toISOString(),
+    charges: {
+      rental: round2(lines.rental),
+      insurance: round2(lines.insurance),
+      options: round2(lines.options),
+      ageFee: round2(lines.ageFee),
+      nightFee: round2(lines.nightFee),
+      transport: round2(lines.transport),
+      damages: round2(lines.damages),
+      surcharges: round2(lines.surcharges),
+      discount: round2(lines.discount)
+    },
+    totals: {
+      gross: round2(vat.gross),
+      net: round2(vat.net),
+      vat: round2(vat.vat),
+      vatRate: round2(vatRate)
+    },
+    ledger: {
+      transactions: transactions.length,
+      paymentsReceived,
+      refunds,
+      rentalFlow: round2(rentalFlow),
+      guaranteeHeld: round2(Math.max(0, guaranteeHeld)),
+      preauthActive: round2(Math.max(0, preauthActive))
+    },
+    settlement: {
+      prepaid,
+      paidNow,
+      paidTotal,
+      balance,
+      deposit,
+      paymentStatus
+    }
+  };
+}
+
 function syncBookingChargeFields(booking, rental){
   const ch = deriveChargeLines(booking, rental?.charges || {});
   booking.baseCost = ch.rental;
@@ -194,6 +345,154 @@ function normalizePricingOverridePayload(raw){
     note: safeText(payload.note),
     requestApproval: !!payload.requestApproval,
     approveNow: !!payload.approveNow
+  };
+}
+
+function normalizeCheckoutGuardrailOverride(raw){
+  const payload = raw && typeof raw === 'object' ? raw : {};
+  const reason = safeText(payload.reason || payload.note).trim();
+  if (!reason) return null;
+  return {
+    reason,
+    actor: safeText(payload.actor || payload.user).trim(),
+    updatedAt: asDate(payload.updatedAt || payload.at) || new Date()
+  };
+}
+
+function normalizeSignatureState(raw){
+  const payload = raw && typeof raw === 'object' ? raw : {};
+  const statusRaw = safeText(payload.status || payload.state || '').trim().toLowerCase();
+  const allowed = new Set(['not_started', 'pending', 'captured', 'waived']);
+  const status = allowed.has(statusRaw) ? statusRaw : 'not_started';
+  return {
+    status,
+    signerName: safeText(payload.signerName || payload.customerName || '').trim(),
+    signedAt: asDate(payload.signedAt || payload.at) || null,
+    note: safeText(payload.note || payload.reason || '').trim(),
+    actor: safeText(payload.actor || payload.user || '').trim(),
+    updatedAt: asDate(payload.updatedAt) || new Date()
+  };
+}
+
+function buildDocumentPipelineSnapshot({ booking = {}, rental = {}, financialSnapshot = null } = {}){
+  const snapshot = financialSnapshot || rental?.financialSnapshot || booking?.financialSnapshot || buildFinancialSnapshot({ booking, rental });
+  const billing = mergeBillingFallback(booking, rental);
+  const mainDriver = rental?.mainDriver && typeof rental.mainDriver === 'object' ? rental.mainDriver : {};
+  const signatureState = normalizeSignatureState(rental?.signatureState || booking?.signatureState || {});
+  const guardrailOverride = normalizeCheckoutGuardrailOverride(rental?.checkoutGuardrailOverride || booking?.checkoutGuardrailOverride || null);
+  const hasFinancialOverride = !!guardrailOverride;
+  const finBalance = safeNum(snapshot?.settlement?.balance);
+  const paidTotal = safeNum(snapshot?.settlement?.paidTotal);
+  const hasVehicle = !!safeText(booking?.assignedVehicleLabel || booking?.assignedVehiclePlate || rental?.assignedVehicleLabel || rental?.assignedVehiclePlate).trim();
+  const hasMovement = !!asDate(booking?.pickupDateTime) && !!asDate(booking?.dropoffDateTime) && !!safeText(booking?.pickuppoint).trim() && !!safeText(booking?.dropoffpoint).trim();
+  const hasCustomer = !!safeText(booking?.customerName).trim();
+  const hasDriverIdentity = !!safeText(mainDriver?.fullName).trim() && (!!safeText(mainDriver?.idNo).trim() || !!safeText(mainDriver?.licenseNo).trim());
+  const billingCompanyMode = !/^receipt$/i.test(safeText(billing?.invoiceType).trim());
+
+  const buildStatus = (blockers = [], warnings = []) => {
+    if (blockers.length) return 'blocked';
+    if (warnings.length) return 'review';
+    return 'ready';
+  };
+
+  const agreementBlockers = [];
+  const agreementWarnings = [];
+  if (!hasCustomer) agreementBlockers.push('Missing customer name.');
+  if (!hasMovement) agreementBlockers.push('Missing pickup/dropoff movement details.');
+  if (!hasVehicle) agreementBlockers.push('Missing assigned vehicle.');
+  if (!hasDriverIdentity) agreementWarnings.push('Main driver identity is incomplete.');
+
+  const voucherBlockers = [];
+  const voucherWarnings = [];
+  if (!safeText(booking?.bookingNumber).trim()) voucherBlockers.push('Missing booking number.');
+  if (!hasCustomer) voucherBlockers.push('Missing customer name.');
+  if (!hasMovement) voucherBlockers.push('Missing movement details.');
+  if (!safeText(booking?.voucherNumber).trim() && !safeText(booking?.confirmationNumber).trim()) voucherWarnings.push('Voucher/confirmation reference missing.');
+
+  const invoiceBlockers = [];
+  const invoiceWarnings = [];
+  if (!snapshot) invoiceWarnings.push('Financial snapshot unavailable.');
+  if (billingCompanyMode) {
+    if (!safeText(billing?.companyName).trim()) invoiceBlockers.push('Company name required for invoice mode.');
+    if (!safeText(billing?.vatNumber).trim()) invoiceWarnings.push('VAT number missing.');
+    if (!safeText(billing?.address).trim()) invoiceWarnings.push('Billing address missing.');
+  }
+  if (finBalance > 0.01 && !hasFinancialOverride) invoiceWarnings.push(`Outstanding balance ${round2(finBalance)} remains.`);
+
+  const receiptBlockers = [];
+  const receiptWarnings = [];
+  if (!snapshot) receiptBlockers.push('Financial snapshot unavailable.');
+  if (paidTotal <= 0.01 && finBalance > 0.01) receiptBlockers.push('No posted payment captured for receipt.');
+  if (finBalance > 0.01 && !hasFinancialOverride) receiptWarnings.push('Receipt can be issued only as partial settlement.');
+
+  const signatureBlockers = [];
+  const signatureWarnings = [];
+  if (buildStatus(agreementBlockers, agreementWarnings) === 'blocked') signatureBlockers.push('Agreement data is blocked.');
+  if (!hasDriverIdentity) signatureBlockers.push('Main driver identity incomplete for signature.');
+  if (signatureState.status === 'waived') signatureWarnings.push('Signature waived; keep explicit waiver note.');
+  if (signatureState.status === 'not_started' || signatureState.status === 'pending') signatureWarnings.push('Signature not captured yet.');
+
+  const docs = {
+    agreement: { status: buildStatus(agreementBlockers, agreementWarnings), blockers: agreementBlockers, warnings: agreementWarnings },
+    voucher: { status: buildStatus(voucherBlockers, voucherWarnings), blockers: voucherBlockers, warnings: voucherWarnings },
+    invoice: { status: buildStatus(invoiceBlockers, invoiceWarnings), blockers: invoiceBlockers, warnings: invoiceWarnings },
+    receipt: { status: buildStatus(receiptBlockers, receiptWarnings), blockers: receiptBlockers, warnings: receiptWarnings },
+    signature: {
+      status: signatureState.status === 'captured'
+        ? 'ready'
+        : buildStatus(signatureBlockers, signatureWarnings),
+      blockers: signatureState.status === 'captured' ? [] : signatureBlockers,
+      warnings: signatureState.status === 'captured' ? [] : signatureWarnings
+    }
+  };
+
+  const statusOrder = { ready: 0, review: 1, blocked: 2 };
+  const overallStatus = Object.values(docs).reduce((acc, d) => (statusOrder[d.status] > statusOrder[acc] ? d.status : acc), 'ready');
+  const missing = [];
+  Object.entries(docs).forEach(([key, doc]) => {
+    doc.blockers.forEach((item) => missing.push({ type: key, severity: 'blocker', reason: item }));
+    doc.warnings.forEach((item) => missing.push({ type: key, severity: 'warning', reason: item }));
+  });
+
+  return {
+    generatedAt: new Date().toISOString(),
+    source: 'contract_document_pipeline_v1',
+    overallStatus,
+    signatureState,
+    docs,
+    missing: missing.slice(0, 40),
+    blocks: {
+      identity: {
+        customerName: safeText(booking?.customerName).trim(),
+        mainDriverName: safeText(mainDriver?.fullName).trim(),
+        mainDriverIdNo: safeText(mainDriver?.idNo).trim(),
+        mainDriverLicenseNo: safeText(mainDriver?.licenseNo).trim()
+      },
+      movement: {
+        pickupDateTime: asDate(booking?.pickupDateTime),
+        dropoffDateTime: asDate(booking?.dropoffDateTime),
+        pickupPoint: safeText(booking?.pickuppoint).trim(),
+        dropoffPoint: safeText(booking?.dropoffpoint).trim()
+      },
+      vehicle: {
+        label: safeText(booking?.assignedVehicleLabel || rental?.assignedVehicleLabel).trim(),
+        plate: safeText(booking?.assignedVehiclePlate || rental?.assignedVehiclePlate).trim()
+      },
+      financial: {
+        gross: round2(snapshot?.totals?.gross),
+        paidTotal: round2(snapshot?.settlement?.paidTotal),
+        balance: round2(snapshot?.settlement?.balance),
+        paymentStatus: safeText(snapshot?.settlement?.paymentStatus).trim(),
+        guardrailOverride: guardrailOverride ? { reason: guardrailOverride.reason, actor: guardrailOverride.actor, updatedAt: guardrailOverride.updatedAt } : null
+      },
+      billing: {
+        invoiceType: safeText(billing?.invoiceType).trim(),
+        companyName: safeText(billing?.companyName).trim(),
+        vatNumber: safeText(billing?.vatNumber).trim(),
+        address: safeText(billing?.address).trim(),
+        city: safeText(billing?.city).trim()
+      }
+    }
   };
 }
 
@@ -267,7 +566,9 @@ async function getFleetMapByIds(ids){
         mileage: safeNum(f.mileage),
         fuelLevel: safeNum(f.fuelLevel),
         excess: safeNum(f.excess),
-        operationalStatus: safeText(f.operationalStatus || f.status || '')
+        operationalStatus: safeText(f.operationalStatus || f.status || ''),
+        readyToGo: f.readyToGo === true || safeText(f.readyToGo).toLowerCase() === 'true',
+        hardHold: f.hardHold === true || safeText(f.hardHold).toLowerCase() === 'true'
       });
     });
   };
@@ -453,10 +754,11 @@ async function mirrorToBooking(booking, rental){
 
 function applyChargesPayload(rental, payload){
   const ch = (payload && typeof payload.charges === "object") ? payload.charges : null;
-  if (!ch) return;
+  const chargeLinesPayload = Array.isArray(payload?.chargeLines) ? payload.chargeLines : null;
+  if (!ch && !chargeLinesPayload) return;
 
   const cur = (rental.charges && typeof rental.charges === "object") ? rental.charges : {};
-  rental.charges = {
+  const nextCharges = {
     rental: safeNum(ch.rental ?? cur.rental ?? 0),
     insurance: safeNum(ch.insurance ?? cur.insurance ?? 0),
     options: safeNum(ch.options ?? cur.options ?? 0),
@@ -467,6 +769,9 @@ function applyChargesPayload(rental, payload){
     surcharges: safeNum(ch.surcharges ?? cur.surcharges ?? 0),
     discount: safeNum(ch.discount ?? cur.discount ?? 0),
   };
+  rental.charges = nextCharges;
+  const suppliedLines = normalizeChargeLinesPayload(chargeLinesPayload || rental.chargeLines || []);
+  rental.chargeLines = buildChargeLinesFromCharges(nextCharges, suppliedLines);
 }
 
 function applyBillingPayload(rental, payload){
@@ -532,10 +837,19 @@ function applyFinancialTransactionsPayload(booking, rental, payload){
       if (!row || typeof row !== "object") return null;
       const amount = safeNum(row.amount);
       if (!(amount > 0)) return null;
+      const type = safeText(row.type);
+      const category = safeText(row.category || (
+        type.includes('guarantee') ? 'guarantee'
+        : type.includes('preauth') ? 'preauth'
+        : type === 'refund' ? 'refund'
+        : 'payment'
+      ));
       return {
         id: safeText(row.id) || `${Date.now()}_${Math.random().toString(16).slice(2,8)}`,
-        type: safeText(row.type),
+        type,
+        category,
         amount,
+        signedAmount: ['refund','guarantee_refund','preauth_void'].includes(type) ? -Math.abs(amount) : Math.abs(amount),
         at: asDate(row.at) || new Date(),
         method: safeText(row.method),
         party: safeText(row.party),
@@ -544,7 +858,8 @@ function applyFinancialTransactionsPayload(booking, rental, payload){
         terminal: safeText(row.terminal),
         station: safeText(row.station),
         user: safeText(row.user),
-        notes: safeText(row.notes)
+        notes: safeText(row.notes),
+        status: safeText(row.status || 'posted')
       };
     })
     .filter(Boolean)
@@ -603,11 +918,15 @@ async function buildContractLookups(booking = {}){
       const activeFlag = activeValue !== false && activeLower !== 'false' && activeLower !== '0' && activeLower !== 'no';
       const currentStationCode = safeText(item.currentStationCode || '');
       const currentStationLabel = safeText(item.currentStationLabel || '');
+      const readyToGo = item.readyToGo === true || safeText(item.readyToGo).toLowerCase() === 'true';
+      const hardHold = item.hardHold === true || safeText(item.hardHold).toLowerCase() === 'true';
       const assignedThis = !!currentAssignedId && currentAssignedId === recordId;
       const serviceBlocked = !activeFlag || ['service','blocked','inactive'].includes(operationalStatus.toLowerCase()) || ['service','blocked','inactive'].includes(status.toLowerCase());
       const hardUnavailable = ['assigned','unavailable','out'].includes(operationalStatus.toLowerCase()) || ['assigned','unavailable','out'].includes(status.toLowerCase());
       const busyConflict = !assignedThis && (busyVehicleIds.has(recordId) || hardUnavailable);
       const wrongStation = !assignedThis && !busyConflict && !serviceBlocked && !stationMatchesBooking(requestedStationRaw, currentStationCode, currentStationLabel);
+      const readinessBlocked = !assignedThis && !serviceBlocked && !busyConflict && !wrongStation && !readyToGo;
+      const holdBlocked = !assignedThis && !serviceBlocked && hardHold;
 
       let selectorStatusKey = 'available';
       let selectorStatusLabel = 'Available';
@@ -627,6 +946,12 @@ async function buildContractLookups(booking = {}){
         selectorTone = 'danger';
         selectorStatusReason = 'Vehicle is not operationally available.';
         assignable = false;
+      } else if (holdBlocked) {
+        selectorStatusKey = 'hardHold';
+        selectorStatusLabel = 'Hard hold';
+        selectorTone = 'danger';
+        selectorStatusReason = 'Vehicle is under hard hold and cannot be assigned.';
+        assignable = false;
       } else if (busyConflict) {
         selectorStatusKey = 'busy';
         selectorStatusLabel = 'Busy / conflict';
@@ -638,6 +963,12 @@ async function buildContractLookups(booking = {}){
         selectorStatusLabel = 'Wrong station';
         selectorTone = 'warn';
         selectorStatusReason = `Vehicle currently belongs to ${currentStationLabel || currentStationCode || 'another station'}.`;
+        assignable = false;
+      } else if (readinessBlocked) {
+        selectorStatusKey = 'notReady';
+        selectorStatusLabel = 'Not ready';
+        selectorTone = 'warn';
+        selectorStatusReason = 'Vehicle is not marked ready-to-go for checkout.';
         assignable = false;
       }
 
@@ -659,6 +990,8 @@ async function buildContractLookups(booking = {}){
         excess: safeNum(item.excess),
         ownershipState: safeText(item.ownershipState || ''),
         poolType: safeText(item.poolType || ''),
+        readyToGo,
+        hardHold,
         available: selectorStatusKey === 'available',
         assignable,
         thisBookingAssigned: assignedThis,
@@ -1211,6 +1544,7 @@ export async function getContract({ authToken, bookingId }) {
     rental.paidNowAmount = rental.financials.paidNow;
     rental.depositAmount = rental.financials.deposit;
     rental.financialTransactions = Array.isArray(rental.financialTransactions) ? rental.financialTransactions : (Array.isArray(booking.financialTransactions) ? booking.financialTransactions : []);
+    rental.chargeLines = buildChargeLinesFromCharges(rental.charges || deriveChargeLines(booking, rental?.charges || {}), normalizeChargeLinesPayload(rental.chargeLines || booking.chargeLines || []));
     booking.financials = { ...(booking.financials || {}), ...rental.financials };
     booking.paymentMethod = rental.financials.paymentMethod;
     booking.paymentStatus = rental.financials.paymentStatus;
@@ -1220,6 +1554,21 @@ export async function getContract({ authToken, bookingId }) {
     booking.depositAmount = rental.financials.deposit;
     booking.financialTransactions = rental.financialTransactions;
     syncBookingChargeFields(booking, rental);
+    booking.chargeLines = cloneJson(rental.chargeLines || []);
+    const financialSnapshot = buildFinancialSnapshot({ booking, rental });
+    rental.financialSnapshot = financialSnapshot;
+    rental.commercialState = {
+      paymentStatus: financialSnapshot?.settlement?.paymentStatus || 'pending',
+      outstanding: safeNum(financialSnapshot?.settlement?.balance),
+      updatedAt: new Date()
+    };
+    booking.financialSnapshot = cloneJson(financialSnapshot);
+    booking.paymentStatus = financialSnapshot?.settlement?.paymentStatus || booking.paymentStatus;
+    rental.signatureState = normalizeSignatureState(rental.signatureState || booking.signatureState || {});
+    booking.signatureState = cloneJson(rental.signatureState);
+    const documentPipeline = buildDocumentPipelineSnapshot({ booking, rental, financialSnapshot });
+    rental.documentPipeline = documentPipeline;
+    booking.documentPipeline = cloneJson(documentPipeline);
 
     if (!booking.pricingSnapshot) booking.pricingSnapshot = buildPricingSnapshot(booking, rental);
     rental.pricingSnapshot = cloneJson(booking.pricingSnapshot);
@@ -1439,8 +1788,31 @@ export async function saveContract({ authToken, bookingId, payload, stage }) {
 
     const ch = syncBookingChargeFields(booking, rental);
     const grossTotal = ch.gross;
+    rental.chargeLines = buildChargeLinesFromCharges(ch, normalizeChargeLinesPayload(payload?.chargeLines || rental.chargeLines || []));
+    booking.chargeLines = cloneJson(rental.chargeLines || []);
 
     rental.totals = computeVatBreakdown(grossTotal, vatRate);
+    const financialSnapshot = buildFinancialSnapshot({ booking, rental, totals: ch });
+    rental.financialSnapshot = financialSnapshot;
+    rental.commercialState = {
+      paymentStatus: safeText(payload?.commercialState?.paymentStatus || financialSnapshot?.settlement?.paymentStatus || rental.paymentStatus || 'pending'),
+      settlementState: safeText(payload?.commercialState?.settlementState || (safeNum(financialSnapshot?.settlement?.balance) <= 0 ? 'settled' : (safeNum(financialSnapshot?.settlement?.paidTotal) > 0 ? 'partial' : 'open'))),
+      outstanding: safeNum(financialSnapshot?.settlement?.balance),
+      paidTotal: safeNum(financialSnapshot?.settlement?.paidTotal),
+      updatedAt: new Date(),
+      notes: safeText(payload?.commercialState?.notes || rental?.commercialState?.notes || '')
+    };
+    const guardrailOverride = normalizeCheckoutGuardrailOverride(payload?.checkoutGuardrailOverride);
+    rental.checkoutGuardrailOverride = guardrailOverride || rental.checkoutGuardrailOverride || null;
+    booking.checkoutGuardrailOverride = cloneJson(rental.checkoutGuardrailOverride || null);
+    const signatureState = normalizeSignatureState(payload?.signatureState || rental.signatureState || booking.signatureState || {});
+    rental.signatureState = signatureState;
+    booking.signatureState = cloneJson(signatureState);
+    const documentPipeline = buildDocumentPipelineSnapshot({ booking, rental, financialSnapshot });
+    rental.documentPipeline = documentPipeline;
+    booking.documentPipeline = cloneJson(documentPipeline);
+    booking.financialSnapshot = cloneJson(financialSnapshot);
+    booking.paymentStatus = financialSnapshot?.settlement?.paymentStatus || booking.paymentStatus;
 
     booking.pricingSnapshot = cloneJson(pricingSnapshot);
     rental.pricingSnapshot = cloneJson(pricingSnapshot);
@@ -1488,6 +1860,11 @@ export async function saveContract({ authToken, bookingId, payload, stage }) {
       };
     }
     rental.pricingReview = buildPricingReview(booking, rental);
+
+    if (s === "checkout") {
+      rental.checkoutFinancialSnapshot = cloneJson(financialSnapshot);
+      booking.checkoutFinancialSnapshot = cloneJson(financialSnapshot);
+    }
 
     await wixData.update("RentalsNew", rental, { suppressAuth:true });
     await wixData.update("BookingsNew", booking, { suppressAuth:true });
