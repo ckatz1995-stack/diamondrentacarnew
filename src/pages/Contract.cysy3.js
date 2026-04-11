@@ -388,6 +388,7 @@ function normalizeRentalDraft(rental) {
     deposit: toNumber(financials.deposit ?? draft.depositAmount ?? 0)
   };
   draft.financialTransactions = Array.isArray(draft.financialTransactions) ? draft.financialTransactions : [];
+  draft.chargeLines = Array.isArray(draft.chargeLines) ? draft.chargeLines : [];
   return draft;
 }
 
@@ -428,8 +429,11 @@ function normalizePayload(payload) {
     photos: draft.photos,
     internalMemo: safeText(draft.internalMemo),
     charges: normalizeCharges(draft.charges),
+    chargeLines: Array.isArray(draft.chargeLines) ? draft.chargeLines.map(normalizeChargeLine).filter(Boolean) : [],
     billing: normalizeBilling(draft.billing),
     financialTransactions: Array.isArray(draft.financialTransactions) ? draft.financialTransactions.map(normalizeFinancialTransaction).filter(Boolean) : [],
+    commercialState: normalizeCommercialState(draft.commercialState),
+    checkoutGuardrailOverride: normalizeCheckoutGuardrailOverride(draft.checkoutGuardrailOverride),
     mainDriver: normalizeDriver(draft.mainDriver),
     additionalDrivers: Array.isArray(draft.additionalDrivers) ? draft.additionalDrivers.map(normalizeDriver).filter(Boolean) : []
   };
@@ -464,7 +468,9 @@ function normalizeFinancialTransaction(tx) {
   return {
     id: safeText(tx.id),
     type: safeText(tx.type),
+    category: safeText(tx.category),
     amount: toNumber(tx.amount),
+    signedAmount: toNumber(tx.signedAmount),
     at: tx.at ? new Date(tx.at) : null,
     method: safeText(tx.method),
     party: safeText(tx.party),
@@ -473,7 +479,51 @@ function normalizeFinancialTransaction(tx) {
     terminal: safeText(tx.terminal),
     station: safeText(tx.station),
     user: safeText(tx.user),
-    notes: safeText(tx.notes)
+    notes: safeText(tx.notes),
+    status: safeText(tx.status || "posted")
+  };
+}
+
+function normalizeChargeLine(line) {
+  if (!line || typeof line !== "object") return null;
+  const amount = toNumber(line.amount ?? line.value ?? line.absAmount);
+  return {
+    id: safeText(line.id),
+    code: safeText(line.code),
+    key: safeText(line.key),
+    label: safeText(line.label),
+    category: safeText(line.category),
+    amount,
+    absAmount: Math.abs(amount),
+    sign: toNumber(line.sign, amount < 0 ? -1 : 1),
+    derived: !!line.derived,
+    editable: line.editable !== false,
+    source: safeText(line.source),
+    notes: safeText(line.notes),
+    order: toNumber(line.order),
+    taxable: line.taxable !== false
+  };
+}
+
+function normalizeCommercialState(state) {
+  const draft = state && typeof state === "object" ? state : {};
+  return {
+    paymentStatus: safeText(draft.paymentStatus),
+    settlementState: safeText(draft.settlementState),
+    outstanding: toNumber(draft.outstanding),
+    paidTotal: toNumber(draft.paidTotal),
+    notes: safeText(draft.notes)
+  };
+}
+
+function normalizeCheckoutGuardrailOverride(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const reason = safeText(raw.reason || raw.note || "");
+  if (!reason) return null;
+  return {
+    reason,
+    actor: safeText(raw.actor || raw.user || ""),
+    updatedAt: safeText(raw.updatedAt || raw.at || "")
   };
 }
 
