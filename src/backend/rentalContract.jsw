@@ -973,13 +973,71 @@ async function renderPdfBufferFromHtmlHighFidelity(html, { title = 'Contract doc
   }
 }
 
-async function renderPdfBufferFromHtmlAdapter(html, options = {}){
+function getRendererCapabilitySnapshot(){
+  const supportsHtmlTemplate = true;
+  const supportsPdfFromHtml = true;
+  let supportsPdfFromHtmlHifi = false;
+  const notes = [];
   try {
+    require("puppeteer");
+    supportsPdfFromHtmlHifi = true;
+  } catch (_) {
+    supportsPdfFromHtmlHifi = false;
+    notes.push('Puppeteer module unavailable in current runtime; high-fidelity engine may not run.');
+  }
+  return {
+    supportsHtmlTemplate,
+    supportsPdfFromHtml,
+    supportsPdfFromHtmlHifi,
+    preferredRenderEngine: supportsPdfFromHtmlHifi ? 'puppeteer_html_pdf' : 'pdfkit_text_fallback',
+    availableRenderEngines: supportsPdfFromHtmlHifi ? ['puppeteer_html_pdf', 'pdfkit_text_fallback'] : ['pdfkit_text_fallback'],
+    runtimeLimitations: notes
+  };
+}
+
+async function renderPdfBufferFromHtmlAdapter(html, options = {}){
+  const started = Date.now();
+  const capabilitySnapshot = getRendererCapabilitySnapshot();
+  const attemptedEngines = [];
+  let fallbackUsed = false;
+  let fallbackReason = '';
+  try {
+    attemptedEngines.push('puppeteer_html_pdf');
     const buffer = await renderPdfBufferFromHtmlHighFidelity(html, options);
-    if (buffer && buffer.length) return { buffer, engine: 'puppeteer_html_pdf', fidelity: 'high' };
-  } catch (_) {}
+    if (buffer && buffer.length) {
+      return {
+        success: true,
+        buffer,
+        engine: 'puppeteer_html_pdf',
+        fidelity: 'high',
+        fallbackUsed,
+        fallbackReason,
+        attemptedEngines,
+        durationMs: Date.now() - started,
+        capabilitySnapshot,
+        warnings: capabilitySnapshot.runtimeLimitations || []
+      };
+    }
+    fallbackUsed = true;
+    fallbackReason = 'HIGH_FIDELITY_EMPTY_BUFFER';
+  } catch (e) {
+    fallbackUsed = true;
+    fallbackReason = `HIGH_FIDELITY_ERROR:${safeText(e?.message || e || 'unknown')}`;
+  }
+  attemptedEngines.push('pdfkit_text_fallback');
   const buffer = await renderPdfBufferFromHtml(html, options);
-  return { buffer, engine: 'pdfkit_text_fallback', fidelity: 'baseline' };
+  return {
+    success: true,
+    buffer,
+    engine: 'pdfkit_text_fallback',
+    fidelity: 'baseline',
+    fallbackUsed,
+    fallbackReason,
+    attemptedEngines,
+    durationMs: Date.now() - started,
+    capabilitySnapshot,
+    warnings: capabilitySnapshot.runtimeLimitations || []
+  };
 }
 
 function computePricingDrift(snapshot = {}, working = {}){
@@ -2178,6 +2236,15 @@ export async function exportContractRenderedDocument({ authToken, bookingId, doc
   }
 }
 
+export async function getContractDocumentRenderCapabilities({ authToken }) {
+  await requireStaffAccess({ sessionToken: authToken, area: "rentals", action: "View" });
+  try {
+    return { success:true, capabilities: getRendererCapabilitySnapshot() };
+  } catch (e) {
+    return { success:false, message:e?.message || String(e) };
+  }
+}
+
 export async function exportContractPdfFromHtml({ authToken, bookingId, documentType = 'agreement' }) {
   const rendered = await exportContractRenderedDocument({ authToken, bookingId, documentType });
   if (!rendered?.success) return rendered;
@@ -2194,7 +2261,13 @@ export async function exportContractPdfFromHtml({ authToken, bookingId, document
       filename: `${safeText(documentType || 'document')}_${safeText(rendered?.package?.meta?.bookingNumber || rendered?.package?.meta?.bookingId || 'contract')}.pdf`,
       type: "application/pdf",
       renderEngine: pdfResult.engine,
-      fidelity: pdfResult.fidelity
+      fidelity: pdfResult.fidelity,
+      fallbackUsed: !!pdfResult.fallbackUsed,
+      fallbackReason: safeText(pdfResult.fallbackReason || ''),
+      attemptedEngines: pdfResult.attemptedEngines || [],
+      renderDurationMs: safeNum(pdfResult.durationMs),
+      capabilitySnapshot: pdfResult.capabilitySnapshot || getRendererCapabilitySnapshot(),
+      renderWarnings: Array.isArray(pdfResult.warnings) ? pdfResult.warnings : []
     };
   } catch (e) {
     return { success:false, message:e?.message || String(e), package: rendered.package, printable: rendered.printable, html: rendered.html };
@@ -2480,6 +2553,7 @@ export async function saveContract({ authToken, bookingId, payload, stage }) {
     await wixData.update("BookingsNew", booking, { suppressAuth:true });
     await mirrorToBooking(booking, rental);
 
+    let renderDiagnostics = null;
     // checkout: try PDF/email but NEVER fail the save
     if (s === "checkout") {
       try {
@@ -2500,6 +2574,16 @@ export async function saveContract({ authToken, bookingId, payload, stage }) {
               const pdfResult = await renderPdfBufferFromHtmlAdapter(html, {
                 title: `${documentType.toUpperCase()} • ${safeText(booking.bookingNumber || booking._id)}`
               });
+              renderDiagnostics = {
+                mode: 'pdf_from_html',
+                engine: pdfResult.engine,
+                fidelity: pdfResult.fidelity,
+                fallbackUsed: !!pdfResult.fallbackUsed,
+                fallbackReason: safeText(pdfResult.fallbackReason || ''),
+                attemptedEngines: pdfResult.attemptedEngines || [],
+                durationMs: safeNum(pdfResult.durationMs),
+                capabilitySnapshot: pdfResult.capabilitySnapshot || getRendererCapabilitySnapshot()
+              };
               attachments = [{
                 content: pdfResult.buffer.toString("base64"),
                 filename: `${documentType}_${safeText(booking.bookingNumber || booking._id)}.pdf`,
@@ -2507,6 +2591,16 @@ export async function saveContract({ authToken, bookingId, payload, stage }) {
                 disposition: "attachment"
               }];
             } catch (_) {
+              renderDiagnostics = {
+                mode: 'pdf_from_html',
+                engine: 'legacy_pdfkit_fallback',
+                fidelity: 'legacy',
+                fallbackUsed: true,
+                fallbackReason: 'PDF_FROM_HTML_ADAPTER_FAILED',
+                attemptedEngines: ['puppeteer_html_pdf', 'pdfkit_text_fallback', 'legacy_pdfkit'],
+                durationMs: 0,
+                capabilitySnapshot: getRendererCapabilitySnapshot()
+              };
               const PDFDocument = require("pdfkit");
               const pdfBuffer = await new Promise((resolve, reject) => {
                 try {
@@ -2531,6 +2625,16 @@ export async function saveContract({ authToken, bookingId, payload, stage }) {
               }];
             }
           } else {
+            renderDiagnostics = {
+              mode: 'html_template',
+              engine: 'html_attachment',
+              fidelity: 'html',
+              fallbackUsed: false,
+              fallbackReason: '',
+              attemptedEngines: ['html_attachment'],
+              durationMs: 0,
+              capabilitySnapshot: getRendererCapabilitySnapshot()
+            };
             attachments = [{
               content: Buffer.from(html, "utf8").toString("base64"),
               filename: `${documentType}_${safeText(booking.bookingNumber || booking._id)}.html`,
@@ -2539,6 +2643,16 @@ export async function saveContract({ authToken, bookingId, payload, stage }) {
             }];
           }
         } else {
+          renderDiagnostics = {
+            mode: 'legacy_pdfkit',
+            engine: 'legacy_pdfkit',
+            fidelity: 'legacy',
+            fallbackUsed: false,
+            fallbackReason: '',
+            attemptedEngines: ['legacy_pdfkit'],
+            durationMs: 0,
+            capabilitySnapshot: getRendererCapabilitySnapshot()
+          };
           const PDFDocument = require("pdfkit");
           const pdfBuffer = await new Promise((resolve, reject) => {
             try {
@@ -2593,11 +2707,11 @@ export async function saveContract({ authToken, bookingId, payload, stage }) {
           attachments
         });
       } catch (e) {
-        return { success:true, warning:`Saved but PDF/email failed: ${e?.message || String(e)}`, rentalState:rental.rentalState, totals:rental.totals };
+        return { success:true, warning:`Saved but PDF/email failed: ${e?.message || String(e)}`, rentalState:rental.rentalState, totals:rental.totals, renderDiagnostics };
       }
     }
 
-    return { success:true, rentalState:rental.rentalState, checkinStage:rental.checkinStage, totals:rental.totals };
+    return { success:true, rentalState:rental.rentalState, checkinStage:rental.checkinStage, totals:rental.totals, renderDiagnostics };
   } catch (e) {
     return { success:false, message: e?.message || String(e) };
   }
