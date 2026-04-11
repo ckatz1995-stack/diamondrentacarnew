@@ -908,6 +908,45 @@ function renderContractDocumentHtmlFromPrintable({ packageData = {}, printable =
 </html>`;
 }
 
+function htmlToPlainTextForPdf(html){
+  const source = safeText(html || '');
+  return source
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<\/(h1|h2|h3|p|div|section|tr|li|ul|ol|table|header|footer|main)>/gi, '\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim();
+}
+
+async function renderPdfBufferFromHtml(html, { title = 'Contract document' } = {}){
+  const PDFDocument = require("pdfkit");
+  const printableText = htmlToPlainTextForPdf(html);
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument({ size:"A4", margin:40 });
+      const chunks = [];
+      doc.on("data", (c) => chunks.push(c));
+      doc.on("end", () => resolve(Buffer.concat(chunks)));
+      doc.on("error", reject);
+      doc.fontSize(16).text(safeText(title || 'Contract document'));
+      doc.moveDown(0.6);
+      doc.fontSize(9).text(printableText || 'No rendered HTML content.', { width: 520 });
+      doc.end();
+    } catch (e) {
+      reject(e);
+    }
+  });
+}
+
 function computePricingDrift(snapshot = {}, working = {}){
   const keys = ['rental','insurance','options','ageFee','nightFee','transport','damages','surcharges','discount','gross'];
   const lineItems = keys.map((key) => {
@@ -2104,6 +2143,27 @@ export async function exportContractRenderedDocument({ authToken, bookingId, doc
   }
 }
 
+export async function exportContractPdfFromHtml({ authToken, bookingId, documentType = 'agreement' }) {
+  const rendered = await exportContractRenderedDocument({ authToken, bookingId, documentType });
+  if (!rendered?.success) return rendered;
+  try {
+    const pdfBuffer = await renderPdfBufferFromHtml(rendered.html || '', {
+      title: `${safeText(documentType).toUpperCase()} • ${safeText(rendered?.package?.meta?.bookingNumber || rendered?.package?.meta?.bookingId || '')}`
+    });
+    return {
+      success:true,
+      package: rendered.package,
+      printable: rendered.printable,
+      html: rendered.html,
+      pdfBase64: pdfBuffer.toString("base64"),
+      filename: `${safeText(documentType || 'document')}_${safeText(rendered?.package?.meta?.bookingNumber || rendered?.package?.meta?.bookingId || 'contract')}.pdf`,
+      type: "application/pdf"
+    };
+  } catch (e) {
+    return { success:false, message:e?.message || String(e), package: rendered.package, printable: rendered.printable, html: rendered.html };
+  }
+}
+
 
 export async function confirmBookingAnalysis({ authToken, bookingId }) {
   await requireStaffAccess({ sessionToken: authToken, area: "rentals", action: "Edit" });
@@ -2388,20 +2448,59 @@ export async function saveContract({ authToken, bookingId, payload, stage }) {
       try {
         // lazy-load deps
         const sgMailMod = require("@sendgrid/mail");
-        const useHtmlRenderer = safeText(payload?.documentRenderMode || '').toLowerCase() === 'html_template';
+        const renderMode = safeText(payload?.documentRenderMode || '').toLowerCase();
+        const useHtmlRenderer = renderMode === 'html_template';
+        const usePdfFromHtml = renderMode === 'pdf_from_html';
 
         let attachments = [];
-        if (useHtmlRenderer) {
+        if (useHtmlRenderer || usePdfFromHtml) {
           const documentType = safeText(payload?.documentType || 'receipt').toLowerCase();
           const packageData = buildContractDocumentPackage({ booking, rental, documentType });
           const printable = buildPrintableDocumentModelFromPackage(packageData);
           const html = renderContractDocumentHtmlFromPrintable({ packageData, printable });
-          attachments = [{
-            content: Buffer.from(html, "utf8").toString("base64"),
-            filename: `${documentType}_${safeText(booking.bookingNumber || booking._id)}.html`,
-            type: "text/html",
-            disposition: "attachment"
-          }];
+          if (usePdfFromHtml) {
+            try {
+              const pdfBuffer = await renderPdfBufferFromHtml(html, {
+                title: `${documentType.toUpperCase()} • ${safeText(booking.bookingNumber || booking._id)}`
+              });
+              attachments = [{
+                content: pdfBuffer.toString("base64"),
+                filename: `${documentType}_${safeText(booking.bookingNumber || booking._id)}.pdf`,
+                type: "application/pdf",
+                disposition: "attachment"
+              }];
+            } catch (_) {
+              const PDFDocument = require("pdfkit");
+              const pdfBuffer = await new Promise((resolve, reject) => {
+                try {
+                  const doc = new PDFDocument({ size:"A4", margin:42 });
+                  const chunks = [];
+                  doc.on("data", c => chunks.push(c));
+                  doc.on("end", () => resolve(Buffer.concat(chunks)));
+                  doc.on("error", reject);
+                  doc.fontSize(18).text("Rental Receipt / Contract");
+                  doc.moveDown(0.6);
+                  doc.fontSize(10).text(`Booking: ${safeText(booking.bookingNumber)}`);
+                  doc.text(`Customer: ${safeText(booking.customerName)}`);
+                  doc.text(`Vehicle: ${safeText(booking.assignedVehicleLabel || booking.assignedVehiclePlate || rental.assignedVehicleLabel || "-")}`);
+                  doc.end();
+                } catch(e){ reject(e); }
+              });
+              attachments = [{
+                content: pdfBuffer.toString("base64"),
+                filename: `Receipt_${safeText(booking.bookingNumber || booking._id)}.pdf`,
+                type: "application/pdf",
+                disposition: "attachment"
+              }];
+            }
+          } else {
+            attachments = [{
+              content: Buffer.from(html, "utf8").toString("base64"),
+              filename: `${documentType}_${safeText(booking.bookingNumber || booking._id)}.html`,
+              type: "text/html",
+              disposition: "attachment"
+            }];
+          }
         } else {
           const PDFDocument = require("pdfkit");
           const pdfBuffer = await new Promise((resolve, reject) => {
