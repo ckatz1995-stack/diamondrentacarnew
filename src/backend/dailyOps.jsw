@@ -81,6 +81,31 @@ function isPendingStatus(status){ const s = norm(status); return ["pending","req
 function isNonRevenueLite(it){ const blob = [it?.rentalState,it?.status,it?.category,it?.categoryCode,it?.source,it?.selectedPackage,it?.extras,it?.internalMemo,it?.remarks].map(safeText).join(" ").toLowerCase(); return /non.?revenue|complimentary|replacement|service|internal use|staff use/.test(blob); }
 function hasEquipmentExtras(it){ if (Array.isArray(it?.selectedExtrasList) && it.selectedExtrasList.length) return true; const extras = safeText(it?.extras); if (extras) return true; const selected = safeText(it?.selectedPackage); return /baby|booster|gps|ski|chains|wifi|seat|equipment|extra/.test((extras + " " + selected).toLowerCase()); }
 function stationOf(it){ return safeText(it?.station || it?.pickupStation || it?.dropoffStation || it?.pickuppoint || it?.dropoffpoint || ""); }
+function deriveRequestTriage(item = {}, rangeStart = new Date()){
+  const pickup = asDate(item.pickupDateTime);
+  const hoursToPickup = pickup ? Math.round((pickup.getTime() - rangeStart.getTime()) / 36e5) : null;
+  let score = 0;
+  const reasons = [];
+  if (hoursToPickup != null && hoursToPickup <= 12) { score += 45; reasons.push("Pickup in ≤12h"); }
+  else if (hoursToPickup != null && hoursToPickup <= 24) { score += 30; reasons.push("Pickup in ≤24h"); }
+  else if (hoursToPickup != null && hoursToPickup <= 48) { score += 20; reasons.push("Pickup in ≤48h"); }
+  if (!safeText(item.assignedVehicle || item.assignedVehicleLabel || item.assignedVehiclePlate)) { score += 18; reasons.push("No assigned vehicle"); }
+  if (!safeText(item.flightNumber) && /airport|αεροδρ/i.test(`${safeText(item.pickuppoint)} ${safeText(item.dropoffpoint)}`)) { score += 12; reasons.push("Airport transfer without flight"); }
+  if (safeNum(item.totalBalance) > 0) { score += 8; reasons.push("Outstanding balance"); }
+  if (safeText(item.paymentStatus).toLowerCase() === "pending") { score += 8; reasons.push("Payment pending"); }
+  if (safeText(item.vehicleServiceBlocked)) { score += 20; reasons.push("Assigned vehicle blocked"); }
+
+  const priority = score >= 60 ? "urgent" : score >= 35 ? "high" : score >= 20 ? "medium" : "low";
+  const slaHours = priority === "urgent" ? 1 : priority === "high" ? 2 : priority === "medium" ? 6 : 12;
+  return {
+    score,
+    priority,
+    slaHours,
+    dueAt: addDays(rangeStart, slaHours / 24).toISOString(),
+    reasons,
+    suggestedAction: priority === "urgent" || priority === "high" ? "Escalate + assign now" : "Review and schedule"
+  };
+}
 async function getFleetMapByIds(ids){
   const uniq = Array.from(new Set((ids || []).filter(Boolean).map(String)));
   const map = new Map();
@@ -261,7 +286,10 @@ export async function getDailyOps({ authToken, startISO, endISO } = {}) {
     const checkIn = confirmed.filter((it)=> { const dt = asDate(it.dropoffDateTime); return dt && dt >= start && dt < end; }).sort(byDropoff);
     const bookings = confirmed.filter((it)=> { const dt = asDate(it.confirmedAt); return dt && dt >= start && dt < end; }).sort((a,b)=> (asDate(b.confirmedAt)?.getTime() || 0) - (asDate(a.confirmedAt)?.getTime() || 0));
     const preCheckins = confirmed.filter((it)=> { const pickup = asDate(it.pickupDateTime); if (!pickup) return false; if (/pre check-in/i.test(safeText(it.rentalState))) return true; const next48h = addDays(end, 2); return pickup >= end && pickup < next48h; }).sort(byStart);
-    const requests = pendingish.filter((it)=> { const pickup = asDate(it.pickupDateTime); const changed = asDate(it.confirmedAt || it.canceledAt); return (pickup && pickup >= start && pickup < addDays(end, 3)) || (changed && changed >= start && changed < end); }).sort(byStart);
+    const requests = pendingish
+      .filter((it)=> { const pickup = asDate(it.pickupDateTime); const changed = asDate(it.confirmedAt || it.canceledAt); return (pickup && pickup >= start && pickup < addDays(end, 3)) || (changed && changed >= start && changed < end); })
+      .map((it) => ({ ...it, requestTriage: deriveRequestTriage(it, start) }))
+      .sort((a,b) => (safeNum(b.requestTriage?.score) - safeNum(a.requestTriage?.score)) || byStart(a,b));
     const cancellations = canceled.filter((it)=> { const cancelDt = asDate(it.canceledAt); const pickup = asDate(it.pickupDateTime); const dropoff = asDate(it.dropoffDateTime); return (cancelDt && cancelDt >= start && cancelDt < end) || (pickup && pickup >= start && pickup < end) || (dropoff && dropoff >= start && dropoff < end); }).sort((a,b)=> (asDate(b.canceledAt)?.getTime() || 0) - (asDate(a.canceledAt)?.getTime() || 0));
     const activeUnder = active.filter((it)=> safeNum(it.billableDays) < 30).sort(byStart);
     const activeOver = active.filter((it)=> safeNum(it.billableDays) >= 30).sort(byStart);
@@ -295,6 +323,8 @@ export async function actOnDailyRequest({ authToken, bookingId, action } = {}){
   const act = norm(action);
   if (!id || !act) return { success:false, message:"Missing params" };
   if (act === "accept") return setBookingBoardStatus({ authToken, bookingId:id, newStatus:"Confirmed" });
+  if (act === "hold") return setBookingBoardStatus({ authToken, bookingId:id, newStatus:"Hold" });
+  if (act === "escalate") return setBookingBoardStatus({ authToken, bookingId:id, newStatus:"Escalated" });
   if (act === "decline") return setBookingBoardStatus({ authToken, bookingId:id, newStatus:"Canceled" });
   return { success:false, message:"Unknown action" };
 }
