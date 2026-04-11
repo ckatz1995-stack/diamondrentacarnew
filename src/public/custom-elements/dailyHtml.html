@@ -1351,13 +1351,6 @@
     const contractLabel = key === 'checkout' ? 'Check out' : (key === 'checkin' ? 'Check in' : 'Contract');
 
     if (item.itemType !== 'fleet') {
-      if (key === 'requests') {
-        btns.push(`<button class="${cls}" type="button" data-row-action="review" data-row-id="${esc(id)}" data-row-tab="${esc(key)}">Review</button>`);
-        btns.push(`<button class="${cls} primary" type="button" data-request-action="accept" data-row-id="${esc(id)}">Accept</button>`);
-        btns.push(`<button class="${cls}" type="button" data-request-action="hold" data-row-id="${esc(id)}">Hold</button>`);
-        btns.push(`<button class="${cls}" type="button" data-request-action="escalate" data-row-id="${esc(id)}">Escalate</button>`);
-        btns.push(`<button class="${cls} warn" type="button" data-request-action="decline" data-row-id="${esc(id)}">Decline</button>`);
-      }
       const contractBlocked = (key === 'checkout' && gate.checkoutEligible === false) || (key === 'checkin' && gate.checkinEligible === false);
       btns.push(`<button class="${cls} primary" type="button" data-row-action="contract" data-row-id="${esc(id)}" data-row-tab="${esc(key)}"${disableIf(contractBlocked)}>${esc(contractLabel)}</button>`);
       btns.push(`<button class="${cls}" type="button" data-row-action="fleet" data-row-id="${esc(id)}" data-row-tab="${esc(key)}"${disableIf(gate.fleetEnabled === false)}>Fleet</button>`);
@@ -1460,7 +1453,7 @@
     const summaryBtn = e.target.closest('[data-summary-tab]');
     if (summaryBtn) { const target = summaryTarget(summaryBtn.getAttribute('data-summary-tab') || 'bookings'); state.viewMode = target.mode; state.activeTab = target.tab === 'checkin' ? 'checkin' : (target.tab === 'checkout' ? 'checkout' : target.tab); state.selected = { tab: state.activeTab, id:'' }; render(); return; }
     const rowAct = e.target.closest('[data-row-action]');
-    if (rowAct) { const tab = rowAct.getAttribute('data-row-tab') || state.activeTab; const id = rowAct.getAttribute('data-row-id') || ''; const item = itemByTabId(tab, id); if (!item) return; state.selected = { tab, id }; const action = rowAct.getAttribute('data-row-action') || ''; if (action === 'review') return openRequestModal(item); if (action === 'contract') return openContract(safe(item._id || item.id)); if (action === 'fleet') return openFleet(item); if (action === 'vehicle') return openVehicleCard(item); if (action === 'bookings') return openBookings(item); return; }
+    if (rowAct) { const tab = rowAct.getAttribute('data-row-tab') || state.activeTab; const id = rowAct.getAttribute('data-row-id') || ''; const item = itemByTabId(tab, id); if (!item) return; state.selected = { tab, id }; const action = rowAct.getAttribute('data-row-action') || ''; if (action === 'contract') return openContract(safe(item._id || item.id)); if (action === 'fleet') return openFleet(item); if (action === 'vehicle') return openVehicleCard(item); if (action === 'bookings') return openBookings(item); return; }
     const row = e.target.closest('[data-select-id]');
     if (row) { state.selected = { tab: row.getAttribute('data-select-tab') || state.activeTab, id: row.getAttribute('data-select-id') || '' }; render(); return; }
     const act = e.target.closest('[data-action]');
