@@ -496,6 +496,171 @@ function buildDocumentPipelineSnapshot({ booking = {}, rental = {}, financialSna
   };
 }
 
+function getDocumentReadinessSlice(documentPipeline = {}, documentType = 'agreement'){
+  const pipeline = documentPipeline && typeof documentPipeline === 'object' ? documentPipeline : {};
+  const docs = pipeline.docs && typeof pipeline.docs === 'object' ? pipeline.docs : {};
+  const keyMap = { agreement:'agreement', voucher:'voucher', invoice:'invoice', receipt:'receipt' };
+  const key = keyMap[safeText(documentType).toLowerCase()] || 'agreement';
+  const doc = docs[key] && typeof docs[key] === 'object' ? docs[key] : { status:'review', blockers:['Readiness not computed.'], warnings:[] };
+  return {
+    requestedType: key,
+    overallStatus: safeText(pipeline.overallStatus || doc.status || 'review'),
+    status: safeText(doc.status || 'review'),
+    blockers: Array.isArray(doc.blockers) ? doc.blockers.map((x) => safeText(x)).filter(Boolean) : [],
+    warnings: Array.isArray(doc.warnings) ? doc.warnings.map((x) => safeText(x)).filter(Boolean) : []
+  };
+}
+
+function buildContractDocumentPackage({ booking = {}, rental = {}, documentType = 'agreement' } = {}){
+  const type = safeText(documentType || 'agreement').toLowerCase();
+  const supported = new Set(['agreement', 'voucher', 'invoice', 'receipt']);
+  const normalizedType = supported.has(type) ? type : 'agreement';
+  const billing = mergeBillingFallback(booking, rental);
+  const financialSnapshot = cloneJson(rental?.financialSnapshot || booking?.financialSnapshot || buildFinancialSnapshot({ booking, rental }));
+  const commercialState = cloneJson(rental?.commercialState || booking?.commercialState || {});
+  const signatureState = normalizeSignatureState(rental?.signatureState || booking?.signatureState || {});
+  const documentPipeline = cloneJson(rental?.documentPipeline || booking?.documentPipeline || buildDocumentPipelineSnapshot({ booking, rental, financialSnapshot }));
+  const readiness = getDocumentReadinessSlice(documentPipeline, normalizedType);
+  const chargeLines = Array.isArray(rental?.chargeLines) ? rental.chargeLines : (Array.isArray(booking?.chargeLines) ? booking.chargeLines : []);
+  const movementPickup = asDate(booking?.pickupDateTime);
+  const movementDropoff = asDate(booking?.dropoffDateTime);
+  const customerName = safeText(booking?.customerName).trim();
+  const mainDriver = rental?.mainDriver && typeof rental.mainDriver === 'object' ? rental.mainDriver : {};
+  const additionalDrivers = Array.isArray(rental?.additionalDrivers) ? rental.additionalDrivers : [];
+  const vehicleLabel = safeText(booking?.assignedVehicleLabel || rental?.assignedVehicleLabel || booking?.assignedVehiclePlate || rental?.assignedVehiclePlate).trim();
+
+  const base = {
+    meta: {
+      generatedAt: new Date().toISOString(),
+      documentType: normalizedType,
+      bookingId: safeText(booking?._id),
+      bookingNumber: safeText(booking?.bookingNumber),
+      rentalId: safeText(rental?._id),
+      rentalState: safeText(rental?.rentalState || booking?.rentalState || ''),
+      bookingStatus: safeText(booking?.status || ''),
+      source: 'contract_document_package_v1'
+    },
+    identity: {
+      customer: {
+        name: customerName,
+        phone: safeText(booking?.phone).trim(),
+        email: safeText(booking?.email).trim(),
+        city: safeText(booking?.customerCity).trim()
+      },
+      mainDriver: {
+        fullName: safeText(mainDriver?.fullName).trim(),
+        phone: safeText(mainDriver?.phone).trim(),
+        email: safeText(mainDriver?.email).trim(),
+        idNo: safeText(mainDriver?.idNo).trim(),
+        licenseNo: safeText(mainDriver?.licenseNo).trim()
+      },
+      additionalDrivers: additionalDrivers.map((d) => ({
+        fullName: safeText(d?.fullName).trim(),
+        idNo: safeText(d?.idNo).trim(),
+        licenseNo: safeText(d?.licenseNo).trim()
+      }))
+    },
+    movement: {
+      pickupDateTime: movementPickup ? movementPickup.toISOString() : '',
+      dropoffDateTime: movementDropoff ? movementDropoff.toISOString() : '',
+      pickupPoint: safeText(booking?.pickuppoint).trim(),
+      dropoffPoint: safeText(booking?.dropoffpoint).trim(),
+      pickupComment: safeText(booking?.pickupComment).trim(),
+      dropoffComment: safeText(booking?.dropoffComment).trim(),
+      flightNumber: safeText(booking?.flightNumber).trim(),
+      originCity: safeText(booking?.originCity).trim()
+    },
+    vehicle: {
+      assignedVehicleId: safeText(booking?.assignedVehicle || rental?.assignedVehicleId).trim(),
+      label: vehicleLabel,
+      plate: safeText(booking?.assignedVehiclePlate || rental?.assignedVehiclePlate).trim(),
+      model: safeText(booking?.assignedVehicleModel || rental?.assignedVehicleModel).trim(),
+      categoryCode: safeText(booking?.assignedCategoryCode || rental?.assignedCategoryCode || booking?.categoryId).trim(),
+      stationCode: safeText(booking?.assignedVehicleStationCode || rental?.assignedVehicleStationCode).trim(),
+      stationLabel: safeText(booking?.assignedVehicleStationLabel || rental?.assignedVehicleStationLabel).trim()
+    },
+    financial: {
+      totals: cloneJson(financialSnapshot?.totals || {}),
+      settlement: cloneJson(financialSnapshot?.settlement || {}),
+      ledger: cloneJson(financialSnapshot?.ledger || {}),
+      commercialState,
+      chargeLines: chargeLines.map((line) => ({
+        code: safeText(line?.code || line?.key).trim(),
+        label: safeText(line?.label).trim(),
+        amount: round2(line?.amount),
+        category: safeText(line?.category).trim(),
+        taxable: line?.taxable !== false
+      }))
+    },
+    billing: {
+      invoiceType: safeText(billing?.invoiceType).trim(),
+      vatRate: safeNum(billing?.vatRate ?? 0.24),
+      vatInclusive: billing?.vatInclusive !== false,
+      companyName: safeText(billing?.companyName).trim(),
+      tradeName: safeText(billing?.tradeName).trim(),
+      vatNumber: safeText(billing?.vatNumber).trim(),
+      profession: safeText(billing?.profession).trim(),
+      taxOffice: safeText(billing?.taxOffice).trim(),
+      address: safeText(billing?.address).trim(),
+      city: safeText(billing?.city).trim(),
+      zip: safeText(billing?.zip).trim(),
+      country: safeText(billing?.country).trim(),
+      phone: safeText(billing?.phone).trim(),
+      companyEmail: safeText(billing?.companyEmail).trim(),
+      contactPerson: safeText(billing?.contactPerson).trim()
+    },
+    readiness: {
+      requestedType: readiness.requestedType,
+      status: readiness.status,
+      overallStatus: readiness.overallStatus,
+      blockers: readiness.blockers,
+      warnings: readiness.warnings,
+      pipelineSource: safeText(documentPipeline?.source || 'derived')
+    },
+    signature: {
+      status: safeText(signatureState?.status || 'not_started'),
+      signerName: safeText(signatureState?.signerName).trim(),
+      signedAt: signatureState?.signedAt ? asDate(signatureState.signedAt)?.toISOString() || '' : '',
+      note: safeText(signatureState?.note).trim(),
+      actor: safeText(signatureState?.actor).trim(),
+      updatedAt: signatureState?.updatedAt ? asDate(signatureState.updatedAt)?.toISOString() || '' : ''
+    },
+    printableContext: {
+      title: `${normalizedType.toUpperCase()} • ${safeText(booking?.bookingNumber || booking?._id)}`,
+      summaryLine: [customerName || 'Customer pending', vehicleLabel || 'Vehicle pending', safeText(booking?.bookingNumber || '')].filter(Boolean).join(' • ')
+    }
+  };
+
+  if (normalizedType === 'agreement') {
+    base.document = {
+      termsFocus: 'rental_agreement',
+      includeFinancialSettlement: true,
+      includeSignatureBlock: true
+    };
+  } else if (normalizedType === 'voucher') {
+    base.document = {
+      termsFocus: 'booking_voucher',
+      voucherNumber: safeText(booking?.voucherNumber).trim(),
+      confirmationNumber: safeText(booking?.confirmationNumber).trim(),
+      includeSignatureBlock: false
+    };
+  } else if (normalizedType === 'invoice') {
+    base.document = {
+      termsFocus: 'invoice_ready_payload',
+      billingRequired: true,
+      paymentStatus: safeText(financialSnapshot?.settlement?.paymentStatus).trim()
+    };
+  } else if (normalizedType === 'receipt') {
+    base.document = {
+      termsFocus: 'receipt_ready_payload',
+      paidTotal: round2(financialSnapshot?.settlement?.paidTotal),
+      balance: round2(financialSnapshot?.settlement?.balance)
+    };
+  }
+
+  return base;
+}
+
 function computePricingDrift(snapshot = {}, working = {}){
   const keys = ['rental','insurance','options','ageFee','nightFee','transport','damages','surcharges','discount','gross'];
   const lineItems = keys.map((key) => {
@@ -654,6 +819,41 @@ async function getRentalByBookingId(bookingId){
     .find({ suppressAuth:true });
 
   return (res.items && res.items[0]) ? res.items[0] : null;
+}
+
+function buildRentalDraftFromBooking(booking = {}){
+  const fallbackCharges = deriveChargeLines(booking, {
+    rental: booking.baseCost,
+    insurance: booking.insuranceCost,
+    options: booking.extrasTotal,
+    ageFee: booking.ageFee,
+    nightFee: booking.nightFee,
+    transport: 0,
+    damages: 0,
+    surcharges: 0,
+    discount: 0
+  });
+  return {
+    bookingId: safeText(booking?._id),
+    rentalState: safeText(booking?.rentalState || 'Booking'),
+    assignedVehicleLabel: safeText(booking?.assignedVehicleLabel || booking?.assignedVehiclePlate || ''),
+    assignedVehiclePlate: safeText(booking?.assignedVehiclePlate || ''),
+    assignedVehicleModel: safeText(booking?.assignedVehicleModel || ''),
+    assignedCategoryCode: safeText(booking?.assignedCategoryCode || booking?.categoryId || ''),
+    assignedVehicleStationCode: safeText(booking?.assignedVehicleStationCode || ''),
+    assignedVehicleStationLabel: safeText(booking?.assignedVehicleStationLabel || ''),
+    mainDriver: booking?.mainDriver || null,
+    additionalDrivers: Array.isArray(booking?.additionalDrivers) ? booking.additionalDrivers : [],
+    charges: fallbackCharges,
+    chargeLines: Array.isArray(booking?.chargeLines) ? booking.chargeLines : buildChargeLinesFromCharges(fallbackCharges, []),
+    billing: mergeBillingFallback(booking, {}),
+    financials: mergeFinancialsFallback(booking, {}),
+    financialTransactions: Array.isArray(booking?.financialTransactions) ? booking.financialTransactions : [],
+    commercialState: booking?.commercialState || {},
+    financialSnapshot: booking?.financialSnapshot || null,
+    documentPipeline: booking?.documentPipeline || null,
+    signatureState: booking?.signatureState || null
+  };
 }
 
 async function ensureRentalForBooking(booking){
@@ -1588,6 +1788,50 @@ export async function getContract({ authToken, bookingId }) {
     return { success:true, booking, rental, lookups };
   } catch (e) {
     return { success:false, message: e?.message || String(e) };
+  }
+}
+
+export async function exportContractDocumentPackage({ authToken, bookingId, documentType = 'agreement' }) {
+  await requireStaffAccess({ sessionToken: authToken, area: "rentals", action: "View" });
+  try {
+    if (!bookingId) return { success:false, message:"Missing bookingId" };
+    const booking = await wixData.get("BookingsNew", bookingId, { suppressAuth:true });
+    if (!booking) return { success:false, message:"Booking not found" };
+    booking.pickuppoint = pickLabel(booking.pickuppoint);
+    booking.dropoffpoint = pickLabel(booking.dropoffpoint);
+
+    let rental = await getRentalByBookingId(bookingId);
+    if (!rental) rental = buildRentalDraftFromBooking(booking);
+    rental = { ...rental };
+    rental.billing = mergeBillingFallback(booking, rental);
+    rental.financials = mergeFinancialsFallback(booking, rental);
+    rental.financialTransactions = Array.isArray(rental.financialTransactions) ? rental.financialTransactions : (Array.isArray(booking.financialTransactions) ? booking.financialTransactions : []);
+    if (!rental.charges || typeof rental.charges !== 'object') {
+      rental.charges = deriveChargeLines(booking, {});
+    }
+    if (!Array.isArray(rental.chargeLines) || !rental.chargeLines.length) {
+      rental.chargeLines = buildChargeLinesFromCharges(rental.charges, normalizeChargeLinesPayload(booking?.chargeLines || []));
+    }
+    if (!rental.financialSnapshot || typeof rental.financialSnapshot !== 'object') {
+      rental.financialSnapshot = buildFinancialSnapshot({ booking, rental });
+    }
+    if (!rental.commercialState || typeof rental.commercialState !== 'object') {
+      rental.commercialState = {
+        paymentStatus: safeText(rental.financialSnapshot?.settlement?.paymentStatus || booking?.paymentStatus || 'pending'),
+        settlementState: safeNum(rental.financialSnapshot?.settlement?.balance) <= 0 ? 'settled' : (safeNum(rental.financialSnapshot?.settlement?.paidTotal) > 0 ? 'partial' : 'open'),
+        outstanding: safeNum(rental.financialSnapshot?.settlement?.balance),
+        paidTotal: safeNum(rental.financialSnapshot?.settlement?.paidTotal)
+      };
+    }
+    rental.signatureState = normalizeSignatureState(rental.signatureState || booking.signatureState || {});
+    if (!rental.documentPipeline || typeof rental.documentPipeline !== 'object') {
+      rental.documentPipeline = buildDocumentPipelineSnapshot({ booking, rental, financialSnapshot: rental.financialSnapshot });
+    }
+
+    const pkg = buildContractDocumentPackage({ booking, rental, documentType });
+    return { success:true, package: pkg };
+  } catch (e) {
+    return { success:false, message:e?.message || String(e) };
   }
 }
 
