@@ -947,6 +947,41 @@ async function renderPdfBufferFromHtml(html, { title = 'Contract document' } = {
   });
 }
 
+async function renderPdfBufferFromHtmlHighFidelity(html, { title = 'Contract document' } = {}){
+  let browser = null;
+  try {
+    const puppeteer = require("puppeteer");
+    browser = await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
+    const page = await browser.newPage();
+    await page.setContent(safeText(html || ''), { waitUntil: 'networkidle0' });
+    const buffer = await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      displayHeaderFooter: true,
+      headerTemplate: '<div></div>',
+      footerTemplate: `<div style="font-size:8px;color:#666;padding:0 10px;width:100%;text-align:right;">${escapeHtml(title)}</div>`,
+      margin: { top: '18mm', right: '10mm', bottom: '16mm', left: '10mm' }
+    });
+    return Buffer.from(buffer);
+  } finally {
+    if (browser) {
+      try { await browser.close(); } catch (_) {}
+    }
+  }
+}
+
+async function renderPdfBufferFromHtmlAdapter(html, options = {}){
+  try {
+    const buffer = await renderPdfBufferFromHtmlHighFidelity(html, options);
+    if (buffer && buffer.length) return { buffer, engine: 'puppeteer_html_pdf', fidelity: 'high' };
+  } catch (_) {}
+  const buffer = await renderPdfBufferFromHtml(html, options);
+  return { buffer, engine: 'pdfkit_text_fallback', fidelity: 'baseline' };
+}
+
 function computePricingDrift(snapshot = {}, working = {}){
   const keys = ['rental','insurance','options','ageFee','nightFee','transport','damages','surcharges','discount','gross'];
   const lineItems = keys.map((key) => {
@@ -2147,7 +2182,7 @@ export async function exportContractPdfFromHtml({ authToken, bookingId, document
   const rendered = await exportContractRenderedDocument({ authToken, bookingId, documentType });
   if (!rendered?.success) return rendered;
   try {
-    const pdfBuffer = await renderPdfBufferFromHtml(rendered.html || '', {
+    const pdfResult = await renderPdfBufferFromHtmlAdapter(rendered.html || '', {
       title: `${safeText(documentType).toUpperCase()} • ${safeText(rendered?.package?.meta?.bookingNumber || rendered?.package?.meta?.bookingId || '')}`
     });
     return {
@@ -2155,9 +2190,11 @@ export async function exportContractPdfFromHtml({ authToken, bookingId, document
       package: rendered.package,
       printable: rendered.printable,
       html: rendered.html,
-      pdfBase64: pdfBuffer.toString("base64"),
+      pdfBase64: pdfResult.buffer.toString("base64"),
       filename: `${safeText(documentType || 'document')}_${safeText(rendered?.package?.meta?.bookingNumber || rendered?.package?.meta?.bookingId || 'contract')}.pdf`,
-      type: "application/pdf"
+      type: "application/pdf",
+      renderEngine: pdfResult.engine,
+      fidelity: pdfResult.fidelity
     };
   } catch (e) {
     return { success:false, message:e?.message || String(e), package: rendered.package, printable: rendered.printable, html: rendered.html };
@@ -2460,11 +2497,11 @@ export async function saveContract({ authToken, bookingId, payload, stage }) {
           const html = renderContractDocumentHtmlFromPrintable({ packageData, printable });
           if (usePdfFromHtml) {
             try {
-              const pdfBuffer = await renderPdfBufferFromHtml(html, {
+              const pdfResult = await renderPdfBufferFromHtmlAdapter(html, {
                 title: `${documentType.toUpperCase()} • ${safeText(booking.bookingNumber || booking._id)}`
               });
               attachments = [{
-                content: pdfBuffer.toString("base64"),
+                content: pdfResult.buffer.toString("base64"),
                 filename: `${documentType}_${safeText(booking.bookingNumber || booking._id)}.pdf`,
                 type: "application/pdf",
                 disposition: "attachment"
