@@ -661,6 +661,175 @@ function buildContractDocumentPackage({ booking = {}, rental = {}, documentType 
   return base;
 }
 
+function formatPrintableDate(value){
+  const d = asDate(value);
+  if (!d) return '—';
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mi = String(d.getMinutes()).padStart(2, '0');
+  return `${dd}/${mm}/${yyyy} ${hh}:${mi}`;
+}
+
+function formatPrintableMoney(value){
+  return `${round2(value).toFixed(2)} €`;
+}
+
+function row(label, value){
+  return { label: safeText(label), value: safeText(value || '—') || '—' };
+}
+
+function buildPrintableDocumentModelFromPackage(pkg = {}){
+  const p = pkg && typeof pkg === 'object' ? pkg : {};
+  const meta = p.meta || {};
+  const identity = p.identity || {};
+  const movement = p.movement || {};
+  const vehicle = p.vehicle || {};
+  const financial = p.financial || {};
+  const billing = p.billing || {};
+  const readiness = p.readiness || {};
+  const signature = p.signature || {};
+  const doc = p.document || {};
+  const type = safeText(meta.documentType || readiness.requestedType || 'agreement').toLowerCase();
+  const totals = financial.totals || {};
+  const settlement = financial.settlement || {};
+  const lines = Array.isArray(financial.chargeLines) ? financial.chargeLines : [];
+  const blockers = Array.isArray(readiness.blockers) ? readiness.blockers : [];
+  const warnings = Array.isArray(readiness.warnings) ? readiness.warnings : [];
+
+  const sections = [];
+  sections.push({
+    key: 'header',
+    title: `${type.toUpperCase()} • ${safeText(meta.bookingNumber || meta.bookingId || 'Contract')}`,
+    rows: [
+      row('Generated', formatPrintableDate(meta.generatedAt)),
+      row('Rental state', meta.rentalState),
+      row('Booking status', meta.bookingStatus),
+      row('Readiness', `${safeText(readiness.status || 'review').toUpperCase()} (${safeText(readiness.overallStatus || readiness.status || 'review')})`)
+    ]
+  });
+  sections.push({
+    key: 'identity',
+    title: 'Customer / Driver',
+    rows: [
+      row('Customer', identity?.customer?.name),
+      row('Phone', identity?.customer?.phone),
+      row('Email', identity?.customer?.email),
+      row('Main driver', identity?.mainDriver?.fullName),
+      row('ID / License', [identity?.mainDriver?.idNo, identity?.mainDriver?.licenseNo].filter(Boolean).join(' / '))
+    ]
+  });
+  sections.push({
+    key: 'movement',
+    title: 'Rental movement',
+    rows: [
+      row('Pickup', `${formatPrintableDate(movement.pickupDateTime)} • ${movement.pickupPoint || '—'}`),
+      row('Dropoff', `${formatPrintableDate(movement.dropoffDateTime)} • ${movement.dropoffPoint || '—'}`),
+      row('Flight', movement.flightNumber),
+      row('Origin city', movement.originCity)
+    ]
+  });
+  sections.push({
+    key: 'vehicle',
+    title: 'Vehicle',
+    rows: [
+      row('Vehicle', vehicle.label),
+      row('Plate', vehicle.plate),
+      row('Model', vehicle.model),
+      row('Category', vehicle.categoryCode),
+      row('Station', [vehicle.stationCode, vehicle.stationLabel].filter(Boolean).join(' • '))
+    ]
+  });
+
+  const financialRows = [
+    row('Gross', formatPrintableMoney(totals.gross)),
+    row('Net', formatPrintableMoney(totals.net)),
+    row('VAT', formatPrintableMoney(totals.vat)),
+    row('Paid total', formatPrintableMoney(settlement.paidTotal)),
+    row('Balance', formatPrintableMoney(settlement.balance)),
+    row('Payment status', settlement.paymentStatus)
+  ];
+  sections.push({ key:'financial', title:'Financial summary', rows: financialRows });
+
+  if (type === 'agreement' || type === 'invoice' || type === 'receipt') {
+    sections.push({
+      key:'charges',
+      title:'Charges',
+      table: {
+        columns: ['Code', 'Label', 'Category', 'Amount'],
+        rows: lines.map((line) => [safeText(line.code || '—'), safeText(line.label || '—'), safeText(line.category || '—'), formatPrintableMoney(line.amount)])
+      }
+    });
+  }
+
+  if (type === 'invoice' || type === 'receipt') {
+    sections.push({
+      key:'billing',
+      title:'Billing',
+      rows: [
+        row('Invoice type', billing.invoiceType),
+        row('Company', billing.companyName),
+        row('VAT number', billing.vatNumber),
+        row('Address', [billing.address, billing.city, billing.zip, billing.country].filter(Boolean).join(', ')),
+        row('Contact', [billing.contactPerson, billing.companyEmail, billing.phone].filter(Boolean).join(' • '))
+      ]
+    });
+  }
+
+  if (type === 'agreement') {
+    sections.push({
+      key:'signature',
+      title:'Signature',
+      rows: [
+        row('Signature status', signature.status),
+        row('Signer', signature.signerName),
+        row('Signed at', formatPrintableDate(signature.signedAt)),
+        row('Note', signature.note)
+      ]
+    });
+  }
+
+  if (type === 'voucher') {
+    sections.push({
+      key:'confirmation',
+      title:'Voucher confirmation',
+      rows: [
+        row('Voucher no', doc.voucherNumber),
+        row('Confirmation no', doc.confirmationNumber),
+        row('Summary', p?.printableContext?.summaryLine)
+      ]
+    });
+  }
+
+  sections.push({
+    key:'readiness',
+    title:'Readiness checks',
+    rows: [
+      row('Status', readiness.status),
+      row('Blockers', blockers.length ? blockers.join(' | ') : 'None'),
+      row('Warnings', warnings.length ? warnings.join(' | ') : 'None')
+    ]
+  });
+
+  return {
+    meta: {
+      generatedAt: safeText(meta.generatedAt),
+      documentType: type,
+      source: 'contract_printable_model_v1',
+      bookingId: safeText(meta.bookingId),
+      rentalId: safeText(meta.rentalId)
+    },
+    readiness: {
+      status: safeText(readiness.status || 'review'),
+      overallStatus: safeText(readiness.overallStatus || readiness.status || 'review'),
+      blockers,
+      warnings
+    },
+    sections
+  };
+}
+
 function computePricingDrift(snapshot = {}, working = {}){
   const keys = ['rental','insurance','options','ageFee','nightFee','transport','damages','surcharges','discount','gross'];
   const lineItems = keys.map((key) => {
@@ -1830,6 +1999,17 @@ export async function exportContractDocumentPackage({ authToken, bookingId, docu
 
     const pkg = buildContractDocumentPackage({ booking, rental, documentType });
     return { success:true, package: pkg };
+  } catch (e) {
+    return { success:false, message:e?.message || String(e) };
+  }
+}
+
+export async function exportContractPrintableModel({ authToken, bookingId, documentType = 'agreement' }) {
+  const result = await exportContractDocumentPackage({ authToken, bookingId, documentType });
+  if (!result?.success) return result;
+  try {
+    const printable = buildPrintableDocumentModelFromPackage(result.package || {});
+    return { success:true, package: result.package, printable };
   } catch (e) {
     return { success:false, message:e?.message || String(e) };
   }
