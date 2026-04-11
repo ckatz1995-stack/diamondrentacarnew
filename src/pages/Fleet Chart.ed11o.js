@@ -10,6 +10,7 @@ const ROUTES = {
   fleet: '/myroom-fleetchart',
   bookings: '/myroom-bookingboard',
   contract: '/myroom-contract',
+  vehiclecard: '/vehiclecard',
   settings: '/account-settings'
 };
 
@@ -141,6 +142,19 @@ $w.onReady(async function () {
       if (lastRange.from) params.set('startDate', lastRange.from);
       if (lastRange.to) params.set('endDate', lastRange.to);
       wixLocation.to(`${ROUTES.contract}?${params.toString()}`);
+      return;
+    }
+
+    if (msg.type === 'openVehicleCard') {
+      const fleetVehicleId = String(msg.fleetVehicleId || msg.vehicleId || '').trim();
+      if (!fleetVehicleId) return;
+      const params = new URLSearchParams();
+      params.set('fleetVehicleId', fleetVehicleId);
+      params.set('from', 'fleet');
+      if (msg.bookingId) params.set('bookingId', String(msg.bookingId));
+      if (lastRange.from) params.set('startDate', lastRange.from);
+      if (lastRange.to) params.set('endDate', lastRange.to);
+      wixLocation.to(`${ROUTES.vehiclecard}?${params.toString()}`);
       return;
     }
   });
