@@ -146,6 +146,157 @@ function deriveChargeLines(booking = {}, charges = {}){
   return { rental: base, insurance, options, ageFee, nightFee, transport, damages, surcharges, discount, gross, days };
 }
 
+const CHARGE_LINE_SPECS = [
+  { code:'rental_base', key:'rental', label:'Rental base', category:'rental', derived:true, sign:1, order:10 },
+  { code:'insurance', key:'insurance', label:'Insurance / protection', category:'insurance', derived:true, sign:1, order:20 },
+  { code:'extras', key:'options', label:'Extras / services', category:'extras', derived:true, sign:1, order:30 },
+  { code:'age_fee', key:'ageFee', label:'Age fee', category:'fee', derived:true, sign:1, order:40 },
+  { code:'night_fee', key:'nightFee', label:'Night fee', category:'fee', derived:true, sign:1, order:50 },
+  { code:'transport_fee', key:'transport', label:'Transport fee', category:'fee', derived:false, sign:1, order:60 },
+  { code:'damage_fee', key:'damages', label:'Damages', category:'damage', derived:false, sign:1, order:70 },
+  { code:'surcharge', key:'surcharges', label:'Surcharges', category:'fee', derived:false, sign:1, order:80 },
+  { code:'discount', key:'discount', label:'Discount', category:'discount', derived:false, sign:-1, order:90 }
+];
+
+function buildChargeLinesFromCharges(charges = {}, existing = []){
+  const previous = Array.isArray(existing) ? existing : [];
+  return CHARGE_LINE_SPECS.map((spec) => {
+    const match = previous.find((row) => safeText(row?.code) === spec.code) || {};
+    const rawValue = safeNum(charges?.[spec.key]);
+    const amount = spec.sign < 0 ? -Math.abs(rawValue) : Math.abs(rawValue);
+    return {
+      id: safeText(match.id || `${spec.code}_line`),
+      code: spec.code,
+      key: spec.key,
+      label: safeText(match.label || spec.label),
+      category: safeText(match.category || spec.category),
+      amount: round2(amount),
+      absAmount: round2(Math.abs(amount)),
+      sign: spec.sign,
+      derived: spec.derived,
+      editable: match.editable === false ? false : true,
+      source: safeText(match.source || (spec.derived ? 'derived' : 'manual')),
+      notes: safeText(match.notes || ''),
+      order: safeNum(match.order || spec.order || 0),
+      taxable: match.taxable !== false
+    };
+  }).filter((line) => line.absAmount > 0 || line.code === 'discount');
+}
+
+function normalizeChargeLinesPayload(rawLines = []){
+  const rows = Array.isArray(rawLines) ? rawLines : [];
+  return rows.map((line) => {
+    if (!line || typeof line !== "object") return null;
+    const code = safeText(line.code || line.key || '').trim();
+    const amountRaw = safeNum(line.amount ?? line.value ?? line.absAmount ?? 0);
+    const sign = safeNum(line.sign) || (code === 'discount' || safeText(line.category).toLowerCase() === 'discount' ? -1 : 1);
+    const amount = sign < 0 ? -Math.abs(amountRaw) : Math.abs(amountRaw);
+    return {
+      id: safeText(line.id || `${Date.now()}_${Math.random().toString(16).slice(2,8)}`),
+      code,
+      key: safeText(line.key || ''),
+      label: safeText(line.label || line.name || code || 'Line'),
+      category: safeText(line.category || ''),
+      amount: round2(amount),
+      absAmount: round2(Math.abs(amount)),
+      sign: sign < 0 ? -1 : 1,
+      derived: !!line.derived,
+      editable: line.editable !== false,
+      source: safeText(line.source || (line.derived ? 'derived' : 'manual')),
+      notes: safeText(line.notes || ''),
+      order: safeNum(line.order || 0),
+      taxable: line.taxable !== false
+    };
+  }).filter(Boolean).slice(0, 200);
+}
+
+function buildFinancialSnapshot({ booking = {}, rental = {}, totals = null } = {}){
+  const lines = totals || deriveChargeLines(booking, rental?.charges || {});
+  const billing = mergeBillingFallback(booking, rental);
+  const transactions = Array.isArray(rental?.financialTransactions) ? rental.financialTransactions : [];
+  const vatRate = safeNum(billing?.vatRate ?? 0.24);
+  const gross = round2(lines.gross);
+  const vat = computeVatBreakdown(gross, vatRate);
+
+  let rentalFlow = 0;
+  let guaranteeHeld = 0;
+  let preauthActive = 0;
+  let refunds = 0;
+  let paymentsReceived = 0;
+
+  transactions.forEach((tx) => {
+    const type = safeText(tx?.type);
+    const amount = round2(Math.abs(safeNum(tx?.amount)));
+    if (!(amount > 0)) return;
+    if (type === 'payment') {
+      rentalFlow = round2(rentalFlow + amount);
+      paymentsReceived = round2(paymentsReceived + amount);
+    } else if (type === 'refund') {
+      rentalFlow = round2(rentalFlow - amount);
+      refunds = round2(refunds + amount);
+    } else if (type === 'guarantee_hold') {
+      guaranteeHeld = round2(guaranteeHeld + amount);
+    } else if (type === 'guarantee_refund') {
+      guaranteeHeld = round2(guaranteeHeld - amount);
+    } else if (type === 'preauth_hold') {
+      preauthActive = round2(preauthActive + amount);
+    } else if (type === 'preauth_void') {
+      preauthActive = round2(preauthActive - amount);
+    }
+  });
+
+  const fallbackFinancials = mergeFinancialsFallback(booking, rental);
+  const hasLedger = transactions.length > 0;
+  const prepaid = hasLedger
+    ? round2(transactions.filter((tx) => safeText(tx?.type) === 'payment' && safeText(tx?.method) === 'voucher').reduce((sum, tx) => sum + safeNum(tx?.amount), 0))
+    : round2(safeNum(fallbackFinancials.prepaid));
+  const paidNow = hasLedger ? round2(Math.max(0, rentalFlow - prepaid)) : round2(safeNum(fallbackFinancials.paidNow));
+  const deposit = hasLedger ? round2(Math.max(0, guaranteeHeld)) : round2(safeNum(fallbackFinancials.deposit));
+  const paidTotal = round2(prepaid + paidNow);
+  const balance = round2(gross - paidTotal);
+
+  let paymentStatus = 'pending';
+  if (gross <= 0 || balance <= 0) paymentStatus = 'paid';
+  else if (paidTotal > 0) paymentStatus = 'partial';
+
+  return {
+    generatedAt: new Date().toISOString(),
+    charges: {
+      rental: round2(lines.rental),
+      insurance: round2(lines.insurance),
+      options: round2(lines.options),
+      ageFee: round2(lines.ageFee),
+      nightFee: round2(lines.nightFee),
+      transport: round2(lines.transport),
+      damages: round2(lines.damages),
+      surcharges: round2(lines.surcharges),
+      discount: round2(lines.discount)
+    },
+    totals: {
+      gross: round2(vat.gross),
+      net: round2(vat.net),
+      vat: round2(vat.vat),
+      vatRate: round2(vatRate)
+    },
+    ledger: {
+      transactions: transactions.length,
+      paymentsReceived,
+      refunds,
+      rentalFlow: round2(rentalFlow),
+      guaranteeHeld: round2(Math.max(0, guaranteeHeld)),
+      preauthActive: round2(Math.max(0, preauthActive))
+    },
+    settlement: {
+      prepaid,
+      paidNow,
+      paidTotal,
+      balance,
+      deposit,
+      paymentStatus
+    }
+  };
+}
+
 function syncBookingChargeFields(booking, rental){
   const ch = deriveChargeLines(booking, rental?.charges || {});
   booking.baseCost = ch.rental;
@@ -195,6 +346,605 @@ function normalizePricingOverridePayload(raw){
     requestApproval: !!payload.requestApproval,
     approveNow: !!payload.approveNow
   };
+}
+
+function normalizeCheckoutGuardrailOverride(raw){
+  const payload = raw && typeof raw === 'object' ? raw : {};
+  const reason = safeText(payload.reason || payload.note).trim();
+  if (!reason) return null;
+  return {
+    reason,
+    actor: safeText(payload.actor || payload.user).trim(),
+    updatedAt: asDate(payload.updatedAt || payload.at) || new Date()
+  };
+}
+
+function normalizeSignatureState(raw){
+  const payload = raw && typeof raw === 'object' ? raw : {};
+  const statusRaw = safeText(payload.status || payload.state || '').trim().toLowerCase();
+  const allowed = new Set(['not_started', 'pending', 'captured', 'waived']);
+  const status = allowed.has(statusRaw) ? statusRaw : 'not_started';
+  return {
+    status,
+    signerName: safeText(payload.signerName || payload.customerName || '').trim(),
+    signedAt: asDate(payload.signedAt || payload.at) || null,
+    note: safeText(payload.note || payload.reason || '').trim(),
+    actor: safeText(payload.actor || payload.user || '').trim(),
+    updatedAt: asDate(payload.updatedAt) || new Date()
+  };
+}
+
+function buildDocumentPipelineSnapshot({ booking = {}, rental = {}, financialSnapshot = null } = {}){
+  const snapshot = financialSnapshot || rental?.financialSnapshot || booking?.financialSnapshot || buildFinancialSnapshot({ booking, rental });
+  const billing = mergeBillingFallback(booking, rental);
+  const mainDriver = rental?.mainDriver && typeof rental.mainDriver === 'object' ? rental.mainDriver : {};
+  const signatureState = normalizeSignatureState(rental?.signatureState || booking?.signatureState || {});
+  const guardrailOverride = normalizeCheckoutGuardrailOverride(rental?.checkoutGuardrailOverride || booking?.checkoutGuardrailOverride || null);
+  const hasFinancialOverride = !!guardrailOverride;
+  const finBalance = safeNum(snapshot?.settlement?.balance);
+  const paidTotal = safeNum(snapshot?.settlement?.paidTotal);
+  const hasVehicle = !!safeText(booking?.assignedVehicleLabel || booking?.assignedVehiclePlate || rental?.assignedVehicleLabel || rental?.assignedVehiclePlate).trim();
+  const hasMovement = !!asDate(booking?.pickupDateTime) && !!asDate(booking?.dropoffDateTime) && !!safeText(booking?.pickuppoint).trim() && !!safeText(booking?.dropoffpoint).trim();
+  const hasCustomer = !!safeText(booking?.customerName).trim();
+  const hasDriverIdentity = !!safeText(mainDriver?.fullName).trim() && (!!safeText(mainDriver?.idNo).trim() || !!safeText(mainDriver?.licenseNo).trim());
+  const billingCompanyMode = !/^receipt$/i.test(safeText(billing?.invoiceType).trim());
+
+  const buildStatus = (blockers = [], warnings = []) => {
+    if (blockers.length) return 'blocked';
+    if (warnings.length) return 'review';
+    return 'ready';
+  };
+
+  const agreementBlockers = [];
+  const agreementWarnings = [];
+  if (!hasCustomer) agreementBlockers.push('Missing customer name.');
+  if (!hasMovement) agreementBlockers.push('Missing pickup/dropoff movement details.');
+  if (!hasVehicle) agreementBlockers.push('Missing assigned vehicle.');
+  if (!hasDriverIdentity) agreementWarnings.push('Main driver identity is incomplete.');
+
+  const voucherBlockers = [];
+  const voucherWarnings = [];
+  if (!safeText(booking?.bookingNumber).trim()) voucherBlockers.push('Missing booking number.');
+  if (!hasCustomer) voucherBlockers.push('Missing customer name.');
+  if (!hasMovement) voucherBlockers.push('Missing movement details.');
+  if (!safeText(booking?.voucherNumber).trim() && !safeText(booking?.confirmationNumber).trim()) voucherWarnings.push('Voucher/confirmation reference missing.');
+
+  const invoiceBlockers = [];
+  const invoiceWarnings = [];
+  if (!snapshot) invoiceWarnings.push('Financial snapshot unavailable.');
+  if (billingCompanyMode) {
+    if (!safeText(billing?.companyName).trim()) invoiceBlockers.push('Company name required for invoice mode.');
+    if (!safeText(billing?.vatNumber).trim()) invoiceWarnings.push('VAT number missing.');
+    if (!safeText(billing?.address).trim()) invoiceWarnings.push('Billing address missing.');
+  }
+  if (finBalance > 0.01 && !hasFinancialOverride) invoiceWarnings.push(`Outstanding balance ${round2(finBalance)} remains.`);
+
+  const receiptBlockers = [];
+  const receiptWarnings = [];
+  if (!snapshot) receiptBlockers.push('Financial snapshot unavailable.');
+  if (paidTotal <= 0.01 && finBalance > 0.01) receiptBlockers.push('No posted payment captured for receipt.');
+  if (finBalance > 0.01 && !hasFinancialOverride) receiptWarnings.push('Receipt can be issued only as partial settlement.');
+
+  const signatureBlockers = [];
+  const signatureWarnings = [];
+  if (buildStatus(agreementBlockers, agreementWarnings) === 'blocked') signatureBlockers.push('Agreement data is blocked.');
+  if (!hasDriverIdentity) signatureBlockers.push('Main driver identity incomplete for signature.');
+  if (signatureState.status === 'waived') signatureWarnings.push('Signature waived; keep explicit waiver note.');
+  if (signatureState.status === 'not_started' || signatureState.status === 'pending') signatureWarnings.push('Signature not captured yet.');
+
+  const docs = {
+    agreement: { status: buildStatus(agreementBlockers, agreementWarnings), blockers: agreementBlockers, warnings: agreementWarnings },
+    voucher: { status: buildStatus(voucherBlockers, voucherWarnings), blockers: voucherBlockers, warnings: voucherWarnings },
+    invoice: { status: buildStatus(invoiceBlockers, invoiceWarnings), blockers: invoiceBlockers, warnings: invoiceWarnings },
+    receipt: { status: buildStatus(receiptBlockers, receiptWarnings), blockers: receiptBlockers, warnings: receiptWarnings },
+    signature: {
+      status: signatureState.status === 'captured'
+        ? 'ready'
+        : buildStatus(signatureBlockers, signatureWarnings),
+      blockers: signatureState.status === 'captured' ? [] : signatureBlockers,
+      warnings: signatureState.status === 'captured' ? [] : signatureWarnings
+    }
+  };
+
+  const statusOrder = { ready: 0, review: 1, blocked: 2 };
+  const overallStatus = Object.values(docs).reduce((acc, d) => (statusOrder[d.status] > statusOrder[acc] ? d.status : acc), 'ready');
+  const missing = [];
+  Object.entries(docs).forEach(([key, doc]) => {
+    doc.blockers.forEach((item) => missing.push({ type: key, severity: 'blocker', reason: item }));
+    doc.warnings.forEach((item) => missing.push({ type: key, severity: 'warning', reason: item }));
+  });
+
+  return {
+    generatedAt: new Date().toISOString(),
+    source: 'contract_document_pipeline_v1',
+    overallStatus,
+    signatureState,
+    docs,
+    missing: missing.slice(0, 40),
+    blocks: {
+      identity: {
+        customerName: safeText(booking?.customerName).trim(),
+        mainDriverName: safeText(mainDriver?.fullName).trim(),
+        mainDriverIdNo: safeText(mainDriver?.idNo).trim(),
+        mainDriverLicenseNo: safeText(mainDriver?.licenseNo).trim()
+      },
+      movement: {
+        pickupDateTime: asDate(booking?.pickupDateTime),
+        dropoffDateTime: asDate(booking?.dropoffDateTime),
+        pickupPoint: safeText(booking?.pickuppoint).trim(),
+        dropoffPoint: safeText(booking?.dropoffpoint).trim()
+      },
+      vehicle: {
+        label: safeText(booking?.assignedVehicleLabel || rental?.assignedVehicleLabel).trim(),
+        plate: safeText(booking?.assignedVehiclePlate || rental?.assignedVehiclePlate).trim()
+      },
+      financial: {
+        gross: round2(snapshot?.totals?.gross),
+        paidTotal: round2(snapshot?.settlement?.paidTotal),
+        balance: round2(snapshot?.settlement?.balance),
+        paymentStatus: safeText(snapshot?.settlement?.paymentStatus).trim(),
+        guardrailOverride: guardrailOverride ? { reason: guardrailOverride.reason, actor: guardrailOverride.actor, updatedAt: guardrailOverride.updatedAt } : null
+      },
+      billing: {
+        invoiceType: safeText(billing?.invoiceType).trim(),
+        companyName: safeText(billing?.companyName).trim(),
+        vatNumber: safeText(billing?.vatNumber).trim(),
+        address: safeText(billing?.address).trim(),
+        city: safeText(billing?.city).trim()
+      }
+    }
+  };
+}
+
+function getDocumentReadinessSlice(documentPipeline = {}, documentType = 'agreement'){
+  const pipeline = documentPipeline && typeof documentPipeline === 'object' ? documentPipeline : {};
+  const docs = pipeline.docs && typeof pipeline.docs === 'object' ? pipeline.docs : {};
+  const keyMap = { agreement:'agreement', voucher:'voucher', invoice:'invoice', receipt:'receipt' };
+  const key = keyMap[safeText(documentType).toLowerCase()] || 'agreement';
+  const doc = docs[key] && typeof docs[key] === 'object' ? docs[key] : { status:'review', blockers:['Readiness not computed.'], warnings:[] };
+  return {
+    requestedType: key,
+    overallStatus: safeText(pipeline.overallStatus || doc.status || 'review'),
+    status: safeText(doc.status || 'review'),
+    blockers: Array.isArray(doc.blockers) ? doc.blockers.map((x) => safeText(x)).filter(Boolean) : [],
+    warnings: Array.isArray(doc.warnings) ? doc.warnings.map((x) => safeText(x)).filter(Boolean) : []
+  };
+}
+
+function buildContractDocumentPackage({ booking = {}, rental = {}, documentType = 'agreement' } = {}){
+  const type = safeText(documentType || 'agreement').toLowerCase();
+  const supported = new Set(['agreement', 'voucher', 'invoice', 'receipt']);
+  const normalizedType = supported.has(type) ? type : 'agreement';
+  const billing = mergeBillingFallback(booking, rental);
+  const financialSnapshot = cloneJson(rental?.financialSnapshot || booking?.financialSnapshot || buildFinancialSnapshot({ booking, rental }));
+  const commercialState = cloneJson(rental?.commercialState || booking?.commercialState || {});
+  const signatureState = normalizeSignatureState(rental?.signatureState || booking?.signatureState || {});
+  const documentPipeline = cloneJson(rental?.documentPipeline || booking?.documentPipeline || buildDocumentPipelineSnapshot({ booking, rental, financialSnapshot }));
+  const readiness = getDocumentReadinessSlice(documentPipeline, normalizedType);
+  const chargeLines = Array.isArray(rental?.chargeLines) ? rental.chargeLines : (Array.isArray(booking?.chargeLines) ? booking.chargeLines : []);
+  const movementPickup = asDate(booking?.pickupDateTime);
+  const movementDropoff = asDate(booking?.dropoffDateTime);
+  const customerName = safeText(booking?.customerName).trim();
+  const mainDriver = rental?.mainDriver && typeof rental.mainDriver === 'object' ? rental.mainDriver : {};
+  const additionalDrivers = Array.isArray(rental?.additionalDrivers) ? rental.additionalDrivers : [];
+  const vehicleLabel = safeText(booking?.assignedVehicleLabel || rental?.assignedVehicleLabel || booking?.assignedVehiclePlate || rental?.assignedVehiclePlate).trim();
+
+  const base = {
+    meta: {
+      generatedAt: new Date().toISOString(),
+      documentType: normalizedType,
+      bookingId: safeText(booking?._id),
+      bookingNumber: safeText(booking?.bookingNumber),
+      rentalId: safeText(rental?._id),
+      rentalState: safeText(rental?.rentalState || booking?.rentalState || ''),
+      bookingStatus: safeText(booking?.status || ''),
+      source: 'contract_document_package_v1'
+    },
+    identity: {
+      customer: {
+        name: customerName,
+        phone: safeText(booking?.phone).trim(),
+        email: safeText(booking?.email).trim(),
+        city: safeText(booking?.customerCity).trim()
+      },
+      mainDriver: {
+        fullName: safeText(mainDriver?.fullName).trim(),
+        phone: safeText(mainDriver?.phone).trim(),
+        email: safeText(mainDriver?.email).trim(),
+        idNo: safeText(mainDriver?.idNo).trim(),
+        licenseNo: safeText(mainDriver?.licenseNo).trim()
+      },
+      additionalDrivers: additionalDrivers.map((d) => ({
+        fullName: safeText(d?.fullName).trim(),
+        idNo: safeText(d?.idNo).trim(),
+        licenseNo: safeText(d?.licenseNo).trim()
+      }))
+    },
+    movement: {
+      pickupDateTime: movementPickup ? movementPickup.toISOString() : '',
+      dropoffDateTime: movementDropoff ? movementDropoff.toISOString() : '',
+      pickupPoint: safeText(booking?.pickuppoint).trim(),
+      dropoffPoint: safeText(booking?.dropoffpoint).trim(),
+      pickupComment: safeText(booking?.pickupComment).trim(),
+      dropoffComment: safeText(booking?.dropoffComment).trim(),
+      flightNumber: safeText(booking?.flightNumber).trim(),
+      originCity: safeText(booking?.originCity).trim()
+    },
+    vehicle: {
+      assignedVehicleId: safeText(booking?.assignedVehicle || rental?.assignedVehicleId).trim(),
+      label: vehicleLabel,
+      plate: safeText(booking?.assignedVehiclePlate || rental?.assignedVehiclePlate).trim(),
+      model: safeText(booking?.assignedVehicleModel || rental?.assignedVehicleModel).trim(),
+      categoryCode: safeText(booking?.assignedCategoryCode || rental?.assignedCategoryCode || booking?.categoryId).trim(),
+      stationCode: safeText(booking?.assignedVehicleStationCode || rental?.assignedVehicleStationCode).trim(),
+      stationLabel: safeText(booking?.assignedVehicleStationLabel || rental?.assignedVehicleStationLabel).trim()
+    },
+    financial: {
+      totals: cloneJson(financialSnapshot?.totals || {}),
+      settlement: cloneJson(financialSnapshot?.settlement || {}),
+      ledger: cloneJson(financialSnapshot?.ledger || {}),
+      commercialState,
+      chargeLines: chargeLines.map((line) => ({
+        code: safeText(line?.code || line?.key).trim(),
+        label: safeText(line?.label).trim(),
+        amount: round2(line?.amount),
+        category: safeText(line?.category).trim(),
+        taxable: line?.taxable !== false
+      }))
+    },
+    billing: {
+      invoiceType: safeText(billing?.invoiceType).trim(),
+      vatRate: safeNum(billing?.vatRate ?? 0.24),
+      vatInclusive: billing?.vatInclusive !== false,
+      companyName: safeText(billing?.companyName).trim(),
+      tradeName: safeText(billing?.tradeName).trim(),
+      vatNumber: safeText(billing?.vatNumber).trim(),
+      profession: safeText(billing?.profession).trim(),
+      taxOffice: safeText(billing?.taxOffice).trim(),
+      address: safeText(billing?.address).trim(),
+      city: safeText(billing?.city).trim(),
+      zip: safeText(billing?.zip).trim(),
+      country: safeText(billing?.country).trim(),
+      phone: safeText(billing?.phone).trim(),
+      companyEmail: safeText(billing?.companyEmail).trim(),
+      contactPerson: safeText(billing?.contactPerson).trim()
+    },
+    readiness: {
+      requestedType: readiness.requestedType,
+      status: readiness.status,
+      overallStatus: readiness.overallStatus,
+      blockers: readiness.blockers,
+      warnings: readiness.warnings,
+      pipelineSource: safeText(documentPipeline?.source || 'derived')
+    },
+    signature: {
+      status: safeText(signatureState?.status || 'not_started'),
+      signerName: safeText(signatureState?.signerName).trim(),
+      signedAt: signatureState?.signedAt ? asDate(signatureState.signedAt)?.toISOString() || '' : '',
+      note: safeText(signatureState?.note).trim(),
+      actor: safeText(signatureState?.actor).trim(),
+      updatedAt: signatureState?.updatedAt ? asDate(signatureState.updatedAt)?.toISOString() || '' : ''
+    },
+    printableContext: {
+      title: `${normalizedType.toUpperCase()} • ${safeText(booking?.bookingNumber || booking?._id)}`,
+      summaryLine: [customerName || 'Customer pending', vehicleLabel || 'Vehicle pending', safeText(booking?.bookingNumber || '')].filter(Boolean).join(' • ')
+    }
+  };
+
+  if (normalizedType === 'agreement') {
+    base.document = {
+      termsFocus: 'rental_agreement',
+      includeFinancialSettlement: true,
+      includeSignatureBlock: true
+    };
+  } else if (normalizedType === 'voucher') {
+    base.document = {
+      termsFocus: 'booking_voucher',
+      voucherNumber: safeText(booking?.voucherNumber).trim(),
+      confirmationNumber: safeText(booking?.confirmationNumber).trim(),
+      includeSignatureBlock: false
+    };
+  } else if (normalizedType === 'invoice') {
+    base.document = {
+      termsFocus: 'invoice_ready_payload',
+      billingRequired: true,
+      paymentStatus: safeText(financialSnapshot?.settlement?.paymentStatus).trim()
+    };
+  } else if (normalizedType === 'receipt') {
+    base.document = {
+      termsFocus: 'receipt_ready_payload',
+      paidTotal: round2(financialSnapshot?.settlement?.paidTotal),
+      balance: round2(financialSnapshot?.settlement?.balance)
+    };
+  }
+
+  return base;
+}
+
+function formatPrintableDate(value){
+  const d = asDate(value);
+  if (!d) return '—';
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mi = String(d.getMinutes()).padStart(2, '0');
+  return `${dd}/${mm}/${yyyy} ${hh}:${mi}`;
+}
+
+function formatPrintableMoney(value){
+  return `${round2(value).toFixed(2)} €`;
+}
+
+function row(label, value){
+  return { label: safeText(label), value: safeText(value || '—') || '—' };
+}
+
+function buildPrintableDocumentModelFromPackage(pkg = {}){
+  const p = pkg && typeof pkg === 'object' ? pkg : {};
+  const meta = p.meta || {};
+  const identity = p.identity || {};
+  const movement = p.movement || {};
+  const vehicle = p.vehicle || {};
+  const financial = p.financial || {};
+  const billing = p.billing || {};
+  const readiness = p.readiness || {};
+  const signature = p.signature || {};
+  const doc = p.document || {};
+  const type = safeText(meta.documentType || readiness.requestedType || 'agreement').toLowerCase();
+  const totals = financial.totals || {};
+  const settlement = financial.settlement || {};
+  const lines = Array.isArray(financial.chargeLines) ? financial.chargeLines : [];
+  const blockers = Array.isArray(readiness.blockers) ? readiness.blockers : [];
+  const warnings = Array.isArray(readiness.warnings) ? readiness.warnings : [];
+
+  const sections = [];
+  sections.push({
+    key: 'header',
+    title: `${type.toUpperCase()} • ${safeText(meta.bookingNumber || meta.bookingId || 'Contract')}`,
+    rows: [
+      row('Generated', formatPrintableDate(meta.generatedAt)),
+      row('Rental state', meta.rentalState),
+      row('Booking status', meta.bookingStatus),
+      row('Readiness', `${safeText(readiness.status || 'review').toUpperCase()} (${safeText(readiness.overallStatus || readiness.status || 'review')})`)
+    ]
+  });
+  sections.push({
+    key: 'identity',
+    title: 'Customer / Driver',
+    rows: [
+      row('Customer', identity?.customer?.name),
+      row('Phone', identity?.customer?.phone),
+      row('Email', identity?.customer?.email),
+      row('Main driver', identity?.mainDriver?.fullName),
+      row('ID / License', [identity?.mainDriver?.idNo, identity?.mainDriver?.licenseNo].filter(Boolean).join(' / '))
+    ]
+  });
+  sections.push({
+    key: 'movement',
+    title: 'Rental movement',
+    rows: [
+      row('Pickup', `${formatPrintableDate(movement.pickupDateTime)} • ${movement.pickupPoint || '—'}`),
+      row('Dropoff', `${formatPrintableDate(movement.dropoffDateTime)} • ${movement.dropoffPoint || '—'}`),
+      row('Flight', movement.flightNumber),
+      row('Origin city', movement.originCity)
+    ]
+  });
+  sections.push({
+    key: 'vehicle',
+    title: 'Vehicle',
+    rows: [
+      row('Vehicle', vehicle.label),
+      row('Plate', vehicle.plate),
+      row('Model', vehicle.model),
+      row('Category', vehicle.categoryCode),
+      row('Station', [vehicle.stationCode, vehicle.stationLabel].filter(Boolean).join(' • '))
+    ]
+  });
+
+  const financialRows = [
+    row('Gross', formatPrintableMoney(totals.gross)),
+    row('Net', formatPrintableMoney(totals.net)),
+    row('VAT', formatPrintableMoney(totals.vat)),
+    row('Paid total', formatPrintableMoney(settlement.paidTotal)),
+    row('Balance', formatPrintableMoney(settlement.balance)),
+    row('Payment status', settlement.paymentStatus)
+  ];
+  sections.push({ key:'financial', title:'Financial summary', rows: financialRows });
+
+  if (type === 'agreement' || type === 'invoice' || type === 'receipt') {
+    sections.push({
+      key:'charges',
+      title:'Charges',
+      table: {
+        columns: ['Code', 'Label', 'Category', 'Amount'],
+        rows: lines.map((line) => [safeText(line.code || '—'), safeText(line.label || '—'), safeText(line.category || '—'), formatPrintableMoney(line.amount)])
+      }
+    });
+  }
+
+  if (type === 'invoice' || type === 'receipt') {
+    sections.push({
+      key:'billing',
+      title:'Billing',
+      rows: [
+        row('Invoice type', billing.invoiceType),
+        row('Company', billing.companyName),
+        row('VAT number', billing.vatNumber),
+        row('Address', [billing.address, billing.city, billing.zip, billing.country].filter(Boolean).join(', ')),
+        row('Contact', [billing.contactPerson, billing.companyEmail, billing.phone].filter(Boolean).join(' • '))
+      ]
+    });
+  }
+
+  if (type === 'agreement') {
+    sections.push({
+      key:'signature',
+      title:'Signature',
+      rows: [
+        row('Signature status', signature.status),
+        row('Signer', signature.signerName),
+        row('Signed at', formatPrintableDate(signature.signedAt)),
+        row('Note', signature.note)
+      ]
+    });
+  }
+
+  if (type === 'voucher') {
+    sections.push({
+      key:'confirmation',
+      title:'Voucher confirmation',
+      rows: [
+        row('Voucher no', doc.voucherNumber),
+        row('Confirmation no', doc.confirmationNumber),
+        row('Summary', p?.printableContext?.summaryLine)
+      ]
+    });
+  }
+
+  sections.push({
+    key:'readiness',
+    title:'Readiness checks',
+    rows: [
+      row('Status', readiness.status),
+      row('Blockers', blockers.length ? blockers.join(' | ') : 'None'),
+      row('Warnings', warnings.length ? warnings.join(' | ') : 'None')
+    ]
+  });
+
+  return {
+    meta: {
+      generatedAt: safeText(meta.generatedAt),
+      documentType: type,
+      source: 'contract_printable_model_v1',
+      bookingId: safeText(meta.bookingId),
+      rentalId: safeText(meta.rentalId)
+    },
+    readiness: {
+      status: safeText(readiness.status || 'review'),
+      overallStatus: safeText(readiness.overallStatus || readiness.status || 'review'),
+      blockers,
+      warnings
+    },
+    sections
+  };
+}
+
+function escapeHtml(value){
+  return safeText(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function renderSectionHtml(section = {}){
+  const rows = Array.isArray(section.rows) ? section.rows : [];
+  const table = section.table && typeof section.table === 'object' ? section.table : null;
+  const bodyRows = rows.map((r) => `<tr><th>${escapeHtml(r.label)}</th><td>${escapeHtml(r.value)}</td></tr>`).join('');
+  const tableHtml = table
+    ? `<table class="doc-table"><thead><tr>${(table.columns || []).map((c) => `<th>${escapeHtml(c)}</th>`).join('')}</tr></thead><tbody>${(table.rows || []).map((r) => `<tr>${(Array.isArray(r) ? r : []).map((c) => `<td>${escapeHtml(c)}</td>`).join('')}</tr>`).join('')}</tbody></table>`
+    : '';
+  return `<section class="doc-section"><h3>${escapeHtml(section.title || section.key || 'Section')}</h3>${bodyRows ? `<table class="doc-kv">${bodyRows}</table>` : ''}${tableHtml}</section>`;
+}
+
+function renderContractDocumentHtmlFromPrintable({ packageData = {}, printable = {} } = {}){
+  const meta = printable.meta || {};
+  const readiness = printable.readiness || {};
+  const sections = Array.isArray(printable.sections) ? printable.sections : [];
+  const readinessClass = safeText(readiness.status || 'review').toLowerCase();
+  const headerTitle = safeText(sections.find((s) => s.key === 'header')?.title || `${safeText(meta.documentType).toUpperCase()} Document`);
+  const blockers = Array.isArray(readiness.blockers) ? readiness.blockers : [];
+  const warnings = Array.isArray(readiness.warnings) ? readiness.warnings : [];
+  return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>${escapeHtml(headerTitle)}</title>
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;color:#1f2937;margin:24px}
+    .doc-wrap{max-width:960px;margin:0 auto}
+    .doc-head{border-bottom:2px solid #d1d5db;padding-bottom:12px;margin-bottom:16px}
+    .doc-title{font-size:22px;font-weight:700;margin:0 0 6px}
+    .doc-meta{font-size:12px;color:#6b7280}
+    .readiness{display:inline-block;margin-top:8px;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:700;border:1px solid #d1d5db}
+    .readiness.ready{background:#edf8f1;color:#0f6a3d;border-color:#9ed3b3}
+    .readiness.review{background:#fff7e7;color:#8a5600;border-color:#f3d192}
+    .readiness.blocked{background:#fff1f0;color:#a12f28;border-color:#f0b8b4}
+    .doc-alerts{margin:12px 0;padding:10px;border:1px dashed #d1d5db;border-radius:10px;background:#fafafa}
+    .doc-alerts ul{margin:6px 0 0 18px}
+    .doc-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .doc-section{border:1px solid #e5e7eb;border-radius:10px;padding:10px;background:#fff}
+    .doc-section h3{margin:0 0 8px;font-size:14px}
+    .doc-kv,.doc-table{width:100%;border-collapse:collapse}
+    .doc-kv th,.doc-kv td,.doc-table th,.doc-table td{border-bottom:1px solid #f1f5f9;padding:6px 4px;font-size:12px;text-align:left;vertical-align:top}
+    .doc-kv th{width:34%;color:#475569}
+    .doc-foot{margin-top:14px;font-size:11px;color:#6b7280}
+  </style>
+</head>
+<body>
+  <div class="doc-wrap">
+    <header class="doc-head">
+      <h1 class="doc-title">${escapeHtml(headerTitle)}</h1>
+      <div class="doc-meta">Booking ${escapeHtml(meta.bookingId || '—')} • Rental ${escapeHtml(meta.rentalId || '—')} • Generated ${escapeHtml(formatPrintableDate(meta.generatedAt))}</div>
+      <span class="readiness ${escapeHtml(readinessClass)}">Readiness: ${escapeHtml(readiness.status || 'review')}</span>
+    </header>
+    <div class="doc-alerts">
+      <strong>Readiness checks</strong>
+      <ul>
+        ${(blockers.length ? blockers.map((b) => `<li><strong>Blocker:</strong> ${escapeHtml(b)}</li>`).join('') : '<li>No blockers.</li>')}
+        ${(warnings.length ? warnings.map((w) => `<li><strong>Warning:</strong> ${escapeHtml(w)}</li>`).join('') : '<li>No warnings.</li>')}
+      </ul>
+    </div>
+    <main class="doc-grid">
+      ${sections.filter((s) => s.key !== 'header' && s.key !== 'readiness').map((s) => renderSectionHtml(s)).join('')}
+      ${renderSectionHtml(sections.find((s) => s.key === 'readiness') || { key:'readiness', title:'Readiness checks', rows:[{label:'Status', value:readiness.status || 'review'}] })}
+    </main>
+    <footer class="doc-foot">Source: ${escapeHtml(meta.source || packageData?.meta?.source || 'contract_printable_model_v1')}</footer>
+  </div>
+</body>
+</html>`;
+}
+
+function htmlToPlainTextForPdf(html){
+  const source = safeText(html || '');
+  return source
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<\/(h1|h2|h3|p|div|section|tr|li|ul|ol|table|header|footer|main)>/gi, '\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\n{3,}/g, '\n\n')
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim();
+}
+
+async function renderPdfBufferFromHtml(html, { title = 'Contract document' } = {}){
+  const PDFDocument = require("pdfkit");
+  const printableText = htmlToPlainTextForPdf(html);
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument({ size:"A4", margin:40 });
+      const chunks = [];
+      doc.on("data", (c) => chunks.push(c));
+      doc.on("end", () => resolve(Buffer.concat(chunks)));
+      doc.on("error", reject);
+      doc.fontSize(16).text(safeText(title || 'Contract document'));
+      doc.moveDown(0.6);
+      doc.fontSize(9).text(printableText || 'No rendered HTML content.', { width: 520 });
+      doc.end();
+    } catch (e) {
+      reject(e);
+    }
+  });
 }
 
 function computePricingDrift(snapshot = {}, working = {}){
@@ -267,7 +1017,9 @@ async function getFleetMapByIds(ids){
         mileage: safeNum(f.mileage),
         fuelLevel: safeNum(f.fuelLevel),
         excess: safeNum(f.excess),
-        operationalStatus: safeText(f.operationalStatus || f.status || '')
+        operationalStatus: safeText(f.operationalStatus || f.status || ''),
+        readyToGo: f.readyToGo === true || safeText(f.readyToGo).toLowerCase() === 'true',
+        hardHold: f.hardHold === true || safeText(f.hardHold).toLowerCase() === 'true'
       });
     });
   };
@@ -353,6 +1105,41 @@ async function getRentalByBookingId(bookingId){
     .find({ suppressAuth:true });
 
   return (res.items && res.items[0]) ? res.items[0] : null;
+}
+
+function buildRentalDraftFromBooking(booking = {}){
+  const fallbackCharges = deriveChargeLines(booking, {
+    rental: booking.baseCost,
+    insurance: booking.insuranceCost,
+    options: booking.extrasTotal,
+    ageFee: booking.ageFee,
+    nightFee: booking.nightFee,
+    transport: 0,
+    damages: 0,
+    surcharges: 0,
+    discount: 0
+  });
+  return {
+    bookingId: safeText(booking?._id),
+    rentalState: safeText(booking?.rentalState || 'Booking'),
+    assignedVehicleLabel: safeText(booking?.assignedVehicleLabel || booking?.assignedVehiclePlate || ''),
+    assignedVehiclePlate: safeText(booking?.assignedVehiclePlate || ''),
+    assignedVehicleModel: safeText(booking?.assignedVehicleModel || ''),
+    assignedCategoryCode: safeText(booking?.assignedCategoryCode || booking?.categoryId || ''),
+    assignedVehicleStationCode: safeText(booking?.assignedVehicleStationCode || ''),
+    assignedVehicleStationLabel: safeText(booking?.assignedVehicleStationLabel || ''),
+    mainDriver: booking?.mainDriver || null,
+    additionalDrivers: Array.isArray(booking?.additionalDrivers) ? booking.additionalDrivers : [],
+    charges: fallbackCharges,
+    chargeLines: Array.isArray(booking?.chargeLines) ? booking.chargeLines : buildChargeLinesFromCharges(fallbackCharges, []),
+    billing: mergeBillingFallback(booking, {}),
+    financials: mergeFinancialsFallback(booking, {}),
+    financialTransactions: Array.isArray(booking?.financialTransactions) ? booking.financialTransactions : [],
+    commercialState: booking?.commercialState || {},
+    financialSnapshot: booking?.financialSnapshot || null,
+    documentPipeline: booking?.documentPipeline || null,
+    signatureState: booking?.signatureState || null
+  };
 }
 
 async function ensureRentalForBooking(booking){
@@ -453,10 +1240,11 @@ async function mirrorToBooking(booking, rental){
 
 function applyChargesPayload(rental, payload){
   const ch = (payload && typeof payload.charges === "object") ? payload.charges : null;
-  if (!ch) return;
+  const chargeLinesPayload = Array.isArray(payload?.chargeLines) ? payload.chargeLines : null;
+  if (!ch && !chargeLinesPayload) return;
 
   const cur = (rental.charges && typeof rental.charges === "object") ? rental.charges : {};
-  rental.charges = {
+  const nextCharges = {
     rental: safeNum(ch.rental ?? cur.rental ?? 0),
     insurance: safeNum(ch.insurance ?? cur.insurance ?? 0),
     options: safeNum(ch.options ?? cur.options ?? 0),
@@ -467,6 +1255,9 @@ function applyChargesPayload(rental, payload){
     surcharges: safeNum(ch.surcharges ?? cur.surcharges ?? 0),
     discount: safeNum(ch.discount ?? cur.discount ?? 0),
   };
+  rental.charges = nextCharges;
+  const suppliedLines = normalizeChargeLinesPayload(chargeLinesPayload || rental.chargeLines || []);
+  rental.chargeLines = buildChargeLinesFromCharges(nextCharges, suppliedLines);
 }
 
 function applyBillingPayload(rental, payload){
@@ -532,10 +1323,19 @@ function applyFinancialTransactionsPayload(booking, rental, payload){
       if (!row || typeof row !== "object") return null;
       const amount = safeNum(row.amount);
       if (!(amount > 0)) return null;
+      const type = safeText(row.type);
+      const category = safeText(row.category || (
+        type.includes('guarantee') ? 'guarantee'
+        : type.includes('preauth') ? 'preauth'
+        : type === 'refund' ? 'refund'
+        : 'payment'
+      ));
       return {
         id: safeText(row.id) || `${Date.now()}_${Math.random().toString(16).slice(2,8)}`,
-        type: safeText(row.type),
+        type,
+        category,
         amount,
+        signedAmount: ['refund','guarantee_refund','preauth_void'].includes(type) ? -Math.abs(amount) : Math.abs(amount),
         at: asDate(row.at) || new Date(),
         method: safeText(row.method),
         party: safeText(row.party),
@@ -544,7 +1344,8 @@ function applyFinancialTransactionsPayload(booking, rental, payload){
         terminal: safeText(row.terminal),
         station: safeText(row.station),
         user: safeText(row.user),
-        notes: safeText(row.notes)
+        notes: safeText(row.notes),
+        status: safeText(row.status || 'posted')
       };
     })
     .filter(Boolean)
@@ -603,11 +1404,15 @@ async function buildContractLookups(booking = {}){
       const activeFlag = activeValue !== false && activeLower !== 'false' && activeLower !== '0' && activeLower !== 'no';
       const currentStationCode = safeText(item.currentStationCode || '');
       const currentStationLabel = safeText(item.currentStationLabel || '');
+      const readyToGo = item.readyToGo === true || safeText(item.readyToGo).toLowerCase() === 'true';
+      const hardHold = item.hardHold === true || safeText(item.hardHold).toLowerCase() === 'true';
       const assignedThis = !!currentAssignedId && currentAssignedId === recordId;
       const serviceBlocked = !activeFlag || ['service','blocked','inactive'].includes(operationalStatus.toLowerCase()) || ['service','blocked','inactive'].includes(status.toLowerCase());
       const hardUnavailable = ['assigned','unavailable','out'].includes(operationalStatus.toLowerCase()) || ['assigned','unavailable','out'].includes(status.toLowerCase());
       const busyConflict = !assignedThis && (busyVehicleIds.has(recordId) || hardUnavailable);
       const wrongStation = !assignedThis && !busyConflict && !serviceBlocked && !stationMatchesBooking(requestedStationRaw, currentStationCode, currentStationLabel);
+      const readinessBlocked = !assignedThis && !serviceBlocked && !busyConflict && !wrongStation && !readyToGo;
+      const holdBlocked = !assignedThis && !serviceBlocked && hardHold;
 
       let selectorStatusKey = 'available';
       let selectorStatusLabel = 'Available';
@@ -627,6 +1432,12 @@ async function buildContractLookups(booking = {}){
         selectorTone = 'danger';
         selectorStatusReason = 'Vehicle is not operationally available.';
         assignable = false;
+      } else if (holdBlocked) {
+        selectorStatusKey = 'hardHold';
+        selectorStatusLabel = 'Hard hold';
+        selectorTone = 'danger';
+        selectorStatusReason = 'Vehicle is under hard hold and cannot be assigned.';
+        assignable = false;
       } else if (busyConflict) {
         selectorStatusKey = 'busy';
         selectorStatusLabel = 'Busy / conflict';
@@ -638,6 +1449,12 @@ async function buildContractLookups(booking = {}){
         selectorStatusLabel = 'Wrong station';
         selectorTone = 'warn';
         selectorStatusReason = `Vehicle currently belongs to ${currentStationLabel || currentStationCode || 'another station'}.`;
+        assignable = false;
+      } else if (readinessBlocked) {
+        selectorStatusKey = 'notReady';
+        selectorStatusLabel = 'Not ready';
+        selectorTone = 'warn';
+        selectorStatusReason = 'Vehicle is not marked ready-to-go for checkout.';
         assignable = false;
       }
 
@@ -659,6 +1476,8 @@ async function buildContractLookups(booking = {}){
         excess: safeNum(item.excess),
         ownershipState: safeText(item.ownershipState || ''),
         poolType: safeText(item.poolType || ''),
+        readyToGo,
+        hardHold,
         available: selectorStatusKey === 'available',
         assignable,
         thisBookingAssigned: assignedThis,
@@ -1211,6 +2030,7 @@ export async function getContract({ authToken, bookingId }) {
     rental.paidNowAmount = rental.financials.paidNow;
     rental.depositAmount = rental.financials.deposit;
     rental.financialTransactions = Array.isArray(rental.financialTransactions) ? rental.financialTransactions : (Array.isArray(booking.financialTransactions) ? booking.financialTransactions : []);
+    rental.chargeLines = buildChargeLinesFromCharges(rental.charges || deriveChargeLines(booking, rental?.charges || {}), normalizeChargeLinesPayload(rental.chargeLines || booking.chargeLines || []));
     booking.financials = { ...(booking.financials || {}), ...rental.financials };
     booking.paymentMethod = rental.financials.paymentMethod;
     booking.paymentStatus = rental.financials.paymentStatus;
@@ -1220,6 +2040,21 @@ export async function getContract({ authToken, bookingId }) {
     booking.depositAmount = rental.financials.deposit;
     booking.financialTransactions = rental.financialTransactions;
     syncBookingChargeFields(booking, rental);
+    booking.chargeLines = cloneJson(rental.chargeLines || []);
+    const financialSnapshot = buildFinancialSnapshot({ booking, rental });
+    rental.financialSnapshot = financialSnapshot;
+    rental.commercialState = {
+      paymentStatus: financialSnapshot?.settlement?.paymentStatus || 'pending',
+      outstanding: safeNum(financialSnapshot?.settlement?.balance),
+      updatedAt: new Date()
+    };
+    booking.financialSnapshot = cloneJson(financialSnapshot);
+    booking.paymentStatus = financialSnapshot?.settlement?.paymentStatus || booking.paymentStatus;
+    rental.signatureState = normalizeSignatureState(rental.signatureState || booking.signatureState || {});
+    booking.signatureState = cloneJson(rental.signatureState);
+    const documentPipeline = buildDocumentPipelineSnapshot({ booking, rental, financialSnapshot });
+    rental.documentPipeline = documentPipeline;
+    booking.documentPipeline = cloneJson(documentPipeline);
 
     if (!booking.pricingSnapshot) booking.pricingSnapshot = buildPricingSnapshot(booking, rental);
     rental.pricingSnapshot = cloneJson(booking.pricingSnapshot);
@@ -1239,6 +2074,93 @@ export async function getContract({ authToken, bookingId }) {
     return { success:true, booking, rental, lookups };
   } catch (e) {
     return { success:false, message: e?.message || String(e) };
+  }
+}
+
+export async function exportContractDocumentPackage({ authToken, bookingId, documentType = 'agreement' }) {
+  await requireStaffAccess({ sessionToken: authToken, area: "rentals", action: "View" });
+  try {
+    if (!bookingId) return { success:false, message:"Missing bookingId" };
+    const booking = await wixData.get("BookingsNew", bookingId, { suppressAuth:true });
+    if (!booking) return { success:false, message:"Booking not found" };
+    booking.pickuppoint = pickLabel(booking.pickuppoint);
+    booking.dropoffpoint = pickLabel(booking.dropoffpoint);
+
+    let rental = await getRentalByBookingId(bookingId);
+    if (!rental) rental = buildRentalDraftFromBooking(booking);
+    rental = { ...rental };
+    rental.billing = mergeBillingFallback(booking, rental);
+    rental.financials = mergeFinancialsFallback(booking, rental);
+    rental.financialTransactions = Array.isArray(rental.financialTransactions) ? rental.financialTransactions : (Array.isArray(booking.financialTransactions) ? booking.financialTransactions : []);
+    if (!rental.charges || typeof rental.charges !== 'object') {
+      rental.charges = deriveChargeLines(booking, {});
+    }
+    if (!Array.isArray(rental.chargeLines) || !rental.chargeLines.length) {
+      rental.chargeLines = buildChargeLinesFromCharges(rental.charges, normalizeChargeLinesPayload(booking?.chargeLines || []));
+    }
+    if (!rental.financialSnapshot || typeof rental.financialSnapshot !== 'object') {
+      rental.financialSnapshot = buildFinancialSnapshot({ booking, rental });
+    }
+    if (!rental.commercialState || typeof rental.commercialState !== 'object') {
+      rental.commercialState = {
+        paymentStatus: safeText(rental.financialSnapshot?.settlement?.paymentStatus || booking?.paymentStatus || 'pending'),
+        settlementState: safeNum(rental.financialSnapshot?.settlement?.balance) <= 0 ? 'settled' : (safeNum(rental.financialSnapshot?.settlement?.paidTotal) > 0 ? 'partial' : 'open'),
+        outstanding: safeNum(rental.financialSnapshot?.settlement?.balance),
+        paidTotal: safeNum(rental.financialSnapshot?.settlement?.paidTotal)
+      };
+    }
+    rental.signatureState = normalizeSignatureState(rental.signatureState || booking.signatureState || {});
+    if (!rental.documentPipeline || typeof rental.documentPipeline !== 'object') {
+      rental.documentPipeline = buildDocumentPipelineSnapshot({ booking, rental, financialSnapshot: rental.financialSnapshot });
+    }
+
+    const pkg = buildContractDocumentPackage({ booking, rental, documentType });
+    return { success:true, package: pkg };
+  } catch (e) {
+    return { success:false, message:e?.message || String(e) };
+  }
+}
+
+export async function exportContractPrintableModel({ authToken, bookingId, documentType = 'agreement' }) {
+  const result = await exportContractDocumentPackage({ authToken, bookingId, documentType });
+  if (!result?.success) return result;
+  try {
+    const printable = buildPrintableDocumentModelFromPackage(result.package || {});
+    return { success:true, package: result.package, printable };
+  } catch (e) {
+    return { success:false, message:e?.message || String(e) };
+  }
+}
+
+export async function exportContractRenderedDocument({ authToken, bookingId, documentType = 'agreement' }) {
+  const result = await exportContractPrintableModel({ authToken, bookingId, documentType });
+  if (!result?.success) return result;
+  try {
+    const html = renderContractDocumentHtmlFromPrintable({ packageData: result.package, printable: result.printable });
+    return { success:true, package: result.package, printable: result.printable, html };
+  } catch (e) {
+    return { success:false, message:e?.message || String(e) };
+  }
+}
+
+export async function exportContractPdfFromHtml({ authToken, bookingId, documentType = 'agreement' }) {
+  const rendered = await exportContractRenderedDocument({ authToken, bookingId, documentType });
+  if (!rendered?.success) return rendered;
+  try {
+    const pdfBuffer = await renderPdfBufferFromHtml(rendered.html || '', {
+      title: `${safeText(documentType).toUpperCase()} • ${safeText(rendered?.package?.meta?.bookingNumber || rendered?.package?.meta?.bookingId || '')}`
+    });
+    return {
+      success:true,
+      package: rendered.package,
+      printable: rendered.printable,
+      html: rendered.html,
+      pdfBase64: pdfBuffer.toString("base64"),
+      filename: `${safeText(documentType || 'document')}_${safeText(rendered?.package?.meta?.bookingNumber || rendered?.package?.meta?.bookingId || 'contract')}.pdf`,
+      type: "application/pdf"
+    };
+  } catch (e) {
+    return { success:false, message:e?.message || String(e), package: rendered.package, printable: rendered.printable, html: rendered.html };
   }
 }
 
@@ -1439,8 +2361,31 @@ export async function saveContract({ authToken, bookingId, payload, stage }) {
 
     const ch = syncBookingChargeFields(booking, rental);
     const grossTotal = ch.gross;
+    rental.chargeLines = buildChargeLinesFromCharges(ch, normalizeChargeLinesPayload(payload?.chargeLines || rental.chargeLines || []));
+    booking.chargeLines = cloneJson(rental.chargeLines || []);
 
     rental.totals = computeVatBreakdown(grossTotal, vatRate);
+    const financialSnapshot = buildFinancialSnapshot({ booking, rental, totals: ch });
+    rental.financialSnapshot = financialSnapshot;
+    rental.commercialState = {
+      paymentStatus: safeText(payload?.commercialState?.paymentStatus || financialSnapshot?.settlement?.paymentStatus || rental.paymentStatus || 'pending'),
+      settlementState: safeText(payload?.commercialState?.settlementState || (safeNum(financialSnapshot?.settlement?.balance) <= 0 ? 'settled' : (safeNum(financialSnapshot?.settlement?.paidTotal) > 0 ? 'partial' : 'open'))),
+      outstanding: safeNum(financialSnapshot?.settlement?.balance),
+      paidTotal: safeNum(financialSnapshot?.settlement?.paidTotal),
+      updatedAt: new Date(),
+      notes: safeText(payload?.commercialState?.notes || rental?.commercialState?.notes || '')
+    };
+    const guardrailOverride = normalizeCheckoutGuardrailOverride(payload?.checkoutGuardrailOverride);
+    rental.checkoutGuardrailOverride = guardrailOverride || rental.checkoutGuardrailOverride || null;
+    booking.checkoutGuardrailOverride = cloneJson(rental.checkoutGuardrailOverride || null);
+    const signatureState = normalizeSignatureState(payload?.signatureState || rental.signatureState || booking.signatureState || {});
+    rental.signatureState = signatureState;
+    booking.signatureState = cloneJson(signatureState);
+    const documentPipeline = buildDocumentPipelineSnapshot({ booking, rental, financialSnapshot });
+    rental.documentPipeline = documentPipeline;
+    booking.documentPipeline = cloneJson(documentPipeline);
+    booking.financialSnapshot = cloneJson(financialSnapshot);
+    booking.paymentStatus = financialSnapshot?.settlement?.paymentStatus || booking.paymentStatus;
 
     booking.pricingSnapshot = cloneJson(pricingSnapshot);
     rental.pricingSnapshot = cloneJson(pricingSnapshot);
@@ -1489,6 +2434,11 @@ export async function saveContract({ authToken, bookingId, payload, stage }) {
     }
     rental.pricingReview = buildPricingReview(booking, rental);
 
+    if (s === "checkout") {
+      rental.checkoutFinancialSnapshot = cloneJson(financialSnapshot);
+      booking.checkoutFinancialSnapshot = cloneJson(financialSnapshot);
+    }
+
     await wixData.update("RentalsNew", rental, { suppressAuth:true });
     await wixData.update("BookingsNew", booking, { suppressAuth:true });
     await mirrorToBooking(booking, rental);
@@ -1498,32 +2448,91 @@ export async function saveContract({ authToken, bookingId, payload, stage }) {
       try {
         // lazy-load deps
         const sgMailMod = require("@sendgrid/mail");
-        const PDFDocument = require("pdfkit");
+        const renderMode = safeText(payload?.documentRenderMode || '').toLowerCase();
+        const useHtmlRenderer = renderMode === 'html_template';
+        const usePdfFromHtml = renderMode === 'pdf_from_html';
 
-        // build pdf
-        const pdfBuffer = await new Promise((resolve, reject) => {
-          try {
-            const doc = new PDFDocument({ size:"A4", margin:42 });
-            const chunks = [];
-            doc.on("data", c => chunks.push(c));
-            doc.on("end", () => resolve(Buffer.concat(chunks)));
-            doc.on("error", reject);
+        let attachments = [];
+        if (useHtmlRenderer || usePdfFromHtml) {
+          const documentType = safeText(payload?.documentType || 'receipt').toLowerCase();
+          const packageData = buildContractDocumentPackage({ booking, rental, documentType });
+          const printable = buildPrintableDocumentModelFromPackage(packageData);
+          const html = renderContractDocumentHtmlFromPrintable({ packageData, printable });
+          if (usePdfFromHtml) {
+            try {
+              const pdfBuffer = await renderPdfBufferFromHtml(html, {
+                title: `${documentType.toUpperCase()} • ${safeText(booking.bookingNumber || booking._id)}`
+              });
+              attachments = [{
+                content: pdfBuffer.toString("base64"),
+                filename: `${documentType}_${safeText(booking.bookingNumber || booking._id)}.pdf`,
+                type: "application/pdf",
+                disposition: "attachment"
+              }];
+            } catch (_) {
+              const PDFDocument = require("pdfkit");
+              const pdfBuffer = await new Promise((resolve, reject) => {
+                try {
+                  const doc = new PDFDocument({ size:"A4", margin:42 });
+                  const chunks = [];
+                  doc.on("data", c => chunks.push(c));
+                  doc.on("end", () => resolve(Buffer.concat(chunks)));
+                  doc.on("error", reject);
+                  doc.fontSize(18).text("Rental Receipt / Contract");
+                  doc.moveDown(0.6);
+                  doc.fontSize(10).text(`Booking: ${safeText(booking.bookingNumber)}`);
+                  doc.text(`Customer: ${safeText(booking.customerName)}`);
+                  doc.text(`Vehicle: ${safeText(booking.assignedVehicleLabel || booking.assignedVehiclePlate || rental.assignedVehicleLabel || "-")}`);
+                  doc.end();
+                } catch(e){ reject(e); }
+              });
+              attachments = [{
+                content: pdfBuffer.toString("base64"),
+                filename: `Receipt_${safeText(booking.bookingNumber || booking._id)}.pdf`,
+                type: "application/pdf",
+                disposition: "attachment"
+              }];
+            }
+          } else {
+            attachments = [{
+              content: Buffer.from(html, "utf8").toString("base64"),
+              filename: `${documentType}_${safeText(booking.bookingNumber || booking._id)}.html`,
+              type: "text/html",
+              disposition: "attachment"
+            }];
+          }
+        } else {
+          const PDFDocument = require("pdfkit");
+          const pdfBuffer = await new Promise((resolve, reject) => {
+            try {
+              const doc = new PDFDocument({ size:"A4", margin:42 });
+              const chunks = [];
+              doc.on("data", c => chunks.push(c));
+              doc.on("end", () => resolve(Buffer.concat(chunks)));
+              doc.on("error", reject);
 
-            doc.fontSize(18).text("Rental Receipt / Contract");
-            doc.moveDown(0.6);
-            doc.fontSize(10).text(`Booking: ${safeText(booking.bookingNumber)}`);
-            doc.text(`Customer: ${safeText(booking.customerName)}`);
-            doc.text(`Email: ${safeText(booking.email)}`);
-            doc.text(`Phone: ${safeText(booking.phone)}`);
-            doc.moveDown(0.6);
-            doc.fontSize(10).text(`Pickup: ${safeText(booking.pickupDateTime)} @ ${pickLabel(booking.pickuppoint)}`);
-            doc.text(`Dropoff: ${safeText(booking.dropoffDateTime)} @ ${pickLabel(booking.dropoffpoint)}`);
-            doc.moveDown(0.6);
-            doc.fontSize(10).text(`Vehicle: ${safeText(booking.assignedVehicleLabel || booking.assignedVehiclePlate || rental.assignedVehicleLabel || "-")}`);
-            doc.text(`Gross: ${safeText(rental.totals?.gross)} €  (Net ${safeText(rental.totals?.net)} / VAT ${safeText(rental.totals?.vat)})`);
-            doc.end();
-          } catch(e){ reject(e); }
-        });
+              doc.fontSize(18).text("Rental Receipt / Contract");
+              doc.moveDown(0.6);
+              doc.fontSize(10).text(`Booking: ${safeText(booking.bookingNumber)}`);
+              doc.text(`Customer: ${safeText(booking.customerName)}`);
+              doc.text(`Email: ${safeText(booking.email)}`);
+              doc.text(`Phone: ${safeText(booking.phone)}`);
+              doc.moveDown(0.6);
+              doc.fontSize(10).text(`Pickup: ${safeText(booking.pickupDateTime)} @ ${pickLabel(booking.pickuppoint)}`);
+              doc.text(`Dropoff: ${safeText(booking.dropoffDateTime)} @ ${pickLabel(booking.dropoffpoint)}`);
+              doc.moveDown(0.6);
+              doc.fontSize(10).text(`Vehicle: ${safeText(booking.assignedVehicleLabel || booking.assignedVehiclePlate || rental.assignedVehicleLabel || "-")}`);
+              doc.text(`Gross: ${safeText(rental.totals?.gross)} €  (Net ${safeText(rental.totals?.net)} / VAT ${safeText(rental.totals?.vat)})`);
+              doc.end();
+            } catch(e){ reject(e); }
+          });
+          attachments = [{
+            content: pdfBuffer.toString("base64"),
+            filename: `Receipt_${safeText(booking.bookingNumber || booking._id)}.pdf`,
+            type: "application/pdf",
+            disposition: "attachment"
+          }];
+        }
 
         // send
         const apiKey = await getSecret("SENDGRID_API_KEY");
@@ -1544,12 +2553,7 @@ export async function saveContract({ authToken, bookingId, payload, stage }) {
           from: fromEmail,
           subject: `Receipt / Contract • ${bookingNo}`,
           text: `Receipt/Contract for booking ${bookingNo}`,
-          attachments: [{
-            content: pdfBuffer.toString("base64"),
-            filename: `Receipt_${bookingNo}.pdf`,
-            type: "application/pdf",
-            disposition: "attachment"
-          }]
+          attachments
         });
       } catch (e) {
         return { success:true, warning:`Saved but PDF/email failed: ${e?.message || String(e)}`, rentalState:rental.rentalState, totals:rental.totals };
