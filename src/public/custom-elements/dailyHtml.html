@@ -506,8 +506,21 @@
       <button class="closeBtn" id="requestModalClose" type="button">Close</button>
     </div>
     <div class="modalBody" id="requestModalBody"></div>
+    <div class="modalBody">
+      <div class="fieldBox full">
+        <div class="fk">Triage note</div>
+        <textarea class="input" id="requestAuditNote" placeholder="Add triage note / reason…" style="width:100%;min-height:88px;resize:vertical"></textarea>
+      </div>
+      <div class="fieldBox full">
+        <div class="fk">Next follow-up</div>
+        <input class="input" id="requestFollowUpAt" type="datetime-local" />
+      </div>
+    </div>
     <div class="modalActions">
       <button class="inspectorBtn primary" id="requestAcceptBtn" type="button">Confirm booking</button>
+      <button class="inspectorBtn" id="requestReviewBtn" type="button">Save triage note</button>
+      <button class="inspectorBtn" id="requestHoldBtn" type="button">Put on hold</button>
+      <button class="inspectorBtn" id="requestEscalateBtn" type="button">Escalate</button>
       <button class="inspectorBtn" id="requestDeclineBtn" type="button">Decline booking</button>
       <button class="inspectorBtn" id="requestOpenContractBtn" type="button">Open contract</button>
     </div>
@@ -601,7 +614,7 @@
   function norm(v){ return safe(v).toLowerCase(); }
   function isPending(item){ return ['pending','request','requested','new','quote','unconfirmed','hold','waiting'].includes(norm(item.status)) || norm(item.status).includes('request'); }
   function stationOf(item){ return safe(item.station || item.pickupStation || item.dropoffStation || item.pickuppoint || item.dropoffpoint || ''); }
-  function searchBlob(item){ return [item.bookingNumber,item.customerName,item.phone,item.email,item.pickuppoint,item.dropoffpoint,item.assignedVehicleLabel,item.assignedVehiclePlate,item.assignedVehicleModel,item.flightNumber,item.station,item.group,item.vehicleLabel,item.notes,item.state,item.category,item.categoryCode,item.source,item.agent,item.selectedPackage,item.extras].map(safe).join(' ').toLowerCase(); }
+  function searchBlob(item){ return [item.bookingNumber,item.customerName,item.phone,item.email,item.pickuppoint,item.dropoffpoint,item.assignedVehicleLabel,item.assignedVehiclePlate,item.assignedVehicleModel,item.flightNumber,item.station,item.group,item.vehicleLabel,item.notes,item.state,item.category,item.categoryCode,item.source,item.agent,item.selectedPackage,item.extras,item.requestTriage?.priority,item.requestTriage?.suggestedAction,Array.isArray(item.requestTriage?.reasons) ? item.requestTriage.reasons.join(' ') : ''].map(safe).join(' ').toLowerCase(); }
   function routeText(item){ return [safe(item.pickuppoint || item.station || item.vehicleLabel || '—'), safe(item.dropoffpoint || item.state || '')].filter(Boolean).join(' → '); }
   function itemTime(item, key){
     if (key === 'checkin') return hhmm(item.dropoffDateTime || item.end);
@@ -612,12 +625,56 @@
   function requestNeedsVehicle(item){ return !safe(item.assignedVehicleLabel || item.assignedVehiclePlate || item.assignedVehicle || item.vehicleLabel || ''); }
   function requestNeedsFlight(item){ return !safe(item.flightNumber || item.flight || ''); }
   function requestNeedsVoucher(item){ return !safe(item.voucherNumber || item.voucher || item.confirmationNumber || item.confirmation || ''); }
+  function requestIsAirport(item){ return itemIsAirport(item); }
+  function requestIsUnpaid(item){ return safe(item.paymentStatus).toLowerCase() === 'pending' || Number(item.totalBalance || 0) > 0.01; }
+  function requestIsOverdue(item){ const due = asDate(item && item.requestTriage && item.requestTriage.dueAt); return !!(due && due.getTime() < Date.now()); }
+  function requestIsServiceBlocked(item){ return !!item.vehicleServiceBlocked; }
+  function requestIsHardHold(item){ return !!item.vehicleHardHold; }
+  function requestHasMissingInfo(item){ return requestNeedsFlight(item) || requestNeedsVoucher(item) || !safe(item.phone || item.email); }
+  function requestPriority(item){ return norm(item && item.requestTriage && item.requestTriage.priority) || 'low'; }
+  function requestPriorityLabel(item){
+    const p = requestPriority(item);
+    if (p === 'urgent') return 'Critical';
+    if (p === 'high') return 'High';
+    if (p === 'medium') return 'Medium';
+    return 'Low';
+  }
+  function requestTriageScore(item){ return Number(item && item.requestTriage && item.requestTriage.score) || 0; }
+  function requestDueLabel(item){
+    const due = asDate(item && item.requestTriage && item.requestTriage.dueAt);
+    if (!due) return 'No SLA';
+    const deltaMin = Math.round((due.getTime() - Date.now()) / 60000);
+    if (deltaMin < 0) return `Overdue ${Math.abs(deltaMin)}m`;
+    if (deltaMin < 60) return `Due in ${deltaMin}m`;
+    return `Due in ${Math.round(deltaMin / 60)}h`;
+  }
+  function triageOwner(item){ return safe(item.triageOwner || item.requestTriage?.owner || ''); }
+  function triageLastAction(item){ return safe(item.triageLastAction || item.requestTriage?.lastAction || ''); }
+  function triageLastNote(item){ return safe(item.triageLastNote || item.requestTriage?.lastNote || ''); }
+  function triageUpdatedAt(item){ return asDate(item.triageUpdatedAt || item.requestTriage?.updatedAt); }
+  function triageFollowUpAt(item){ return asDate(item.triageNextFollowUpAt || item.requestTriage?.nextFollowUpAt); }
+  function triageUpdatedLabel(item){ const d = triageUpdatedAt(item); return d ? fmtDT(d) : 'No activity'; }
+  function triageFollowUpLabel(item){ const d = triageFollowUpAt(item); return d ? fmtDT(d) : 'No follow-up'; }
+  function triageFollowUpOverdue(item){ const d = triageFollowUpAt(item); return !!(d && d.getTime() < Date.now()); }
+  function triageMine(item){ return triageOwner(item).toLowerCase() === safe(state.user?.name).toLowerCase(); }
+  function triageUnowned(item){ return !triageOwner(item); }
   function matchesRequestQueue(item){
     switch (state.requestQueue) {
       case 'pending': return isPending(item);
+      case 'overdue': return requestIsOverdue(item);
+      case 'airport': return requestIsAirport(item);
+      case 'unpaid': return requestIsUnpaid(item);
+      case 'unowned': return triageUnowned(item);
+      case 'mine': return triageMine(item);
+      case 'escalated': return triageLastAction(item).toLowerCase() === 'escalate';
+      case 'onhold': return triageLastAction(item).toLowerCase() === 'hold' || norm(item.status) === 'hold';
+      case 'followupoverdue': return triageFollowUpOverdue(item);
       case 'noflight': return requestNeedsFlight(item);
       case 'novoucher': return requestNeedsVoucher(item);
       case 'novehicle': return requestNeedsVehicle(item);
+      case 'serviceblocked': return requestIsServiceBlocked(item);
+      case 'hardhold': return requestIsHardHold(item);
+      case 'missinginfo': return requestHasMissingInfo(item);
       default: return true;
     }
   }
@@ -626,9 +683,20 @@
     return {
       all:list.length,
       pending:list.filter((item)=> isPending(item)).length,
+      overdue:list.filter((item)=> requestIsOverdue(item)).length,
+      airport:list.filter((item)=> requestIsAirport(item)).length,
+      unpaid:list.filter((item)=> requestIsUnpaid(item)).length,
+      unowned:list.filter((item)=> triageUnowned(item)).length,
+      mine:list.filter((item)=> triageMine(item)).length,
+      escalated:list.filter((item)=> triageLastAction(item).toLowerCase() === 'escalate').length,
+      onhold:list.filter((item)=> triageLastAction(item).toLowerCase() === 'hold' || norm(item.status) === 'hold').length,
+      followupoverdue:list.filter((item)=> triageFollowUpOverdue(item)).length,
       noflight:list.filter((item)=> requestNeedsFlight(item)).length,
       novoucher:list.filter((item)=> requestNeedsVoucher(item)).length,
-      novehicle:list.filter((item)=> requestNeedsVehicle(item)).length
+      novehicle:list.filter((item)=> requestNeedsVehicle(item)).length,
+      serviceblocked:list.filter((item)=> requestIsServiceBlocked(item)).length,
+      hardhold:list.filter((item)=> requestIsHardHold(item)).length,
+      missinginfo:list.filter((item)=> requestHasMissingInfo(item)).length
     };
   }
   function requestQueueMeta(){
@@ -636,9 +704,20 @@
     const map = {
       all:{ label:'All requests', hint:'Όλα τα request rows με τα τρέχοντα global filters.', count:counts.all },
       pending:{ label:'Pending queue', hint:'Request rows που παραμένουν pending / unconfirmed και θέλουν χειρισμό.', count:counts.pending },
+      overdue:{ label:'SLA overdue', hint:'Request rows που πέρασαν το SLA due time και θέλουν άμεση ενέργεια.', count:counts.overdue },
+      airport:{ label:'Airport', hint:'Airport-related requests που χρειάζονται άμεση travel επιβεβαίωση.', count:counts.airport },
+      unpaid:{ label:'Unpaid / due', hint:'Rows με outstanding balance ή pending payment.', count:counts.unpaid },
+      unowned:{ label:'Unowned', hint:'Rows χωρίς triage owner.', count:counts.unowned },
+      mine:{ label:'My queue', hint:'Rows που χειρίζεσαι εσύ ως triage owner.', count:counts.mine },
+      escalated:{ label:'Escalated', hint:'Rows με τελευταίο triage action το escalate.', count:counts.escalated },
+      onhold:{ label:'On hold', hint:'Rows που έχουν μπει σε hold και θέλουν follow-up.', count:counts.onhold },
+      followupoverdue:{ label:'Follow-up overdue', hint:'Rows με follow-up timestamp στο παρελθόν.', count:counts.followupoverdue },
       noflight:{ label:'Missing flight', hint:'Rows χωρίς flight number ή arrival πληροφορία, άρα θέλουν travel follow-up.', count:counts.noflight },
       novoucher:{ label:'Missing voucher', hint:'Rows χωρίς voucher / confirmation, άρα θέλουν εμπορικό ή partner check.', count:counts.novoucher },
-      novehicle:{ label:'Missing vehicle', hint:'Rows χωρίς assigned vehicle, άρα θέλουν άμεσο operational assignment.', count:counts.novehicle }
+      novehicle:{ label:'Missing vehicle', hint:'Rows χωρίς assigned vehicle, άρα θέλουν άμεσο operational assignment.', count:counts.novehicle },
+      serviceblocked:{ label:'Service blocked', hint:'Requests με service-blocked όχημα.', count:counts.serviceblocked },
+      hardhold:{ label:'Hard hold', hint:'Requests με όχημα σε hard hold.', count:counts.hardhold },
+      missinginfo:{ label:'Missing info', hint:'Rows με κενά flight / voucher / contact στοιχεία.', count:counts.missinginfo }
     };
     return map[state.requestQueue] || map.all;
   }
@@ -753,11 +832,9 @@
   }
   function requestRowClass(item,key){
     if (key !== 'requests') return '';
-    const needsVehicle = requestNeedsVehicle(item);
-    const needsFlight = requestNeedsFlight(item);
-    const needsVoucher = requestNeedsVoucher(item);
-    if (needsVehicle && (needsFlight || needsVoucher)) return 'request-critical';
-    if (needsVehicle || needsFlight || needsVoucher) return 'request-warning';
+    if (requestIsOverdue(item) || triageFollowUpOverdue(item) || requestPriority(item) === 'urgent') return 'request-critical';
+    if (requestPriority(item) === 'high') return 'request-warning';
+    if (requestNeedsVehicle(item) || requestNeedsFlight(item) || requestNeedsVoucher(item)) return 'request-warning';
     if (isPending(item)) return 'request-pending';
     return '';
   }
@@ -799,9 +876,20 @@
     const cfg = scopeState(scope);
     const forceVisibleMap = {
       pending:['status','time','booking','customer','phone','pickup','dropoff','category','notes','actions'],
+      overdue:['triage','status','time','booking','customer','pickup','vehicle','flags','notes','actions'],
+      airport:['triage','status','time','booking','customer','pickup','dropoff','flight','originCity','vehicle','notes','actions'],
+      unpaid:['triage','status','time','booking','customer','source','agent','flags','notes','actions'],
+      unowned:['triage','status','time','booking','customer','phone','pickup','dropoff','notes','actions'],
+      mine:['triage','status','time','booking','customer','phone','pickup','dropoff','flags','notes','actions'],
+      escalated:['triage','status','time','booking','customer','vehicle','flags','notes','actions'],
+      onhold:['triage','status','time','booking','customer','vehicle','flags','notes','actions'],
+      followupoverdue:['triage','status','time','booking','customer','vehicle','flags','notes','actions'],
       noflight:['status','time','booking','customer','phone','pickup','dropoff','flight','originCity','station','notes','actions'],
       novoucher:['status','time','booking','customer','phone','source','agent','voucher','confirmation','notes','actions'],
-      novehicle:['status','time','booking','customer','phone','pickup','dropoff','vehicle','category','station','notes','actions']
+      novehicle:['triage','status','time','booking','customer','phone','pickup','dropoff','vehicle','category','station','notes','actions'],
+      serviceblocked:['triage','status','time','booking','customer','vehicle','station','flags','notes','actions'],
+      hardhold:['triage','status','time','booking','customer','vehicle','station','flags','notes','actions'],
+      missinginfo:['triage','status','time','booking','customer','phone','flight','voucher','confirmation','notes','actions']
     };
     if (!forceVisibleMap[queueKey]) return;
     const ordered = forceVisibleMap[queueKey].filter((c)=> c in OPS_COL_META);
@@ -819,6 +907,7 @@
   function summaryTarget(key){ if (key === 'checkout' || key === 'checkin') return { mode:'desk', tab:key }; return { mode:'full', tab:key }; }
 
   const OPS_COL_META = {
+    triage:{ label:'Triage', help:'Priority / SLA', width:158 },
     status:{ label:'Status', help:'Operational state', width:86 },
     time:{ label:'Time', help:'Movement time', width:78 },
     booking:{ label:'Booking', help:'Reservation / rental id', width:120 },
@@ -844,7 +933,7 @@
 
   const DAILY_TABLE_PREFS_KEY = 'diamond.daily.tableprefs.v46';
   const DAILY_DENSITY_KEY = 'diamond.daily.rowdensity.v1';
-  const ALL_SCOPES = ['deskout','deskin','checkout','checkin','bookings','precheckins','cancellations','activeunder','activeover','nonrevenue','overdue','available','grounded','equipment'];
+  const ALL_SCOPES = ['deskout','deskin','checkout','checkin','bookings','requests','precheckins','cancellations','activeunder','activeover','nonrevenue','overdue','available','grounded','equipment'];
 
   function loadUiPrefs(){
     try {
@@ -860,6 +949,7 @@
   function defaultSortForScope(scope){
     switch (scope) {
       case 'bookings': return { key:'pickup', dir:'asc' };
+      case 'requests': return { key:'triage', dir:'desc' };
       case 'overdue': return { key:'dropoff', dir:'asc' };
       case 'available':
       case 'grounded': return { key:'vehicle', dir:'asc' };
@@ -873,7 +963,9 @@
       case 'checkin': return ['status','time','booking','customer','phone','dropoff','vehicle','station','notes','actions'];
       case 'bookings': return ['status','booking','customer','phone','pickup','flight','originCity','category','package','voucher','confirmation','notes','actions'];
       case 'precheckins':
+        return ['status','time','booking','customer','phone','dropoff','vehicle','station','notes','actions'];
       case 'requests':
+        return ['triage','status','time','booking','customer','phone','pickup','dropoff','flight','vehicle','station','flags','notes','actions'];
       case 'cancellations':
       case 'activeunder':
       case 'activeover':
@@ -1004,6 +1096,7 @@
     return item.pickupDateTime || item.start || item.dropoffDateTime || item.end;
   }
   function opsCellText(item,key,tab){
+    if (key === 'triage') return String(requestTriageScore(item));
     if (key === 'status') return statusLabel(item);
     if (key === 'time') return String(asDate(itemDateTimeRaw(item,tab))?.getTime() || 0);
     if (key === 'booking') return safe(item.bookingNumber || item.resdocno || item._id || item.id);
@@ -1030,7 +1123,7 @@
     const mul = dir === 'desc' ? -1 : 1;
     const av = opsCellText(a,key,tab);
     const bv = opsCellText(b,key,tab);
-    if (key === 'time') return (Number(av) - Number(bv)) * mul;
+    if (key === 'time' || key === 'triage') return (Number(av) - Number(bv)) * mul;
     return String(av).localeCompare(String(bv), 'el', { sensitivity:'base', numeric:true }) * mul;
   }
   function sortedOpsRows(rows,tab,scope='checkout'){
@@ -1058,9 +1151,20 @@
     const defs = [
       { key:'all', label:'All', count:counts.all },
       { key:'pending', label:'Pending', count:counts.pending },
+      { key:'overdue', label:'Overdue', count:counts.overdue },
+      { key:'airport', label:'Airport', count:counts.airport },
+      { key:'unpaid', label:'Unpaid', count:counts.unpaid },
+      { key:'unowned', label:'Unowned', count:counts.unowned },
+      { key:'mine', label:'Mine', count:counts.mine },
+      { key:'escalated', label:'Escalated', count:counts.escalated },
+      { key:'onhold', label:'On hold', count:counts.onhold },
+      { key:'followupoverdue', label:'Follow-up overdue', count:counts.followupoverdue },
       { key:'noflight', label:'No flight', count:counts.noflight },
       { key:'novoucher', label:'No voucher', count:counts.novoucher },
-      { key:'novehicle', label:'No vehicle', count:counts.novehicle }
+      { key:'novehicle', label:'No vehicle', count:counts.novehicle },
+      { key:'serviceblocked', label:'Service blocked', count:counts.serviceblocked },
+      { key:'hardhold', label:'Hard hold', count:counts.hardhold },
+      { key:'missinginfo', label:'Missing info', count:counts.missinginfo }
     ];
     return `<div class="toolToolbarRows"><div class="toolFocusRow"><span class="toolFocusLabel">Request queue</span>${defs.map((def)=> `<button class="toolFocusBtn ${state.requestQueue===def.key?'active':''}" type="button" data-request-focus="${esc(def.key)}">${esc(def.label)} <span class="countPill">${esc(String(def.count))}</span></button>`).join('')}<button class="toolFocusBtn ghost" type="button" data-request-focus="all">Clear queue</button></div><div class="toolQueueSummary"><div class="toolQueueMeta"><span class="toolQueueBadge">${esc(meta.label)}</span><span class="toolQueueHint">${esc(meta.hint)}</span></div><div class="toolQueueActions"><span class="toolQueueMini">${esc(String(meta.count))} rows in current queue</span></div></div></div>`;
   }
@@ -1131,11 +1235,19 @@
   }
   function simpleCell(main, sub='—'){ return `<div class="toolCell"><div class="toolMain">${esc(main || '—')}</div><div class="toolSub">${esc(sub || '—')}</div></div>`; }
   function opsColContent(item,col,key){
+    if (col === 'triage') {
+      const badgeCls = requestPriority(item) === 'urgent' ? 'overdue' : requestPriority(item) === 'high' ? 'warn' : requestPriority(item) === 'medium' ? 'info' : 'neutral';
+      const reasons = Array.isArray(item.requestTriage?.reasons) && item.requestTriage.reasons.length ? item.requestTriage.reasons.join(' • ') : 'No triage reasons';
+      const owner = triageOwner(item) || 'Unowned';
+      return `<div class="toolCell"><div class="toolFlags"><span class="flagPill ${esc(badgeCls)}">${esc(requestPriorityLabel(item))}</span><span class="flagPill neutral">Score ${esc(String(requestTriageScore(item)))}</span><span class="flagPill ${triageUnowned(item)?'warn':'ok'}">${esc(owner)}</span></div><div class="toolSub">${esc(`${requestDueLabel(item)} • ${reasons}`)}</div></div>`;
+    }
     if (col === 'status') {
       const pillClass = item.itemType === 'fleet' ? 'neutral' : bookingStatusClass(item);
       const sub = item.itemType === 'fleet'
         ? [safe(item.state || item.status), safe(item.location || item.branch || item.station)].filter(Boolean).join(' • ') || 'Fleet'
-        : safe(item.itemType || key || 'Daily');
+        : (key === 'requests'
+          ? [safe(item.requestTriage?.suggestedAction), requestDueLabel(item), triageLastAction(item) ? `Last ${triageLastAction(item)}` : '', triageUpdatedLabel(item)].filter(Boolean).join(' • ') || safe(item.itemType || key || 'Daily')
+          : safe(item.itemType || key || 'Daily'));
       return `<div class="toolCell"><div class="toolFlags"><span class="flagPill ${esc(pillClass)}">${esc(statusLabel(item))}</span></div><div class="toolSub">${esc(sub)}</div></div>`;
     }
     if (col === 'time') return simpleCell(itemTime(item,key), fmtDT(itemDateTimeRaw(item,key)));
@@ -1155,8 +1267,15 @@
     if (col === 'agent') return simpleCell(safe(item.agent || item.partner || item.company || '—'), sourceText(item) || '—');
     if (col === 'voucher') return simpleCell(voucherText(item) || '—', confirmationText(item) || '—');
     if (col === 'confirmation') return simpleCell(confirmationText(item) || '—', voucherText(item) || '—');
-    if (col === 'flags') return `<div class="toolCell"><div class="toolFlags">${bookingFlags(item).map(([label,cls])=> `<span class="flagPill ${esc(cls)}">${esc(label)}</span>`).join('') || '<span class="flagPill neutral">Clean</span>'}</div><div class="toolSub">${esc([packageText(item), stationOf(item)].filter(Boolean).join(' • ') || '—')}</div></div>`;
-    if (col === 'notes') return simpleCell(notesText(item) || safe(item.reason || item.comment || item.description || '—'), safe(item.internalMemo || item.remarks || item.reason || '—'));
+    if (col === 'flags') return `<div class="toolCell"><div class="toolFlags">${bookingFlags(item).map(([label,cls])=> `<span class="flagPill ${esc(cls)}">${esc(label)}</span>`).join('') || '<span class="flagPill neutral">Clean</span>'}</div><div class="toolSub">${esc(key === 'requests' ? (safe(item.requestTriage?.suggestedAction || 'Review and schedule')) : ([packageText(item), stationOf(item)].filter(Boolean).join(' • ') || '—'))}</div></div>`;
+    if (col === 'notes') return simpleCell(
+      key === 'requests'
+        ? (triageLastNote(item) || (Array.isArray(item.requestTriage?.reasons) ? item.requestTriage.reasons.join(' • ') : '') || notesText(item) || safe(item.reason || item.comment || item.description || '—'))
+        : (notesText(item) || safe(item.reason || item.comment || item.description || '—')),
+      key === 'requests'
+        ? [triageOwner(item) ? `Owner ${triageOwner(item)}` : 'Unowned', triageFollowUpLabel(item), triageFollowUpOverdue(item) ? 'Follow-up overdue' : ''].filter(Boolean).join(' • ')
+        : safe(item.internalMemo || item.remarks || item.reason || '—')
+    );
     if (col === 'actions') return `<div class="toolCell"><div class="toolActions">${rowActionButtons(item,key,true)}</div><div class="toolSub">${esc(safe(item.bookingNumber || item._id || item.id || '—'))}</div></div>`;
     return simpleCell('—');
   }
@@ -1184,7 +1303,9 @@
     const leftMeta = `<div class="toolToolbarLeft"><div><div class="toolTitle">${esc(title)}</div><div class="toolSub">${esc(sub)}</div></div><span class="toolPill">${esc(String(rowPill))}</span><span class="toolPill">${esc(String(cols.length))} cols</span><span class="toolPill">Sort ${esc((OPS_COL_META[sort.key]||{}).label || sort.key)}</span></div>`;
     const shellCls = ['toolTableShell','has-col-panel', state.rowDensity==='compact' ? 'is-compact' : '', variant === 'full' ? 'table-clean' : ''].filter(Boolean).join(' ');
     if (variant === 'full') {
-      return `<div class="${shellCls}"><div class="toolTableTopbar"><div class="toolToolbarRight">${toolColButton(tableScope)}</div></div><div class="toolBodyShell"><div class="toolTableViewport"><div class="toolTableWrap"><table class="toolTable" data-table-scope="${esc(tableScope)}"><colgroup>${colgroup}</colgroup><thead><tr>${heads}</tr></thead><tbody>${body || `<tr><td colspan="${cols.length}"><div class="empty">${esc(tabEmptyMessage(key))}</div></td></tr>`}</tbody></table></div></div>${toolColPanel(tableScope, OPS_COL_META)}</div></div>`;
+      const requestBar = key === 'requests' ? renderRequestQueueBar() : '';
+      const focusBar = requestBar || renderFullFocusBar(sourceRows,key,tableScope);
+      return `<div class="${shellCls} ${key==='requests'?'is-requests':''}"><div class="toolTableTopbar"><div class="toolToolbarRight">${toolColButton(tableScope)}</div></div><div class="toolToolbar">${leftMeta}${focusBar}</div><div class="toolBodyShell"><div class="toolTableViewport"><div class="toolTableWrap"><table class="toolTable" data-table-scope="${esc(tableScope)}"><colgroup>${colgroup}</colgroup><thead><tr>${heads}</tr></thead><tbody>${body || `<tr><td colspan="${cols.length}"><div class="empty">${esc(tabEmptyMessage(key))}</div></td></tr>`}</tbody></table></div></div>${toolColPanel(tableScope, OPS_COL_META)}</div></div>`;
     }
     const topRows = `${leftMeta}${renderDeskFocusBar(sourceRows, key, tableScope)}`;
     const contextBar = renderWorkspaceContextBar(ordered, key, tableScope, variant, sourceRows);
@@ -1196,6 +1317,7 @@
     switch (key) {
       case 'checkin': return 'Δεν υπάρχουν confirmed check-ins για την επιλεγμένη ημέρα.';
       case 'bookings': return 'Δεν υπάρχουν confirmed bookings για την επιλεγμένη ημέρα.';
+      case 'requests': return 'Δεν υπάρχουν request rows με τα τρέχοντα triage filters.';
       case 'overdue': return 'Δεν υπάρχουν overdue / open rentals με τα τρέχοντα φίλτρα.';
       case 'available': return 'Δεν υπάρχουν διαθέσιμα οχήματα με τα τρέχοντα φίλτρα.';
       case 'grounded': return 'Δεν υπάρχουν grounded οχήματα με τα τρέχοντα φίλτρα.';
@@ -1213,11 +1335,23 @@
   }
   function bookingFlags(item){
     const out=[];
+    if (item && item.requestTriage && item.itemType !== 'fleet') {
+      const p = requestPriorityLabel(item);
+      out.push([`Priority ${p}`, p === 'Critical' ? 'overdue' : (p === 'High' ? 'warn' : (p === 'Medium' ? 'info' : 'neutral'))]);
+      if (requestIsOverdue(item)) out.push(['SLA overdue','overdue']);
+      if (triageUnowned(item)) out.push(['Unowned','warn']);
+      if (triageLastAction(item)) out.push([`Last ${triageLastAction(item)}`,'info']);
+      if (triageFollowUpOverdue(item)) out.push(['Follow-up overdue','overdue']);
+    }
     if (!safe(item.assignedVehicleLabel || item.assignedVehiclePlate || item.assignedVehicle)) out.push(['No vehicle','warn']);
     if (safe(item.flightNumber)) out.push(['Flight','info']);
     const route = `${safe(item.pickuppoint)} ${safe(item.dropoffpoint)}`.toLowerCase();
     if (route.includes('airport')) out.push(['Airport','info']);
     if (isPending(item)) out.push(['Pending','warn']);
+    if (item.vehicleServiceBlocked) out.push(['Service blocked','overdue']);
+    if (item.vehicleHardHold) out.push(['Hard hold','warn']);
+    if (safe(item.paymentStatus).toLowerCase() === 'pending') out.push(['Payment pending','warn']);
+    if (Number(item.totalBalance || 0) > 0.01) out.push([`Due ${money(item.totalBalance)}`,'warn']);
     if (safe(item.selectedExtrasList && item.selectedExtrasList.length ? item.selectedExtrasList.length : item.extras)) out.push(['Extras','ok']);
     if (!out.length) out.push(['Clean','neutral']);
     return out;
@@ -1264,7 +1398,31 @@
     return `<div class="toolCell"><div class="toolMain">—</div></div>`;
   }
   function renderBookingsTable(rows,key){ const ordered = sortedBookingRows(rows); const cols = visibleCols('bookings'); const colgroup = cols.map((col)=> `<col data-col-key="${esc(col)}" style="width:${colWidth('bookings',col)}px">`).join(''); const heads = cols.map((col)=> bookingHeadCell(col)).join(''); const body = ordered.map((item)=> { const id = safe(item._id || item.id); const selected = String(state.selected.id) === id && String(state.selected.tab) === String(key); return `<tr class="${selected?'selected':''}" data-select-id="${esc(id)}" data-select-tab="${esc(key)}">${cols.map((col)=> `<td>${bookingColContent(item,col,key)}</td>`).join('')}</tr>`; }).join(''); const shellCls = ['toolTableShell','bookingsTable','has-col-panel','table-clean', state.rowDensity==='compact' ? 'is-compact' : ''].filter(Boolean).join(' '); return `<div class="${shellCls}"><div class="toolTableTopbar"><div class="toolToolbarRight">${toolColButton('bookings')}</div></div><div class="toolBodyShell"><div class="toolTableViewport"><div class="toolTableWrap"><table class="toolTable" data-table-scope="bookings"><colgroup>${colgroup}</colgroup><thead><tr>${heads}</tr></thead><tbody>${body || `<tr><td colspan="${cols.length}"><div class="empty">${esc(tabEmptyMessage('bookings'))}</div></td></tr>`}</tbody></table></div></div>${toolColPanel('bookings', OPS_COL_META)}</div></div>`; }
-  function rowActionButtons(item,key,compact){ const id = safe(item._id || item.id); const btns=[]; const cls = compact ? 'bookActionBtn' : 'rowBtn'; const contractLabel = key === 'checkout' ? 'Check out' : (key === 'checkin' ? 'Check in' : 'Contract'); if (item.itemType !== 'fleet') btns.push(`<button class="${cls} primary" type="button" data-row-action="contract" data-row-id="${esc(id)}" data-row-tab="${esc(key)}">${esc(contractLabel)}</button>`); if (item.itemType !== 'fleet') btns.push(`<button class="${cls}" type="button" data-row-action="fleet" data-row-id="${esc(id)}" data-row-tab="${esc(key)}">Fleet</button>`); if (item.itemType !== 'fleet' && (key === 'bookings' || key === 'checkout' || key === 'checkin' || key === 'overdue')) btns.push(`<button class="${cls}" type="button" data-row-action="bookings" data-row-id="${esc(id)}" data-row-tab="${esc(key)}">Bookings</button>`); return compact ? btns.join('') : `<div class="rowActions">${btns.join('')}</div>`; }
+  function rowActionButtons(item,key,compact){
+    const id = safe(item._id || item.id);
+    const btns = [];
+    const cls = compact ? 'bookActionBtn' : 'rowBtn';
+    const gate = item && item.actionGate ? item.actionGate : {};
+    const reason = Array.isArray(gate.reasons) && gate.reasons.length ? gate.reasons.join(' • ') : '';
+    const disableIf = (cond) => cond ? ` disabled title="${esc(reason || 'Action unavailable for current state')}"` : '';
+    const contractLabel = key === 'checkout' ? 'Check out' : (key === 'checkin' ? 'Check in' : 'Contract');
+
+    if (item.itemType !== 'fleet') {
+      if (key === 'requests') {
+        btns.push(`<button class="${cls}" type="button" data-row-action="review" data-row-id="${esc(id)}" data-row-tab="${esc(key)}">Review</button>`);
+        btns.push(`<button class="${cls} primary" type="button" data-request-action="accept" data-row-id="${esc(id)}">Accept</button>`);
+        btns.push(`<button class="${cls}" type="button" data-request-action="hold" data-row-id="${esc(id)}">Hold</button>`);
+        btns.push(`<button class="${cls}" type="button" data-request-action="escalate" data-row-id="${esc(id)}">Escalate</button>`);
+        btns.push(`<button class="${cls} warn" type="button" data-request-action="decline" data-row-id="${esc(id)}">Decline</button>`);
+      }
+      const contractBlocked = (key === 'checkout' && gate.checkoutEligible === false) || (key === 'checkin' && gate.checkinEligible === false);
+      btns.push(`<button class="${cls} primary" type="button" data-row-action="contract" data-row-id="${esc(id)}" data-row-tab="${esc(key)}"${disableIf(contractBlocked)}>${esc(contractLabel)}</button>`);
+      btns.push(`<button class="${cls}" type="button" data-row-action="fleet" data-row-id="${esc(id)}" data-row-tab="${esc(key)}"${disableIf(gate.fleetEnabled === false)}>Fleet</button>`);
+    }
+    if (resolveVehicleId(item)) btns.push(`<button class="${cls}" type="button" data-row-action="vehicle" data-row-id="${esc(id)}" data-row-tab="${esc(key)}"${disableIf(gate.vehicleEnabled === false)}>Vehicle</button>`);
+    if (item.itemType !== 'fleet' && (key === 'bookings' || key === 'checkout' || key === 'checkin' || key === 'overdue')) btns.push(`<button class="${cls}" type="button" data-row-action="bookings" data-row-id="${esc(id)}" data-row-tab="${esc(key)}"${disableIf(gate.bookingsEnabled === false)}>Bookings</button>`);
+    return compact ? btns.join('') : `<div class="rowActions">${btns.join('')}</div>`;
+  }
   function deskFlags(item){ return bookingFlags(item).filter(([label])=> label !== 'Clean').slice(0,3); }
   function renderDeskRow(item,key){ const id = safe(item._id || item.id); const selected = String(state.selected.id) === id && String(state.selected.tab) === String(key); const title = safe(item.bookingNumber || item._id || item.id || '—'); const customer = safe(item.customerName || '—'); const contact = [safe(item.phone), safe(item.email)].filter(Boolean).join(' · ') || '—'; const vehicle = safe(item.assignedVehicleLabel || item.assignedVehiclePlate || item.vehicleLabel || 'Χωρίς όχημα'); const route = safe(routeText(item) || stationOf(item) || '—'); const flags = deskFlags(item); return `<div class="deskCompactRow ${selected ? 'selected' : ''}" data-select-id="${esc(id)}" data-select-tab="${esc(key)}"><div class="deskTimeBox"><span class="deskTimeMain">${esc(itemTime(item,key))}</span><span class="deskTimeSub">${esc(shortDate(item.pickupDateTime || item.start || item.dropoffDateTime || item.end))}</span></div><div class="deskMainCell"><div class="deskMainTop">${esc(title)} · ${esc(customer)}</div><div class="deskMainSub">${esc(contact)}</div><div class="deskFlagRow">${flags.length ? flags.map(([label,cls])=>`<span class=\"deskFlag ${esc(cls)}\">${esc(label)}</span>`).join('') : `<span class=\"deskFlag\">${esc(statusLabel(item))}</span>`}</div></div><div class="deskMainCell"><div class="deskMainTop">${esc(route)}</div><div class="deskMainSub">${esc(vehicle)}</div><div class="deskMainSub">${esc(safe(item.source || item.agent || item.selectedPackage || '—'))}</div></div><div class="deskActionBar">${rowActionButtons(item,key)}</div></div>`; }
   function statusLabel(item){ const s = norm(item.status); if (['confirmed','active rental','pre check-in','closed rental'].includes(s)) return 'Confirmed'; if (['canceled','cancelled'].includes(s)) return 'Canceled'; if (isPending(item)) return 'Pending / Request'; return safe(item.status || item.state || '—'); }
@@ -1272,6 +1430,11 @@
   function bookingActionFlags(item){
     const out=[];
     if (!safe(item.assignedVehicleLabel || item.vehicleLabel)) out.push('No vehicle');
+    if (item.vehicleServiceBlocked) out.push('Vehicle service-blocked');
+    if (item.vehicleHardHold) out.push('Vehicle hard hold');
+    if (item.vehicleReadyToGo === false) out.push('Vehicle not ready');
+    if (safe(item.paymentStatus) && safe(item.paymentStatus).toLowerCase() !== 'paid') out.push(`Payment ${safe(item.paymentStatus)}`);
+    if (Number(item.totalBalance || 0) > 0.01) out.push(`Due ${money(item.totalBalance)}`);
     if (safe(item.flightNumber)) out.push('Flight');
     const route = `${safe(item.pickuppoint)} ${safe(item.dropoffpoint)}`.toLowerCase();
     if (route.includes('airport')) out.push('Airport');
@@ -1279,12 +1442,13 @@
     return out.filter(Boolean);
   }
 
-  function chips(item){ const out=[]; if (safe(item.assignedVehicleLabel || item.vehicleLabel)) out.push(`<span class="chip">${esc(safe(item.assignedVehicleLabel || item.vehicleLabel))}</span>`); else out.push(`<span class="chip warn">No vehicle</span>`); if (safe(item.flightNumber)) out.push(`<span class="chip info">Flight ${esc(item.flightNumber)}</span>`); if (safe(item.selectedPackage)) out.push(`<span class="chip">${esc(item.selectedPackage)}</span>`); if (Array.isArray(item.selectedExtrasList) && item.selectedExtrasList.length) out.push(`<span class="chip ok">Extras ${item.selectedExtrasList.length}</span>`); if (safe(item.state) && item.itemType === 'fleet') out.push(`<span class="chip">${esc(item.state)}</span>`); if (safe(item.rentalState) && item.itemType !== 'fleet') out.push(`<span class="chip">${esc(item.rentalState)}</span>`); return out.join(''); }
+  function chips(item){ const out=[]; if (safe(item.assignedVehicleLabel || item.vehicleLabel)) out.push(`<span class="chip">${esc(safe(item.assignedVehicleLabel || item.vehicleLabel))}</span>`); else out.push(`<span class="chip warn">No vehicle</span>`); if (safe(item.flightNumber)) out.push(`<span class="chip info">Flight ${esc(item.flightNumber)}</span>`); if (safe(item.selectedPackage)) out.push(`<span class="chip">${esc(item.selectedPackage)}</span>`); if (Array.isArray(item.selectedExtrasList) && item.selectedExtrasList.length) out.push(`<span class="chip ok">Extras ${item.selectedExtrasList.length}</span>`); if (safe(item.paymentStatus) && safe(item.paymentStatus).toLowerCase() !== 'paid') out.push(`<span class="chip warn">Payment ${esc(item.paymentStatus)}</span>`); if (Number(item.totalBalance || 0) > 0.01) out.push(`<span class="chip warn">Due ${esc(money(item.totalBalance))}</span>`); if (safe(item.state) && item.itemType === 'fleet') out.push(`<span class="chip">${esc(item.state)}</span>`); if (safe(item.rentalState) && item.itemType !== 'fleet') out.push(`<span class="chip">${esc(item.rentalState)}</span>`); return out.join(''); }
   function rowCard(item, key){ const id = safe(item._id || item.id); const selected = String(state.selected.id) === id && String(state.selected.tab) === String(key); const title = safe(item.bookingNumber || item.vehicleLabel || item.assignedVehicleLabel || item._id || item.id || '—'); const subtitle = safe(item.customerName || item.station || item.state || item.category || '—'); return `<div class="rowCard ${selected ? 'selected' : ''}" data-select-id="${esc(id)}" data-select-tab="${esc(key)}"><div class="rowTop"><div class="rowTitle">${esc(title)}<div class="rowMeta">${esc(subtitle)}</div></div><div class="rowTime">${esc(itemTime(item,key))}</div></div><div class="rowMeta">${esc(routeText(item) || '—')}</div><div class="chips">${chips(item)}</div></div>`; }
   function tableRow(item, key){ const id = safe(item._id || item.id); const selected = String(state.selected.id) === id && String(state.selected.tab) === String(key); const title = safe(item.bookingNumber || item.vehicleLabel || item.assignedVehicleLabel || item._id || item.id || '—'); const secondary = safe(item.assignedVehicleLabel || item.vehicleLabel || item.category || item.group || '—'); const customer = safe(item.customerName || item.station || '—'); const route = safe(routeText(item) || item.station || '—'); const ops = [statusLabel(item), safe(item.rentalState || item.state || '')].filter(Boolean).join(' • '); return `<div class="tableRow ${selected ? 'selected' : ''}" data-select-id="${esc(id)}" data-select-tab="${esc(key)}"><div class="cellMain">${esc(itemTime(item,key))}<span class="cellSub">${esc(shortDate(item.pickupDateTime || item.start || item.dropoffDateTime || item.end))}</span></div><div class="cellMain">${esc(title)}<span class="cellSub">${esc(secondary)}</span></div><div class="cellMain">${esc(customer)}<span class="cellSub">${esc([safe(item.phone),safe(item.email)].filter(Boolean).join(' · ') || '—')}</span></div><div class="cellMain">${esc(route)}<span class="cellSub">${chips(item).replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim() || esc(safe(item.flightNumber || item.station || '—'))}</span></div><div class="cellMain opsWrap"><span>${esc(ops)}</span><span class="cellSub">${esc(safe(item.source || item.agent || item.notes || '—'))}</span>${rowActionButtons(item,key)}</div></div>`; }
   function renderSummary(){ const cards = [
     ['checkout','Check-outs', state.data.summary.checkout || 0, 'Ημερήσιες παραδόσεις'],
     ['checkin','Check-ins', state.data.summary.checkin || 0, 'Ημερήσιες επιστροφές'],
+    ['requests','Request queue', state.data.summary.requests || 0, 'Priority triage requests'],
     ['bookings','Bookings', state.data.summary.bookings || 0, 'Confirmed κρατήσεις της ημέρας'],
     ['overdue','Overdue', state.data.summary.overdue || 0, 'Ανοικτά / καθυστερημένα'],
     ['available','Available', state.data.summary.available || 0, 'Διαθέσιμα οχήματα'],
@@ -1293,24 +1457,36 @@
     els.summary.innerHTML = cards.map(([key,k,v,m])=>{ const active = summaryTarget(key).mode === state.viewMode && summaryTarget(key).tab === (state.viewMode === 'desk' ? (key === 'checkin' ? 'checkin' : 'checkout') : state.activeTab); return `<button class="summaryCard clickable ${active?'isActive':''}" type="button" data-summary-tab="${esc(key)}"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div><div class="m">${esc(m)}</div></button>`; }).join('');
   }
   function renderStations(){ const current = state.station || 'all'; els.station.innerHTML = `<option value="all">Όλες</option>` + (state.data.stations || []).map((s)=> `<option value="${esc(s)}" ${s===current?'selected':''}>${esc(s)}</option>`).join(''); }
-  function renderTabBar(){ const fullTabs = ['checkout','checkin','bookings','overdue','available','grounded']; if (!fullTabs.includes(state.activeTab)) state.activeTab = 'checkout'; els.tabBar.innerHTML = fullTabs.map((key)=>`<button class="tabBtn ${state.activeTab===key?'active':''}" data-tab-key="${key}" type="button">${esc(TAB_CONFIG[key].label)} <span class="countPill">${esc((state.data.summary[key] || 0))}</span></button>`).join(''); }
+  function renderTabBar(){ const fullTabs = ['checkout','checkin','requests','bookings','overdue','available','grounded']; if (!fullTabs.includes(state.activeTab)) state.activeTab = 'checkout'; els.tabBar.innerHTML = fullTabs.map((key)=>`<button class="tabBtn ${state.activeTab===key?'active':''}" data-tab-key="${key}" type="button">${esc(TAB_CONFIG[key].label)} <span class="countPill">${esc((state.data.summary[key] || 0))}</span></button>`).join(''); }
   function renderDesk(){ const out = deskItems('out'); const inn = deskItems('in'); if (els.deskOutCount) els.deskOutCount.textContent = String(out.length); if (els.deskInCount) els.deskInCount.textContent = String(inn.length); if (els.deskOut) els.deskOut.innerHTML = renderOpsTable(out,'checkout','desk','deskout'); if (els.deskIn) els.deskIn.innerHTML = renderOpsTable(inn,'checkin','desk','deskin'); if (els.visiblePill) els.visiblePill.textContent = `${out.length + inn.length} visible`; }
-  function renderFull(){ const tab = ['checkout','checkin','bookings','overdue','available','grounded'].includes(state.activeTab) ? state.activeTab : 'checkout'; if (tab !== state.activeTab) state.activeTab = tab; const rows = currentTabItems(state.activeTab); if (els.fullRows) els.fullRows.innerHTML = state.activeTab === 'bookings' ? renderBookingsTable(rows, 'bookings') : renderOpsTable(rows, state.activeTab); if (els.visiblePill) els.visiblePill.textContent = `${rows.length} visible`; }
+  function renderFull(){ const tab = ['checkout','checkin','requests','bookings','overdue','available','grounded'].includes(state.activeTab) ? state.activeTab : 'checkout'; if (tab !== state.activeTab) state.activeTab = tab; const rows = currentTabItems(state.activeTab); if (els.fullRows) els.fullRows.innerHTML = state.activeTab === 'bookings' ? renderBookingsTable(rows, 'bookings') : renderOpsTable(rows, state.activeTab); if (els.visiblePill) els.visiblePill.textContent = `${rows.length} visible`; }
   function field(k,v,full){ return `<div class="fieldBox ${full?'full':''}"><div class="fk">${esc(k)}</div><div class="fv">${esc(v || '—')}</div></div>`; }
-  function renderInspector(){ if (!els.inspector) return; const item = selectedItem(); if (!item) { els.inspector.innerHTML = `<div class="fieldBox full"><div class="fk">Selected record</div><div class="fv">Δεν υπάρχει visible row για το current mode / filters.</div></div>`; return; } const key = state.selected.tab || (state.viewMode === 'desk' ? 'checkout' : state.activeTab); const actions = []; if (item.itemType !== 'fleet') actions.push(`<button class="inspectorBtn primary" data-action="contract" type="button">Open contract</button>`); if (item.itemType !== 'fleet') actions.push(`<button class="inspectorBtn" data-action="fleet" type="button">Open fleet</button>`); actions.push(`<button class="inspectorBtn" data-action="bookings" type="button">Open bookings</button>`); els.inspector.innerHTML = `<div class="fieldGrid">${field('Record', safe(item.bookingNumber || item.vehicleLabel || item.assignedVehicleLabel || item._id || item.id))}${field('Queue / tab', TAB_CONFIG[key]?.label || key)}${field('Status', statusLabel(item))}${field('Vehicle', safe(item.assignedVehicleLabel || item.vehicleLabel || 'Χωρίς όχημα'))}${field('Customer / station', safe(item.customerName || item.station || '—'))}${field('Time', key==='checkin' ? fmtDT(item.dropoffDateTime || item.end) : fmtDT(item.pickupDateTime || item.start))}${field('Route', routeText(item), true)}${field('Contact', [safe(item.phone), safe(item.email)].filter(Boolean).join(' · ') || '—', true)}${field('Flight / extras', [safe(item.flightNumber), Array.isArray(item.selectedExtrasList)&&item.selectedExtrasList.length ? item.selectedExtrasList.join(', ') : safe(item.extras)].filter(Boolean).join(' • ') || '—', true)}${field('Notes', [safe(item.pickupComment), safe(item.dropoffComment), safe(item.remarks), safe(item.notes)].filter(Boolean).join(' • ') || '—', true)}</div><div class="inspectorActions">${actions.join('')}</div>`; }
+  function renderInspector(){ if (!els.inspector) return; const item = selectedItem(); if (!item) { els.inspector.innerHTML = `<div class="fieldBox full"><div class="fk">Selected record</div><div class="fv">Δεν υπάρχει visible row για το current mode / filters.</div></div>`; return; } const key = state.selected.tab || (state.viewMode === 'desk' ? 'checkout' : state.activeTab); const actions = []; const gate = item && item.actionGate ? item.actionGate : {}; const reason = Array.isArray(gate.reasons) && gate.reasons.length ? gate.reasons.join(' • ') : 'Action unavailable for current state'; const disableIf = (cond) => cond ? ` disabled title="${esc(reason)}"` : ''; if (item.itemType !== 'fleet') { const contractBlocked = (key === 'checkout' && gate.checkoutEligible === false) || (key === 'checkin' && gate.checkinEligible === false); actions.push(`<button class="inspectorBtn primary" data-action="contract" type="button"${disableIf(contractBlocked)}>Open contract</button>`); actions.push(`<button class="inspectorBtn" data-action="fleet" type="button"${disableIf(gate.fleetEnabled === false)}>Open fleet</button>`); } if (resolveVehicleId(item)) actions.push(`<button class="inspectorBtn" data-action="vehicle" type="button"${disableIf(gate.vehicleEnabled === false)}>Open vehicle card</button>`); actions.push(`<button class="inspectorBtn" data-action="bookings" type="button"${disableIf(gate.bookingsEnabled === false)}>Open bookings</button>`); els.inspector.innerHTML = `<div class="fieldGrid">${field('Record', safe(item.bookingNumber || item.vehicleLabel || item.assignedVehicleLabel || item._id || item.id))}${field('Queue / tab', TAB_CONFIG[key]?.label || key)}${field('Status', statusLabel(item))}${field('Vehicle', safe(item.assignedVehicleLabel || item.vehicleLabel || 'Χωρίς όχημα'))}${field('Customer / station', safe(item.customerName || item.station || '—'))}${field('Time', key==='checkin' ? fmtDT(item.dropoffDateTime || item.end) : fmtDT(item.pickupDateTime || item.start))}${field('Payment', safe(item.paymentStatus || '—'))}${field('Outstanding', money(item.totalBalance || 0))}${field('Vehicle ops', [safe(item.vehicleOperationalStatus), item.vehicleReadyToGo === false ? 'Not ready' : '', item.vehicleHardHold ? 'Hard hold' : '', item.vehicleServiceBlocked ? 'Service blocked' : ''].filter(Boolean).join(' • ') || '—', true)}${field('Route', routeText(item), true)}${field('Contact', [safe(item.phone), safe(item.email)].filter(Boolean).join(' · ') || '—', true)}${field('Flight / extras', [safe(item.flightNumber), Array.isArray(item.selectedExtrasList)&&item.selectedExtrasList.length ? item.selectedExtrasList.join(', ') : safe(item.extras)].filter(Boolean).join(' • ') || '—', true)}${field('Notes', [safe(item.pickupComment), safe(item.dropoffComment), safe(item.remarks), safe(item.notes)].filter(Boolean).join(' • ') || '—', true)}</div><div class="inspectorActions">${actions.join('')}</div>`; }
   function updateModeUi(){ document.querySelectorAll('[data-view-mode]').forEach((btn)=> btn.classList.toggle('active', btn.getAttribute('data-view-mode')===state.viewMode)); if (els.modeChip) els.modeChip.textContent = state.viewMode === 'desk' ? 'Desk mode' : 'Full mode'; if (els.activeTabChip) els.activeTabChip.textContent = TAB_CONFIG[state.activeTab]?.label || '—'; const tabsWrap = $('fullOnlyTabsWrap'); if (tabsWrap) tabsWrap.classList.toggle('hidden', state.viewMode !== 'full'); if (els.deskView) els.deskView.classList.toggle('hidden', state.viewMode !== 'desk'); if (els.fullView) els.fullView.classList.toggle('hidden', state.viewMode !== 'full'); const mainPanel = $('mainPanel'); if (mainPanel) { mainPanel.classList.toggle('is-desk-mode', state.viewMode === 'desk'); mainPanel.classList.toggle('is-full-mode', state.viewMode !== 'desk'); } if (els.panelTitle && els.panelSub) { if (state.viewMode === 'desk') { els.panelTitle.textContent = 'Daily desk'; els.panelSub.textContent = 'Καθημερινό front-desk workspace με σταθερά μεγάλο table area για check-outs και check-ins, ανεξάρτητα από το πόσα rows φαίνονται.'; } else { els.panelTitle.textContent = TAB_CONFIG[state.activeTab]?.label || 'Full workspace'; els.panelSub.textContent = (TAB_CONFIG[state.activeTab]?.sub || 'Πλήρες operational dataset για την επιλεγμένη ημέρα.') + ' Το Daily δείχνει μόνο confirmed / live operational records.'; } } }
   function render(){ renderStations(); renderSummary(); renderTabBar(); updateModeUi(); renderDesk(); renderFull(); renderInspector(); reportHeight(); }
 
   function openContract(bookingId){ if (!bookingId) return; postToWix({ type:'openContract', bookingId }); }
+  function resolveVehicleId(item){ return safe(item && (item.assignedVehicle || item.fleetVehicleId || item._id)); }
+  function openVehicleCard(item){
+    const fleetVehicleId = resolveVehicleId(item);
+    if (!fleetVehicleId) { setStatus('Δεν υπάρχει vehicle id για άνοιγμα κάρτας οχήματος.'); return; }
+    postToWix({ type:'openVehicleCard', fleetVehicleId, bookingId:safe(item && (item._id || item.id)) });
+  }
   function itemDate(value){ const raw = safe(value); if (!raw) return ''; const d = new Date(raw); if (Number.isNaN(d.getTime())) return ''; return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }
   function itemStart(item){ return itemDate(item && (item.pickupDateTime || item.start)); }
   function itemEnd(item){ return itemDate(item && (item.dropoffDateTime || item.end)) || itemStart(item); }
   function openFleet(item){ const bookingId = safe(item && (item._id || item.id)); if (!bookingId) return; postToWix({ type:'openOnFleet', bookingId, startDate:itemStart(item), endDate:itemEnd(item) }); }
   function openBookings(item){ const bookingId = safe(item && (item._id || item.id)); postToWix({ type:'openOnBookings', bookingId, startDate:itemStart(item), endDate:itemEnd(item) }); }
   function openRequestModal(item){ if (!item) return; state.requestFocus = item; els.requestTitle.textContent = `${safe(item.bookingNumber || item._id || 'Request')} • ${safe(item.customerName || '—')}`; els.requestSub.textContent = `Κίνηση ${fmtDT(item.pickupDateTime)} → ${fmtDT(item.dropoffDateTime)}`; const rows = [
-    ['Status', statusLabel(item)], ['Route', routeText(item)], ['Contact', [safe(item.phone),safe(item.email)].filter(Boolean).join(' · ') || '—'], ['Flight', safe(item.flightNumber || '—')], ['Source / agent', [safe(item.source),safe(item.agent)].filter(Boolean).join(' · ') || '—'], ['Voucher / confirmation', [safe(item.voucherNumber),safe(item.confirmationNumber)].filter(Boolean).join(' · ') || '—'], ['Category / package', [safe(item.category || item.categoryCode),safe(item.selectedPackage)].filter(Boolean).join(' • ') || '—'], ['Extras', Array.isArray(item.selectedExtrasList)&&item.selectedExtrasList.length ? item.selectedExtrasList.join(', ') : (safe(item.extras) || '—')], ['Total', money(item.totalPrice)], ['Flags', bookingActionFlags(item).join(' • ') || '—'], ['Notes', [safe(item.pickupComment),safe(item.dropoffComment),safe(item.remarks),safe(item.internalMemo)].filter(Boolean).join(' • ') || '—']
-  ]; $('requestAcceptBtn').style.display = isPending(item) ? '' : 'none'; $('requestDeclineBtn').style.display = isPending(item) ? '' : 'none'; els.requestBody.innerHTML = rows.map(([k,v])=> field(k,v,true)).join(''); els.requestOverlay.style.display = 'flex'; reportHeight(260); }
+    ['Priority', `${requestPriorityLabel(item)} · score ${requestTriageScore(item)}`], ['SLA', requestDueLabel(item)], ['Triage reasons', Array.isArray(item.requestTriage?.reasons) ? item.requestTriage.reasons.join(' • ') : '—'], ['Suggested action', safe(item.requestTriage?.suggestedAction || 'Review and schedule')], ['Owner', triageOwner(item) || 'Unowned'], ['Last triage action', triageLastAction(item) || '—'], ['Last updated', triageUpdatedLabel(item)], ['Follow-up', triageFollowUpLabel(item)], ['Status', statusLabel(item)], ['Route', routeText(item)], ['Contact', [safe(item.phone),safe(item.email)].filter(Boolean).join(' · ') || '—'], ['Flight', safe(item.flightNumber || '—')], ['Source / agent', [safe(item.source),safe(item.agent)].filter(Boolean).join(' · ') || '—'], ['Voucher / confirmation', [safe(item.voucherNumber),safe(item.confirmationNumber)].filter(Boolean).join(' · ') || '—'], ['Category / package', [safe(item.category || item.categoryCode),safe(item.selectedPackage)].filter(Boolean).join(' • ') || '—'], ['Extras', Array.isArray(item.selectedExtrasList)&&item.selectedExtrasList.length ? item.selectedExtrasList.join(', ') : (safe(item.extras) || '—')], ['Total', money(item.totalPrice)], ['Flags', bookingActionFlags(item).join(' • ') || '—'], ['Notes', [safe(item.pickupComment),safe(item.dropoffComment),safe(item.remarks),safe(item.internalMemo)].filter(Boolean).join(' • ') || '—']
+  ]; $('requestAcceptBtn').style.display = isPending(item) ? '' : 'none'; $('requestReviewBtn').style.display = ''; $('requestHoldBtn').style.display = ''; $('requestEscalateBtn').style.display = ''; $('requestDeclineBtn').style.display = isPending(item) ? '' : 'none'; els.requestBody.innerHTML = rows.map(([k,v])=> field(k,v,true)).join(''); const noteEl = $('requestAuditNote'); if (noteEl) noteEl.value = triageLastNote(item); const followEl = $('requestFollowUpAt'); if (followEl) { const raw = triageFollowUpAt(item); followEl.value = raw ? new Date(raw.getTime() - (raw.getTimezoneOffset() * 60000)).toISOString().slice(0,16) : ''; } els.requestOverlay.style.display = 'flex'; reportHeight(260); }
   function closeRequestModal(){ els.requestOverlay.style.display = 'none'; reportHeight(); }
+  function requestAuditPayload(action, bookingId){
+    const note = safe($('requestAuditNote') && $('requestAuditNote').value);
+    const followRaw = safe($('requestFollowUpAt') && $('requestFollowUpAt').value);
+    const nextFollowUpAt = followRaw ? new Date(followRaw).toISOString() : '';
+    return { type:'dailyRequestAction', bookingId, action, actorName:safe(state.user?.name || 'Operator'), note, nextFollowUpAt };
+  }
   function csvCell(v){ const s = safe(v); return '"' + s.replace(/"/g,'""') + '"'; }
   function exportCurrent(){ const key = state.viewMode === 'desk' ? 'checkout' : state.activeTab; const rows = state.viewMode === 'desk' ? [...deskItems('out'), ...deskItems('in')] : currentTabItems(key); const header = ['Time','Booking','Customer','Vehicle','Route','Status','Contact']; const lines = [header.map(csvCell).join(';')].concat(rows.map((item)=> [itemTime(item,key), safe(item.bookingNumber || item.vehicleLabel || item._id || item.id), safe(item.customerName || item.station), safe(item.assignedVehicleLabel || item.vehicleLabel), routeText(item), statusLabel(item), [safe(item.phone), safe(item.email)].filter(Boolean).join(' · ')].map(csvCell).join(';'))); const blob = new Blob([lines.join('\n')], { type:'text/csv;charset=utf-8' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `daily-${state.viewMode === 'desk' ? 'desk' : key}-${els.datePick.value || 'date'}.csv`; a.click(); setTimeout(()=> URL.revokeObjectURL(url), 3000); setStatus(`Export CSV • ${rows.length} rows`); }
   function printCurrent(){ const key = state.viewMode === 'desk' ? 'desk' : state.activeTab; const rows = state.viewMode === 'desk' ? [...deskItems('out'), ...deskItems('in')] : currentTabItems(state.activeTab); const html = `<!doctype html><html><head><meta charset="utf-8"><title>Daily print</title><style>body{font-family:Arial,sans-serif;padding:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:8px;font-size:12px;text-align:left}th{background:#f5f5f5}</style></head><body><h2>Daily ${key} • ${esc(els.datePick.value)}</h2><table><thead><tr><th>Time</th><th>Booking</th><th>Customer</th><th>Vehicle</th><th>Route</th><th>Status</th></tr></thead><tbody>${rows.map((item)=> `<tr><td>${esc(itemTime(item,key))}</td><td>${esc(safe(item.bookingNumber || item.vehicleLabel || item._id || item.id))}</td><td>${esc(safe(item.customerName || item.station))}</td><td>${esc(safe(item.assignedVehicleLabel || item.vehicleLabel))}</td><td>${esc(routeText(item))}</td><td>${esc(statusLabel(item))}</td></tr>`).join('')}</tbody></table></body></html>`; const w = window.open('', '_blank'); if (!w) return; w.document.write(html); w.document.close(); w.focus(); w.print(); }
@@ -1331,7 +1507,7 @@
     const panelToggleBtn = e.target.closest('[data-col-panel-toggle]');
     if (panelToggleBtn) { togglePanelCollapsed(panelToggleBtn.getAttribute('data-col-panel-toggle') || 'checkout'); render(); return; }
     const requestFocusBtn = e.target.closest('[data-request-focus]');
-    if (requestFocusBtn) { return; }
+    if (requestFocusBtn) { const nextQueue = requestFocusBtn.getAttribute('data-request-focus') || 'all'; state.requestQueue = nextQueue; applyRequestFocusPreset(nextQueue); render(); return; }
     const fullFocusBtn = e.target.closest('[data-full-focus]');
     if (fullFocusBtn) { const scope = ensureFullFocus(fullFocusBtn.getAttribute('data-full-scope') || scopeForTab(state.activeTab,'full')); state.fullFocus[scope] = fullFocusBtn.getAttribute('data-full-focus') || 'all'; render(); return; }
     const deskFocusBtn = e.target.closest('[data-desk-focus]');
@@ -1347,16 +1523,25 @@
     const summaryBtn = e.target.closest('[data-summary-tab]');
     if (summaryBtn) { const target = summaryTarget(summaryBtn.getAttribute('data-summary-tab') || 'bookings'); state.viewMode = target.mode; state.activeTab = target.tab === 'checkin' ? 'checkin' : (target.tab === 'checkout' ? 'checkout' : target.tab); state.selected = { tab: state.activeTab, id:'' }; render(); return; }
     const rowAct = e.target.closest('[data-row-action]');
-    if (rowAct) { const tab = rowAct.getAttribute('data-row-tab') || state.activeTab; const id = rowAct.getAttribute('data-row-id') || ''; const item = itemByTabId(tab, id); if (!item) return; state.selected = { tab, id }; const action = rowAct.getAttribute('data-row-action') || ''; if (action === 'contract') return openContract(safe(item._id || item.id)); if (action === 'fleet') return openFleet(item); if (action === 'bookings') return openBookings(item); return; }
+    if (rowAct) { const tab = rowAct.getAttribute('data-row-tab') || state.activeTab; const id = rowAct.getAttribute('data-row-id') || ''; const item = itemByTabId(tab, id); if (!item) return; state.selected = { tab, id }; const action = rowAct.getAttribute('data-row-action') || ''; if (action === 'review') return openRequestModal(item); if (action === 'contract') return openContract(safe(item._id || item.id)); if (action === 'fleet') return openFleet(item); if (action === 'vehicle') return openVehicleCard(item); if (action === 'bookings') return openBookings(item); return; }
     const row = e.target.closest('[data-select-id]');
     if (row) { state.selected = { tab: row.getAttribute('data-select-tab') || state.activeTab, id: row.getAttribute('data-select-id') || '' }; render(); return; }
     const act = e.target.closest('[data-action]');
-    if (act) { const item = selectedItem(); const action = act.getAttribute('data-action'); if (!item) return; if (action === 'contract') return openContract(safe(item._id || item.id)); if (action === 'fleet') return openFleet(item); if (action === 'bookings') return openBookings(item); }
+    if (act) { const item = selectedItem(); const action = act.getAttribute('data-action'); if (!item) return; if (action === 'contract') return openContract(safe(item._id || item.id)); if (action === 'fleet') return openFleet(item); if (action === 'vehicle') return openVehicleCard(item); if (action === 'bookings') return openBookings(item); }
     if (e.target.closest('#requestModalClose')) return closeRequestModal();
     if (e.target === els.requestOverlay) return closeRequestModal();
-    if (e.target.closest('#requestAcceptBtn') && state.requestFocus) return postToWix({ type:'dailyRequestAction', bookingId:safe(state.requestFocus._id || state.requestFocus.id), action:'accept' });
-    if (e.target.closest('#requestDeclineBtn') && state.requestFocus) return postToWix({ type:'dailyRequestAction', bookingId:safe(state.requestFocus._id || state.requestFocus.id), action:'decline' });
+    if (e.target.closest('#requestAcceptBtn') && state.requestFocus) return postToWix(requestAuditPayload('accept', safe(state.requestFocus._id || state.requestFocus.id)));
+    if (e.target.closest('#requestReviewBtn') && state.requestFocus) return postToWix(requestAuditPayload('review', safe(state.requestFocus._id || state.requestFocus.id)));
+    if (e.target.closest('#requestHoldBtn') && state.requestFocus) return postToWix(requestAuditPayload('hold', safe(state.requestFocus._id || state.requestFocus.id)));
+    if (e.target.closest('#requestEscalateBtn') && state.requestFocus) return postToWix(requestAuditPayload('escalate', safe(state.requestFocus._id || state.requestFocus.id)));
+    if (e.target.closest('#requestDeclineBtn') && state.requestFocus) return postToWix(requestAuditPayload('decline', safe(state.requestFocus._id || state.requestFocus.id)));
     if (e.target.closest('#requestOpenContractBtn') && state.requestFocus) return openContract(safe(state.requestFocus._id || state.requestFocus.id));
+    const requestRowAction = e.target.closest('[data-request-action]');
+    if (requestRowAction) {
+      const bookingId = safe(requestRowAction.getAttribute('data-row-id'));
+      const action = safe(requestRowAction.getAttribute('data-request-action')).toLowerCase();
+      if (bookingId && action) return postToWix({ type:'dailyRequestAction', bookingId, action, actorName:safe(state.user?.name || 'Operator') });
+    }
   });
 
   document.addEventListener('pointerdown', (e)=>{
@@ -1492,7 +1677,6 @@
       if (!Array.isArray(state.data.tabs.checkin) || (!state.data.tabs.checkin.length && Array.isArray(d.checkIn) && d.checkIn.length)) state.data.tabs.checkin = Array.isArray(d.checkIn) ? d.checkIn : [];
       if (!Array.isArray(state.data.tabs.bookings) || (!state.data.tabs.bookings.length && Array.isArray(d.bookings) && d.bookings.length)) state.data.tabs.bookings = Array.isArray(d.bookings) ? d.bookings : [];
       const wantedDefault = state.viewMode === 'desk' ? 'checkout' : state.activeTab;
-      if (state.activeTab === 'requests') state.activeTab = 'checkout';
       if (!currentTabItems(wantedDefault).length && state.data.tabs.checkout?.length) state.selected = { tab:'checkout', id: safe(state.data.tabs.checkout[0]._id || state.data.tabs.checkout[0].id) };
       if (!els.datePick.value) els.datePick.value = ymd(new Date());
       setStatus(`OK • out=${state.data.summary.checkout || 0} in=${state.data.summary.checkin || 0} bookings=${state.data.summary.bookings || 0} overdue=${state.data.summary.overdue || 0}`);
@@ -1503,7 +1687,7 @@
       const preferredTab = safe(d.preferredTab || '');
       const requestedMode = safe(d.viewMode || '');
       if (bookingId) {
-        const fullTabs = ['checkout','checkin','bookings','precheckins','cancellations','activeUnder','activeOver','nonRevenue','overdue','available','grounded','equipment'];
+        const fullTabs = ['checkout','checkin','requests','bookings','precheckins','cancellations','activeUnder','activeOver','nonRevenue','overdue','available','grounded','equipment'];
         const tabOrder = preferredTab ? [preferredTab, ...fullTabs.filter((key)=> key !== preferredTab)] : fullTabs;
         let found = null;
         for (const key of tabOrder) {
