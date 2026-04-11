@@ -99,7 +99,7 @@ function triageAuditFromBooking(raw = {}){
     : (Array.isArray(blob.historySummary) ? blob.historySummary.map((x)=> safeText(x)).filter(Boolean) : []);
   return { owner, updatedAt, lastAction, lastNote, nextFollowUpAt, historySummary };
 }
-async function updateRequestTriageAudit({ bookingId, actorName, action, note, nextFollowUpAt } = {}){
+async function updateRequestTriageAudit({ bookingId, actorName, action, note, nextFollowUpAt, ownerOverride, clearOwner } = {}){
   const id = safeText(bookingId);
   if (!id) return { success:false, message:"Missing booking id" };
   const booking = await wixData.get("BookingsNew", id);
@@ -112,7 +112,9 @@ async function updateRequestTriageAudit({ bookingId, actorName, action, note, ne
   const historyLine = [now.toISOString(), normalizedAction.toUpperCase(), actor || existing.owner || "Operator", normalizedNote].filter(Boolean).join(" • ");
   const historySummary = [historyLine, ...existing.historySummary].filter(Boolean).slice(0, 8);
 
-  booking.triageOwner = actor || existing.owner || "";
+  if (clearOwner) booking.triageOwner = "";
+  else if (typeof ownerOverride === "string") booking.triageOwner = safeText(ownerOverride);
+  else booking.triageOwner = actor || existing.owner || "";
   booking.triageUpdatedAt = now;
   booking.triageLastAction = normalizedAction;
   booking.triageLastNote = normalizedNote || existing.lastNote || "";
@@ -382,19 +384,25 @@ export async function getDailyOps({ authToken, startISO, endISO } = {}) {
   }
 }
 
-export async function actOnDailyRequest({ authToken, bookingId, action, actorName, note, nextFollowUpAt } = {}){
+export async function actOnDailyRequest({ authToken, bookingId, action, actorName, note, nextFollowUpAt, targetOwner } = {}){
   await requireStaffAccess({ sessionToken: authToken, area: "bookings", action: "Edit" });
   const id = safeText(bookingId);
   const act = norm(action);
   if (!id || !act) return { success:false, message:"Missing params" };
   let statusResult = { success:true, message:"Triage review saved" };
+  const requestedOwner = safeText(targetOwner);
+  let ownerOverride;
+  let clearOwner = false;
   if (act === "accept") statusResult = await setBookingBoardStatus({ authToken, bookingId:id, newStatus:"Confirmed" });
   else if (act === "hold") statusResult = await setBookingBoardStatus({ authToken, bookingId:id, newStatus:"Hold" });
   else if (act === "escalate") statusResult = await setBookingBoardStatus({ authToken, bookingId:id, newStatus:"Escalated" });
   else if (act === "decline") statusResult = await setBookingBoardStatus({ authToken, bookingId:id, newStatus:"Canceled" });
+  else if (act === "claim") { ownerOverride = safeText(actorName || ""); statusResult = { success:true, message:"Request claimed" }; }
+  else if (act === "unclaim") { clearOwner = true; statusResult = { success:true, message:"Request unclaimed" }; }
+  else if (act === "reassign") { ownerOverride = requestedOwner; if (!ownerOverride) return { success:false, message:"Missing target owner" }; statusResult = { success:true, message:`Request reassigned to ${ownerOverride}` }; }
   else if (act !== "review") return { success:false, message:"Unknown action" };
   if (!statusResult?.success) return statusResult;
-  const audit = await updateRequestTriageAudit({ bookingId:id, actorName, action:act, note, nextFollowUpAt });
+  const audit = await updateRequestTriageAudit({ bookingId:id, actorName, action:act, note, nextFollowUpAt, ownerOverride, clearOwner });
   if (!audit?.success) return { success:false, message:audit?.message || "Audit update failed" };
   return { success:true, message:statusResult?.message || "Done", triageAudit:audit.triageAudit };
 }

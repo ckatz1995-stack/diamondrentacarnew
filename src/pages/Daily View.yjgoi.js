@@ -126,9 +126,10 @@ $w.onReady(async function () {
       const actorName = String(msg.actorName || '').trim();
       const note = String(msg.note || '').trim();
       const nextFollowUpAt = String(msg.nextFollowUpAt || '').trim();
+      const targetOwner = String(msg.targetOwner || '').trim();
       if (!bookingId || !action) return;
       try {
-        const result = await actOnDailyRequest({ authToken: resolveAuthToken(), bookingId, action, actorName, note, nextFollowUpAt });
+        const result = await actOnDailyRequest({ authToken: resolveAuthToken(), bookingId, action, actorName, note, nextFollowUpAt, targetOwner });
         post({ type:'dailyActionResult', success: !!result?.success, message: result?.message || (result?.success ? 'Done' : 'Action failed') });
         await loadDailyOps({ requestedDate });
       } catch (error) {
