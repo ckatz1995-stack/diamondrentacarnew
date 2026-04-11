@@ -323,6 +323,8 @@ export async function actOnDailyRequest({ authToken, bookingId, action } = {}){
   const act = norm(action);
   if (!id || !act) return { success:false, message:"Missing params" };
   if (act === "accept") return setBookingBoardStatus({ authToken, bookingId:id, newStatus:"Confirmed" });
+  if (act === "hold") return setBookingBoardStatus({ authToken, bookingId:id, newStatus:"Hold" });
+  if (act === "escalate") return setBookingBoardStatus({ authToken, bookingId:id, newStatus:"Escalated" });
   if (act === "decline") return setBookingBoardStatus({ authToken, bookingId:id, newStatus:"Canceled" });
   return { success:false, message:"Unknown action" };
 }
