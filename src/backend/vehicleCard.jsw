@@ -8,6 +8,12 @@ const COLLECTIONS = {
   bookings: 'Bookings',
   rentals: 'Rentals'
 };
+const COLLECTION_CANDIDATES = {
+  fleet: ['Fleet', 'FleetNew'],
+  bookings: ['BookingsNew', 'Bookings'],
+  rentals: ['RentalsNew', 'Rentals'],
+  vehicles: ['Vehicles', 'VehiclesNew']
+};
 
 function txt(v){ return String(v ?? '').trim(); }
 function num(v){ const n = Number(v); return Number.isFinite(n) ? n : null; }
@@ -94,19 +100,45 @@ function compareDateDesc(a,b){
   return bd - ad;
 }
 
+async function firstSuccessful(items = [], fn){
+  let lastErr = null;
+  for (const item of items) {
+    try { return await fn(item); } catch (err) { lastErr = err; }
+  }
+  if (lastErr) throw lastErr;
+  return null;
+}
+
+async function findManyByField(collectionNames = [], field, values = []){
+  const uniq = Array.from(new Set((values || []).map((v) => txt(v)).filter(Boolean)));
+  if (!uniq.length) return [];
+  const rows = [];
+  for (const name of collectionNames) {
+    try {
+      const res = await wixData.query(name).hasSome(field, uniq).limit(1000).find({ suppressAuth: true });
+      rows.push(...(res.items || []));
+    } catch (_) {}
+  }
+  return rows;
+}
+
 async function findFleetRecordByAnyId(rawId){
   const targetId = txt(rawId);
   if (!targetId) return null;
-  try {
-    const byInternal = await wixData.get(COLLECTIONS.fleet, targetId, { suppressAuth: true });
-    if (byInternal) return byInternal;
-  } catch (_) {}
-
-  const byFleetVehicleId = await wixData.query(COLLECTIONS.fleet)
-    .eq('fleetVehicleId', targetId)
-    .limit(1)
-    .find({ suppressAuth: true });
-  return (byFleetVehicleId.items || [])[0] || null;
+  for (const collectionName of COLLECTION_CANDIDATES.fleet) {
+    try {
+      const byInternal = await wixData.get(collectionName, targetId, { suppressAuth: true });
+      if (byInternal) return byInternal;
+    } catch (_) {}
+    try {
+      const byFleetVehicleId = await wixData.query(collectionName)
+        .eq('fleetVehicleId', targetId)
+        .limit(1)
+        .find({ suppressAuth: true });
+      if ((byFleetVehicleId.items || [])[0]) return byFleetVehicleId.items[0];
+    } catch (_) {}
+  }
+  return null;
 }
 
 async function findBookingsByIds(ids = []){
@@ -115,8 +147,23 @@ async function findBookingsByIds(ids = []){
   for (let i = 0; i < bookingIds.length; i += 50) {
     const chunk = bookingIds.slice(i, i + 50);
     if (!chunk.length) continue;
-    const res = await wixData.query(COLLECTIONS.bookings).hasSome('bookingId', chunk).limit(1000).find({ suppressAuth: true });
-    (res.items || []).forEach((item) => map.set(txt(item.bookingId), item));
+    const rows = [];
+    for (const collectionName of COLLECTION_CANDIDATES.bookings) {
+      try {
+        const byBusinessId = await wixData.query(collectionName).hasSome('bookingId', chunk).limit(1000).find({ suppressAuth: true });
+        rows.push(...(byBusinessId.items || []));
+      } catch (_) {}
+      try {
+        const byInternalId = await wixData.query(collectionName).hasSome('_id', chunk).limit(1000).find({ suppressAuth: true });
+        rows.push(...(byInternalId.items || []));
+      } catch (_) {}
+    }
+    rows.forEach((item) => {
+      const businessId = txt(item.bookingId);
+      const internalId = txt(item._id);
+      if (businessId) map.set(businessId, item);
+      if (internalId) map.set(internalId, item);
+    });
   }
   return map;
 }
@@ -128,25 +175,23 @@ export async function getVehicleCardData({ sessionToken, fleetVehicleId } = {}) 
 
   const fleetRecord = await findFleetRecordByAnyId(targetId);
   if (!fleetRecord) throw new Error('FLEET_VEHICLE_NOT_FOUND');
-  const categoryQuery = txt(fleetRecord.categoryId)
-    ? await wixData.query(COLLECTIONS.vehicles).eq('categoryRecordId', txt(fleetRecord.categoryId)).limit(1).find({ suppressAuth: true })
-    : await wixData.query(COLLECTIONS.vehicles).eq('categoryCode', txt(fleetRecord.categoryCode)).limit(1).find({ suppressAuth: true });
-  const categoryRecord = normalizeCategory((categoryQuery.items || [])[0] || {});
+  const categoryQuery = await firstSuccessful(COLLECTION_CANDIDATES.vehicles, async (collectionName) => (
+    txt(fleetRecord.categoryId)
+      ? wixData.query(collectionName).eq('categoryRecordId', txt(fleetRecord.categoryId)).limit(1).find({ suppressAuth: true })
+      : wixData.query(collectionName).eq('categoryCode', txt(fleetRecord.categoryCode)).limit(1).find({ suppressAuth: true })
+  ));
+  const categoryRecord = normalizeCategory((categoryQuery?.items || [])[0] || {});
   const fleet = normalizeFleet(fleetRecord, categoryRecord);
 
   const internalId = txt(fleetRecord._id);
   const fleetVehicleBusinessId = txt(fleetRecord.fleetVehicleId || targetId);
-
-  const rentalsByInternal = await wixData.query(COLLECTIONS.rentals)
-    .eq('assignedVehicleId', internalId)
-    .limit(1000)
-    .find({ suppressAuth: true });
-  const rentalsByBusiness = fleetVehicleBusinessId
-    ? await wixData.query(COLLECTIONS.rentals).eq('assignedVehicleId', fleetVehicleBusinessId).limit(1000).find({ suppressAuth: true })
-    : { items: [] };
+  const rentalCandidates = COLLECTION_CANDIDATES.rentals;
+  const rentalsByInternal = await findManyByField(rentalCandidates, 'assignedVehicleId', [internalId]);
+  const rentalsByBusiness = await findManyByField(rentalCandidates, 'assignedVehicleId', [fleetVehicleBusinessId]);
+  const rentalsByFleetVehicleId = await findManyByField(rentalCandidates, 'fleetVehicleId', [fleetVehicleBusinessId, internalId]);
 
   const rentalsMap = new Map();
-  [...(rentalsByInternal.items || []), ...(rentalsByBusiness.items || [])].forEach((item) => {
+  [...rentalsByInternal, ...rentalsByBusiness, ...rentalsByFleetVehicleId].forEach((item) => {
     const key = txt(item.rentalId || item._id || item.bookingId);
     if (key) rentalsMap.set(key, item);
   });
@@ -165,8 +210,9 @@ export async function getVehicleCardData({ sessionToken, fleetVehicleId } = {}) 
       pickupPoint: txt(booking.pickupPoint),
       dropoffPoint: txt(booking.dropoffPoint),
       rentalState: txt(r.rentalState),
-      paymentStatus: txt(r.paymentStatus),
-      totalGross: chargesGross(r.chargesJson || booking.chargesJson),
+      paymentStatus: txt(r.paymentStatus || r.financialSnapshot?.settlement?.paymentStatus || booking.paymentStatus),
+      totalGross: money(r.financialSnapshot?.totals?.gross ?? booking.financialSnapshot?.totals?.gross ?? chargesGross(r.chargesJson || booking.chargesJson)),
+      totalBalance: money(r.financialSnapshot?.settlement?.balance ?? booking.financialSnapshot?.settlement?.balance ?? 0),
       checkoutAt: iso(r.checkoutAt),
       checkinAt: iso(r.checkinAt),
       checkoutOdometer: num(r.checkoutOdometer),
@@ -178,11 +224,17 @@ export async function getVehicleCardData({ sessionToken, fleetVehicleId } = {}) 
 
   const summary = {
     totalRentals: rentalsHistory.length,
-    activeRentals: rentalsHistory.filter((row) => ['Open Rental','Check-Out','Out'].includes(txt(row.rentalState))).length,
+    activeRentals: rentalsHistory.filter((row) => ['Open Rental','Check-Out','Out','Active Rental','Pre Check-In'].includes(txt(row.rentalState))).length,
     bookingOnly: rentalsHistory.filter((row) => txt(row.rentalState) === 'Booking').length,
     lifetimeRevenue: money(rentalsHistory.reduce((sum, row) => sum + money(row.totalGross), 0)),
+    outstandingExposure: money(rentalsHistory.reduce((sum, row) => sum + money(row.totalBalance), 0)),
     lastCheckoutAt: rentalsHistory.find((row) => row.checkoutAt)?.checkoutAt || '',
-    lastCheckinAt: rentalsHistory.find((row) => row.checkinAt)?.checkinAt || ''
+    lastCheckinAt: rentalsHistory.find((row) => row.checkinAt)?.checkinAt || '',
+    operationalFlags: {
+      readyToGo: !!fleet.readyToGo,
+      hardHold: !!fleet.hardHold,
+      serviceBlocked: ['service','blocked','inactive'].includes(txt(fleet.operationalStatus || fleet.status).toLowerCase())
+    }
   };
 
   return { success: true, fleet, category: categoryRecord, summary, rentals: rentalsHistory };
@@ -222,6 +274,9 @@ export async function saveVehicleCardData({ sessionToken, fleetVehicleId, patch 
     legacyUpdatedAt: new Date().toISOString()
   };
 
-  const updated = await wixData.update(COLLECTIONS.fleet, next, { suppressAuth: true });
+  const targetCollection = COLLECTION_CANDIDATES.fleet.includes(txt(current._collectionName))
+    ? txt(current._collectionName)
+    : COLLECTIONS.fleet;
+  const updated = await wixData.update(targetCollection, next, { suppressAuth: true });
   return { success: true, fleet: normalizeFleet(updated) };
 }
