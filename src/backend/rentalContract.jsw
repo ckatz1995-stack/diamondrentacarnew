@@ -1100,6 +1100,141 @@ async function runRendererSelfTestInternal(){
   return result;
 }
 
+function buildSyntheticDocumentPackage(documentType = 'agreement'){
+  const type = safeText(documentType || 'agreement').toLowerCase();
+  const base = {
+    meta: {
+      generatedAt: new Date('2026-01-01T12:00:00.000Z').toISOString(),
+      documentType: type,
+      bookingId: 'BKG-TEST-001',
+      bookingNumber: 'DRC-TEST-001',
+      rentalId: 'RNT-TEST-001',
+      rentalState: 'Active Rental',
+      bookingStatus: 'Confirmed',
+      source: 'contract_document_package_v1'
+    },
+    readiness: {
+      requestedType: type,
+      status: type === 'invoice' ? 'review' : 'ready',
+      overallStatus: type === 'invoice' ? 'review' : 'ready',
+      blockers: [],
+      warnings: type === 'invoice' ? ['VAT number missing.'] : [],
+      pipelineSource: 'synthetic_fixture'
+    },
+    identity: {
+      customer: { name:'Test Customer', phone:'+30-2100000000', email:'test@example.com', city:'Athens' },
+      mainDriver: { fullName:'Test Driver', phone:'+30-6900000000', email:'driver@example.com', idNo:'ID123', licenseNo:'LIC987' },
+      additionalDrivers: []
+    },
+    movement: {
+      pickupDateTime: '2026-01-05T10:00:00.000Z',
+      dropoffDateTime: '2026-01-10T10:00:00.000Z',
+      pickupPoint: 'ATH - Airport',
+      dropoffPoint: 'ATH - Airport',
+      pickupComment: '',
+      dropoffComment: '',
+      flightNumber: 'A3123',
+      originCity: 'Athens'
+    },
+    vehicle: {
+      assignedVehicleId: 'VEH-001',
+      label: 'ABC-123 - Toyota Yaris',
+      plate: 'ABC-123',
+      model: 'Toyota Yaris',
+      categoryCode: 'B',
+      stationCode: 'ATH',
+      stationLabel: 'Athens Airport'
+    },
+    financial: {
+      totals: { gross: 450, net: 362.9, vat: 87.1 },
+      settlement: { paidTotal: 300, balance: 150, paymentStatus: 'partial' },
+      ledger: { transactions:2, paymentsReceived:300, refunds:0 },
+      commercialState: { settlementState:'partial', outstanding:150 },
+      chargeLines: [
+        { code:'rental_base', label:'Rental base', category:'rental', amount:300 },
+        { code:'insurance', label:'Insurance', category:'insurance', amount:80 },
+        { code:'extras', label:'Extras', category:'extras', amount:70 }
+      ]
+    },
+    billing: {
+      invoiceType: type === 'receipt' ? 'receipt' : 'invoice',
+      vatRate: 0.24,
+      vatInclusive: true,
+      companyName: type === 'invoice' ? 'Test Company SA' : '',
+      tradeName: '',
+      vatNumber: '',
+      profession: '',
+      taxOffice: '',
+      address: 'Test Street 1',
+      city: 'Athens',
+      zip: '10558',
+      country: 'GR',
+      phone: '+30-2100000000',
+      companyEmail: 'billing@example.com',
+      contactPerson: 'Billing Contact'
+    },
+    signature: { status: type === 'agreement' ? 'pending' : 'not_started', signerName:'Test Driver', signedAt:'', note:'', actor:'', updatedAt:'' },
+    printableContext: { title:`${type.toUpperCase()} • DRC-TEST-001`, summaryLine:'Test Customer • ABC-123' },
+    document: {}
+  };
+  if (type === 'agreement') base.document = { termsFocus:'rental_agreement', includeSignatureBlock:true };
+  if (type === 'voucher') base.document = { termsFocus:'booking_voucher', voucherNumber:'VCH-001', confirmationNumber:'CNF-001' };
+  if (type === 'invoice') base.document = { termsFocus:'invoice_ready_payload', billingRequired:true };
+  if (type === 'receipt') base.document = { termsFocus:'receipt_ready_payload', paidTotal:300, balance:150 };
+  return base;
+}
+
+async function runDocumentTemplateRegressionHarnessInternal(){
+  const documentTypes = ['agreement', 'voucher', 'invoice', 'receipt'];
+  const results = [];
+  for (const type of documentTypes) {
+    const pkg = buildSyntheticDocumentPackage(type);
+    const printable = buildPrintableDocumentModelFromPackage(pkg);
+    const html = renderContractDocumentHtmlFromPrintable({ packageData: pkg, printable });
+    const checks = {
+      hasWrapper: html.includes('class="doc-wrap"'),
+      hasReadiness: html.includes('Readiness checks'),
+      hasIdentity: html.includes('Customer / Driver'),
+      hasMovement: html.includes('Rental movement'),
+      hasVehicle: html.includes('Vehicle'),
+      hasTypeClass: html.includes(`doc-type-${type}`),
+      typeSpecific: type === 'agreement'
+        ? html.includes('Signature')
+        : (type === 'voucher' ? html.includes('Voucher confirmation') : (type === 'invoice' ? html.includes('Billing') : html.includes('Financial summary')))
+    };
+    const failed = Object.entries(checks).filter(([, ok]) => !ok).map(([name]) => name);
+    let pdfSmoke = { attempted:false, ok:false, engine:'', fidelity:'', error:'' };
+    try {
+      const pdf = await renderPdfBufferFromHtmlAdapter(html, { title:`Regression ${type}` });
+      pdfSmoke = {
+        attempted: true,
+        ok: !!(pdf?.buffer && pdf.buffer.length > 0),
+        engine: safeText(pdf?.engine),
+        fidelity: safeText(pdf?.fidelity),
+        error: ''
+      };
+    } catch (e) {
+      pdfSmoke = { attempted:true, ok:false, engine:'', fidelity:'', error:safeText(e?.message || e || '') };
+    }
+    results.push({
+      documentType: type,
+      checks,
+      failedChecks: failed,
+      htmlLength: safeText(html).length,
+      printableSections: Array.isArray(printable?.sections) ? printable.sections.length : 0,
+      pdfSmoke
+    });
+  }
+  const failedDocs = results.filter((r) => r.failedChecks.length || !r.pdfSmoke.ok).map((r) => r.documentType);
+  return {
+    success: failedDocs.length === 0,
+    checkedAt: new Date().toISOString(),
+    capabilitySnapshot: getRendererCapabilitySnapshot(),
+    results,
+    failedDocuments: failedDocs
+  };
+}
+
 async function renderPdfBufferFromHtmlAdapter(html, options = {}){
   const started = Date.now();
   const capabilitySnapshot = getRendererCapabilitySnapshot();
@@ -2358,6 +2493,16 @@ export async function selfTestContractDocumentRenderer({ authToken }) {
       success: true,
       selfTest
     };
+  } catch (e) {
+    return { success:false, message:e?.message || String(e) };
+  }
+}
+
+export async function runContractDocumentTemplateRegression({ authToken }) {
+  await requireStaffAccess({ sessionToken: authToken, area: "rentals", action: "View" });
+  try {
+    const report = await runDocumentTemplateRegressionHarnessInternal();
+    return { success: true, report };
   } catch (e) {
     return { success:false, message:e?.message || String(e) };
   }
