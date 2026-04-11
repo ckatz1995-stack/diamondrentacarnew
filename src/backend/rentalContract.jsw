@@ -840,23 +840,33 @@ function escapeHtml(value){
 }
 
 function renderSectionHtml(section = {}){
+  const key = safeText(section.key || '').toLowerCase();
   const rows = Array.isArray(section.rows) ? section.rows : [];
   const table = section.table && typeof section.table === 'object' ? section.table : null;
+  const tone = (key === 'financial' || key === 'billing' || key === 'charges') ? 'financial' : (key === 'signature' ? 'signature' : (key === 'readiness' ? 'readiness' : 'base'));
   const bodyRows = rows.map((r) => `<tr><th>${escapeHtml(r.label)}</th><td>${escapeHtml(r.value)}</td></tr>`).join('');
   const tableHtml = table
     ? `<table class="doc-table"><thead><tr>${(table.columns || []).map((c) => `<th>${escapeHtml(c)}</th>`).join('')}</tr></thead><tbody>${(table.rows || []).map((r) => `<tr>${(Array.isArray(r) ? r : []).map((c) => `<td>${escapeHtml(c)}</td>`).join('')}</tr>`).join('')}</tbody></table>`
     : '';
-  return `<section class="doc-section"><h3>${escapeHtml(section.title || section.key || 'Section')}</h3>${bodyRows ? `<table class="doc-kv">${bodyRows}</table>` : ''}${tableHtml}</section>`;
+  return `<section class="doc-section ${escapeHtml(tone)} sec-${escapeHtml(key || 'generic')}"><h3>${escapeHtml(section.title || section.key || 'Section')}</h3>${bodyRows ? `<table class="doc-kv">${bodyRows}</table>` : ''}${tableHtml}</section>`;
 }
 
 function renderContractDocumentHtmlFromPrintable({ packageData = {}, printable = {} } = {}){
   const meta = printable.meta || {};
   const readiness = printable.readiness || {};
   const sections = Array.isArray(printable.sections) ? printable.sections : [];
+  const documentType = safeText(meta.documentType || '').toLowerCase() || 'agreement';
   const readinessClass = safeText(readiness.status || 'review').toLowerCase();
   const headerTitle = safeText(sections.find((s) => s.key === 'header')?.title || `${safeText(meta.documentType).toUpperCase()} Document`);
   const blockers = Array.isArray(readiness.blockers) ? readiness.blockers : [];
   const warnings = Array.isArray(readiness.warnings) ? readiness.warnings : [];
+  const subtitleMap = {
+    agreement: 'Rental agreement preview',
+    voucher: 'Travel voucher preview',
+    invoice: 'Invoice preview',
+    receipt: 'Receipt preview'
+  };
+  const subtitle = subtitleMap[documentType] || 'Document preview';
   return `<!doctype html>
 <html>
 <head>
@@ -864,30 +874,51 @@ function renderContractDocumentHtmlFromPrintable({ packageData = {}, printable =
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>${escapeHtml(headerTitle)}</title>
   <style>
-    body{font-family:Arial,Helvetica,sans-serif;color:#1f2937;margin:24px}
-    .doc-wrap{max-width:960px;margin:0 auto}
-    .doc-head{border-bottom:2px solid #d1d5db;padding-bottom:12px;margin-bottom:16px}
-    .doc-title{font-size:22px;font-weight:700;margin:0 0 6px}
+    @page{size:A4;margin:12mm}
+    body{font-family:Inter,Arial,Helvetica,sans-serif;color:#1f2937;background:#f5f7fb;margin:0}
+    .doc-wrap{max-width:980px;margin:0 auto;padding:20px 16px 28px}
+    .doc-head{border:1px solid #d9dee7;border-radius:14px;background:#fff;padding:14px 16px;margin-bottom:12px;page-break-inside:avoid}
+    .doc-title{font-size:22px;font-weight:800;margin:0 0 4px;color:#0f172a}
+    .doc-subtitle{font-size:12px;color:#64748b;margin-bottom:8px}
     .doc-meta{font-size:12px;color:#6b7280}
-    .readiness{display:inline-block;margin-top:8px;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:700;border:1px solid #d1d5db}
+    .readiness{display:inline-block;margin-top:8px;padding:6px 12px;border-radius:999px;font-size:12px;font-weight:800;border:1px solid #d1d5db;text-transform:uppercase;letter-spacing:.02em}
     .readiness.ready{background:#edf8f1;color:#0f6a3d;border-color:#9ed3b3}
     .readiness.review{background:#fff7e7;color:#8a5600;border-color:#f3d192}
     .readiness.blocked{background:#fff1f0;color:#a12f28;border-color:#f0b8b4}
-    .doc-alerts{margin:12px 0;padding:10px;border:1px dashed #d1d5db;border-radius:10px;background:#fafafa}
+    .doc-alerts{margin:10px 0 14px;padding:11px 12px;border:1px dashed #d1d5db;border-radius:10px;background:#fafafa;page-break-inside:avoid}
+    .doc-alerts strong{font-size:12px;letter-spacing:.02em;text-transform:uppercase;color:#334155}
     .doc-alerts ul{margin:6px 0 0 18px}
-    .doc-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-    .doc-section{border:1px solid #e5e7eb;border-radius:10px;padding:10px;background:#fff}
-    .doc-section h3{margin:0 0 8px;font-size:14px}
+    .doc-alerts li{font-size:12px;line-height:1.5}
+    .doc-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+    .doc-section{border:1px solid #e5e7eb;border-radius:12px;padding:10px 11px;background:#fff;page-break-inside:avoid}
+    .doc-section h3{margin:0 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:.03em;color:#334155}
+    .doc-section.financial,.doc-section.signature,.doc-section.readiness{border-color:#d8dee9}
+    .doc-section.sec-financial,.doc-section.sec-charges,.doc-section.sec-billing{grid-column:1 / -1}
+    .doc-section.sec-readiness{grid-column:1 / -1}
     .doc-kv,.doc-table{width:100%;border-collapse:collapse}
-    .doc-kv th,.doc-kv td,.doc-table th,.doc-table td{border-bottom:1px solid #f1f5f9;padding:6px 4px;font-size:12px;text-align:left;vertical-align:top}
-    .doc-kv th{width:34%;color:#475569}
-    .doc-foot{margin-top:14px;font-size:11px;color:#6b7280}
+    .doc-kv th,.doc-kv td,.doc-table th,.doc-table td{border-bottom:1px solid #eef2f7;padding:7px 6px;font-size:12px;text-align:left;vertical-align:top}
+    .doc-kv th{width:32%;color:#475569;font-weight:600}
+    .doc-kv tr:last-child th,.doc-kv tr:last-child td,.doc-table tr:last-child td{border-bottom:0}
+    .doc-table thead th{font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:#475569;background:#f8fafc}
+    .doc-table td:last-child,.doc-table th:last-child{text-align:right}
+    .doc-foot{margin-top:12px;font-size:11px;color:#6b7280;text-align:right;padding:8px 2px}
+    .doc-type-agreement .doc-head{border-top:4px solid #1d4ed8}
+    .doc-type-voucher .doc-head{border-top:4px solid #0f766e}
+    .doc-type-invoice .doc-head{border-top:4px solid #7c3aed}
+    .doc-type-receipt .doc-head{border-top:4px solid #b45309}
+    @media print{
+      body{background:#fff}
+      .doc-wrap{max-width:none;padding:0}
+      .doc-grid{gap:8px}
+      .doc-section{break-inside:avoid-page}
+    }
   </style>
 </head>
-<body>
+<body class="doc-type-${escapeHtml(documentType)}">
   <div class="doc-wrap">
     <header class="doc-head">
       <h1 class="doc-title">${escapeHtml(headerTitle)}</h1>
+      <div class="doc-subtitle">${escapeHtml(subtitle)}</div>
       <div class="doc-meta">Booking ${escapeHtml(meta.bookingId || '—')} • Rental ${escapeHtml(meta.rentalId || '—')} • Generated ${escapeHtml(formatPrintableDate(meta.generatedAt))}</div>
       <span class="readiness ${escapeHtml(readinessClass)}">Readiness: ${escapeHtml(readiness.status || 'review')}</span>
     </header>
