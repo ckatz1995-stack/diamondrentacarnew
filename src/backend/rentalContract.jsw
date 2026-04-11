@@ -830,6 +830,84 @@ function buildPrintableDocumentModelFromPackage(pkg = {}){
   };
 }
 
+function escapeHtml(value){
+  return safeText(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function renderSectionHtml(section = {}){
+  const rows = Array.isArray(section.rows) ? section.rows : [];
+  const table = section.table && typeof section.table === 'object' ? section.table : null;
+  const bodyRows = rows.map((r) => `<tr><th>${escapeHtml(r.label)}</th><td>${escapeHtml(r.value)}</td></tr>`).join('');
+  const tableHtml = table
+    ? `<table class="doc-table"><thead><tr>${(table.columns || []).map((c) => `<th>${escapeHtml(c)}</th>`).join('')}</tr></thead><tbody>${(table.rows || []).map((r) => `<tr>${(Array.isArray(r) ? r : []).map((c) => `<td>${escapeHtml(c)}</td>`).join('')}</tr>`).join('')}</tbody></table>`
+    : '';
+  return `<section class="doc-section"><h3>${escapeHtml(section.title || section.key || 'Section')}</h3>${bodyRows ? `<table class="doc-kv">${bodyRows}</table>` : ''}${tableHtml}</section>`;
+}
+
+function renderContractDocumentHtmlFromPrintable({ packageData = {}, printable = {} } = {}){
+  const meta = printable.meta || {};
+  const readiness = printable.readiness || {};
+  const sections = Array.isArray(printable.sections) ? printable.sections : [];
+  const readinessClass = safeText(readiness.status || 'review').toLowerCase();
+  const headerTitle = safeText(sections.find((s) => s.key === 'header')?.title || `${safeText(meta.documentType).toUpperCase()} Document`);
+  const blockers = Array.isArray(readiness.blockers) ? readiness.blockers : [];
+  const warnings = Array.isArray(readiness.warnings) ? readiness.warnings : [];
+  return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>${escapeHtml(headerTitle)}</title>
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;color:#1f2937;margin:24px}
+    .doc-wrap{max-width:960px;margin:0 auto}
+    .doc-head{border-bottom:2px solid #d1d5db;padding-bottom:12px;margin-bottom:16px}
+    .doc-title{font-size:22px;font-weight:700;margin:0 0 6px}
+    .doc-meta{font-size:12px;color:#6b7280}
+    .readiness{display:inline-block;margin-top:8px;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:700;border:1px solid #d1d5db}
+    .readiness.ready{background:#edf8f1;color:#0f6a3d;border-color:#9ed3b3}
+    .readiness.review{background:#fff7e7;color:#8a5600;border-color:#f3d192}
+    .readiness.blocked{background:#fff1f0;color:#a12f28;border-color:#f0b8b4}
+    .doc-alerts{margin:12px 0;padding:10px;border:1px dashed #d1d5db;border-radius:10px;background:#fafafa}
+    .doc-alerts ul{margin:6px 0 0 18px}
+    .doc-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .doc-section{border:1px solid #e5e7eb;border-radius:10px;padding:10px;background:#fff}
+    .doc-section h3{margin:0 0 8px;font-size:14px}
+    .doc-kv,.doc-table{width:100%;border-collapse:collapse}
+    .doc-kv th,.doc-kv td,.doc-table th,.doc-table td{border-bottom:1px solid #f1f5f9;padding:6px 4px;font-size:12px;text-align:left;vertical-align:top}
+    .doc-kv th{width:34%;color:#475569}
+    .doc-foot{margin-top:14px;font-size:11px;color:#6b7280}
+  </style>
+</head>
+<body>
+  <div class="doc-wrap">
+    <header class="doc-head">
+      <h1 class="doc-title">${escapeHtml(headerTitle)}</h1>
+      <div class="doc-meta">Booking ${escapeHtml(meta.bookingId || '—')} • Rental ${escapeHtml(meta.rentalId || '—')} • Generated ${escapeHtml(formatPrintableDate(meta.generatedAt))}</div>
+      <span class="readiness ${escapeHtml(readinessClass)}">Readiness: ${escapeHtml(readiness.status || 'review')}</span>
+    </header>
+    <div class="doc-alerts">
+      <strong>Readiness checks</strong>
+      <ul>
+        ${(blockers.length ? blockers.map((b) => `<li><strong>Blocker:</strong> ${escapeHtml(b)}</li>`).join('') : '<li>No blockers.</li>')}
+        ${(warnings.length ? warnings.map((w) => `<li><strong>Warning:</strong> ${escapeHtml(w)}</li>`).join('') : '<li>No warnings.</li>')}
+      </ul>
+    </div>
+    <main class="doc-grid">
+      ${sections.filter((s) => s.key !== 'header' && s.key !== 'readiness').map((s) => renderSectionHtml(s)).join('')}
+      ${renderSectionHtml(sections.find((s) => s.key === 'readiness') || { key:'readiness', title:'Readiness checks', rows:[{label:'Status', value:readiness.status || 'review'}] })}
+    </main>
+    <footer class="doc-foot">Source: ${escapeHtml(meta.source || packageData?.meta?.source || 'contract_printable_model_v1')}</footer>
+  </div>
+</body>
+</html>`;
+}
+
 function computePricingDrift(snapshot = {}, working = {}){
   const keys = ['rental','insurance','options','ageFee','nightFee','transport','damages','surcharges','discount','gross'];
   const lineItems = keys.map((key) => {
@@ -2015,6 +2093,17 @@ export async function exportContractPrintableModel({ authToken, bookingId, docum
   }
 }
 
+export async function exportContractRenderedDocument({ authToken, bookingId, documentType = 'agreement' }) {
+  const result = await exportContractPrintableModel({ authToken, bookingId, documentType });
+  if (!result?.success) return result;
+  try {
+    const html = renderContractDocumentHtmlFromPrintable({ packageData: result.package, printable: result.printable });
+    return { success:true, package: result.package, printable: result.printable, html };
+  } catch (e) {
+    return { success:false, message:e?.message || String(e) };
+  }
+}
+
 
 export async function confirmBookingAnalysis({ authToken, bookingId }) {
   await requireStaffAccess({ sessionToken: authToken, area: "rentals", action: "Edit" });
@@ -2299,32 +2388,52 @@ export async function saveContract({ authToken, bookingId, payload, stage }) {
       try {
         // lazy-load deps
         const sgMailMod = require("@sendgrid/mail");
-        const PDFDocument = require("pdfkit");
+        const useHtmlRenderer = safeText(payload?.documentRenderMode || '').toLowerCase() === 'html_template';
 
-        // build pdf
-        const pdfBuffer = await new Promise((resolve, reject) => {
-          try {
-            const doc = new PDFDocument({ size:"A4", margin:42 });
-            const chunks = [];
-            doc.on("data", c => chunks.push(c));
-            doc.on("end", () => resolve(Buffer.concat(chunks)));
-            doc.on("error", reject);
+        let attachments = [];
+        if (useHtmlRenderer) {
+          const documentType = safeText(payload?.documentType || 'receipt').toLowerCase();
+          const packageData = buildContractDocumentPackage({ booking, rental, documentType });
+          const printable = buildPrintableDocumentModelFromPackage(packageData);
+          const html = renderContractDocumentHtmlFromPrintable({ packageData, printable });
+          attachments = [{
+            content: Buffer.from(html, "utf8").toString("base64"),
+            filename: `${documentType}_${safeText(booking.bookingNumber || booking._id)}.html`,
+            type: "text/html",
+            disposition: "attachment"
+          }];
+        } else {
+          const PDFDocument = require("pdfkit");
+          const pdfBuffer = await new Promise((resolve, reject) => {
+            try {
+              const doc = new PDFDocument({ size:"A4", margin:42 });
+              const chunks = [];
+              doc.on("data", c => chunks.push(c));
+              doc.on("end", () => resolve(Buffer.concat(chunks)));
+              doc.on("error", reject);
 
-            doc.fontSize(18).text("Rental Receipt / Contract");
-            doc.moveDown(0.6);
-            doc.fontSize(10).text(`Booking: ${safeText(booking.bookingNumber)}`);
-            doc.text(`Customer: ${safeText(booking.customerName)}`);
-            doc.text(`Email: ${safeText(booking.email)}`);
-            doc.text(`Phone: ${safeText(booking.phone)}`);
-            doc.moveDown(0.6);
-            doc.fontSize(10).text(`Pickup: ${safeText(booking.pickupDateTime)} @ ${pickLabel(booking.pickuppoint)}`);
-            doc.text(`Dropoff: ${safeText(booking.dropoffDateTime)} @ ${pickLabel(booking.dropoffpoint)}`);
-            doc.moveDown(0.6);
-            doc.fontSize(10).text(`Vehicle: ${safeText(booking.assignedVehicleLabel || booking.assignedVehiclePlate || rental.assignedVehicleLabel || "-")}`);
-            doc.text(`Gross: ${safeText(rental.totals?.gross)} €  (Net ${safeText(rental.totals?.net)} / VAT ${safeText(rental.totals?.vat)})`);
-            doc.end();
-          } catch(e){ reject(e); }
-        });
+              doc.fontSize(18).text("Rental Receipt / Contract");
+              doc.moveDown(0.6);
+              doc.fontSize(10).text(`Booking: ${safeText(booking.bookingNumber)}`);
+              doc.text(`Customer: ${safeText(booking.customerName)}`);
+              doc.text(`Email: ${safeText(booking.email)}`);
+              doc.text(`Phone: ${safeText(booking.phone)}`);
+              doc.moveDown(0.6);
+              doc.fontSize(10).text(`Pickup: ${safeText(booking.pickupDateTime)} @ ${pickLabel(booking.pickuppoint)}`);
+              doc.text(`Dropoff: ${safeText(booking.dropoffDateTime)} @ ${pickLabel(booking.dropoffpoint)}`);
+              doc.moveDown(0.6);
+              doc.fontSize(10).text(`Vehicle: ${safeText(booking.assignedVehicleLabel || booking.assignedVehiclePlate || rental.assignedVehicleLabel || "-")}`);
+              doc.text(`Gross: ${safeText(rental.totals?.gross)} €  (Net ${safeText(rental.totals?.net)} / VAT ${safeText(rental.totals?.vat)})`);
+              doc.end();
+            } catch(e){ reject(e); }
+          });
+          attachments = [{
+            content: pdfBuffer.toString("base64"),
+            filename: `Receipt_${safeText(booking.bookingNumber || booking._id)}.pdf`,
+            type: "application/pdf",
+            disposition: "attachment"
+          }];
+        }
 
         // send
         const apiKey = await getSecret("SENDGRID_API_KEY");
@@ -2345,12 +2454,7 @@ export async function saveContract({ authToken, bookingId, payload, stage }) {
           from: fromEmail,
           subject: `Receipt / Contract • ${bookingNo}`,
           text: `Receipt/Contract for booking ${bookingNo}`,
-          attachments: [{
-            content: pdfBuffer.toString("base64"),
-            filename: `Receipt_${bookingNo}.pdf`,
-            type: "application/pdf",
-            disposition: "attachment"
-          }]
+          attachments
         });
       } catch (e) {
         return { success:true, warning:`Saved but PDF/email failed: ${e?.message || String(e)}`, rentalState:rental.rentalState, totals:rental.totals };
