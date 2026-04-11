@@ -1,5 +1,14 @@
 import wixLocation from "wix-location";
-import { getContract, saveContract as saveContractBackend, confirmBookingAnalysis, getCustomerInsights, getCompanyInsights } from "backend/rentalContract";
+import {
+  getContract,
+  saveContract as saveContractBackend,
+  confirmBookingAnalysis,
+  getCustomerInsights,
+  getCompanyInsights,
+  exportContractRenderedDocument,
+  exportContractPdfFromHtml,
+  getContractDocumentRenderCapabilities
+} from "backend/rentalContract";
 import { setBookingBoardStatus } from "backend/bookingsBoard";
 import { getPricingCatalog } from 'backend/pricingCatalog';
 import { logoutBackroom, requireBackroomAccess } from 'public/backroomAuth';
@@ -68,6 +77,10 @@ $w.onReady(async function () {
 
     if (msg.type === "saveContract") {
       await saveContractFlow(msg);
+      return;
+    }
+    if (msg.type === "documentAction") {
+      await documentActionFlow(msg);
       return;
     }
 
@@ -266,6 +279,64 @@ async function saveContractFlow(msg) {
     await loadContract();
   } catch (err) {
     post({ type: "toast", message: err?.message || String(err) });
+  }
+}
+
+async function documentActionFlow(msg) {
+  const id = String(msg.bookingId || bookingId || "").trim();
+  const documentType = String(msg.documentType || "agreement").trim().toLowerCase();
+  const requestId = String(msg.requestId || "");
+  const action = String(msg.action || "preview").trim().toLowerCase();
+  if (!id) {
+    post({ type: "documentActionResult", requestId, success: false, message: "Missing bookingId." });
+    return;
+  }
+  try {
+    if (action === "capabilities") {
+      const cap = await getContractDocumentRenderCapabilities({ authToken: authState.sessionToken });
+      post({
+        type: "documentActionResult",
+        requestId,
+        success: !!cap?.success,
+        action,
+        capabilities: clonePlain(cap?.capabilities || {}),
+        message: cap?.message || ""
+      });
+      return;
+    }
+    if (action === "pdf") {
+      const pdf = await exportContractPdfFromHtml({ authToken: authState.sessionToken, bookingId: id, documentType });
+      post({
+        type: "documentActionResult",
+        requestId,
+        success: !!pdf?.success,
+        action,
+        documentType,
+        filename: pdf?.filename || "",
+        pdfBase64: pdf?.pdfBase64 || "",
+        renderEngine: pdf?.renderEngine || "",
+        fidelity: pdf?.fidelity || "",
+        fallbackUsed: !!pdf?.fallbackUsed,
+        fallbackReason: pdf?.fallbackReason || "",
+        capabilities: clonePlain(pdf?.capabilitySnapshot || {}),
+        message: pdf?.message || ""
+      });
+      return;
+    }
+    const rendered = await exportContractRenderedDocument({ authToken: authState.sessionToken, bookingId: id, documentType });
+    post({
+      type: "documentActionResult",
+      requestId,
+      success: !!rendered?.success,
+      action: "preview",
+      documentType,
+      html: rendered?.html || "",
+      package: clonePlain(rendered?.package || {}),
+      printable: clonePlain(rendered?.printable || {}),
+      message: rendered?.message || ""
+    });
+  } catch (err) {
+    post({ type: "documentActionResult", requestId, success: false, action, message: err?.message || String(err) });
   }
 }
 

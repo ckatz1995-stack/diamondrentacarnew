@@ -159,6 +159,8 @@
     .doc-status.blocked{background:#fff1f0;color:#a12f28;border-color:#f0b8b4}
     .doc-mini-list{margin:0;padding-left:16px;display:grid;gap:4px}
     .doc-mini-list li{font-size:11px;color:#5f5f66;line-height:1.35}
+    .doc-preview-shell{border:1px solid var(--line);border-radius:12px;background:#fff;overflow:hidden;min-height:280px}
+    .doc-preview-shell iframe{width:100%;height:420px;border:0;background:#fff}
     .total{
       display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center
     }
@@ -1271,6 +1273,24 @@
             <div class="guardrail-pill review" id="documentPipelinePill">Document package review</div>
             <div class="doc-grid" id="documentPipelineGrid"></div>
             <ul class="guardrail-list" id="documentPipelineMissing"></ul>
+            <div class="field">
+              <label>Document type</label>
+              <select class="select" id="doc_documentType">
+                <option value="agreement">Agreement</option>
+                <option value="voucher">Voucher</option>
+                <option value="invoice">Invoice</option>
+                <option value="receipt">Receipt</option>
+              </select>
+            </div>
+            <div class="field-inline-actions">
+              <button class="btn subtle" type="button" id="btnDocPreview">Preview HTML</button>
+              <button class="btn ghost" type="button" id="btnDocBuildPdf">Build PDF</button>
+              <button class="btn ghost" type="button" id="btnDocCapabilities">Render capabilities</button>
+            </div>
+            <div class="inline-note" id="docRenderMeta">No document action run yet.</div>
+            <div class="doc-preview-shell hidden" id="docPreviewShell">
+              <iframe id="docPreviewFrame" title="Document preview"></iframe>
+            </div>
             <div class="field"><label>Signature state</label>
               <select class="select" id="doc_signatureState">
                 <option value="not_started">Not started</option>
@@ -2131,7 +2151,7 @@
     rental: {},
     lookups: { categories: [], vehicles: [], customers: [], companies: [], pickupLocations: [] },
     context: {},
-    ui: { activeModal: '', saveState: '', additionalDriversOpen: false, driverLookupDrafts: {}, companyLookupDraft: null, activeDriverSlot: 0, customerSearchTarget: 0, customerSearchSelectedIndex: -1, activeDriverTab: 'general', activeCompanyTab: 'general', activeDriverRegistryMatch: null, activeCompanyRegistryMatch: null, mainDriverCustomerId: '', selectedCompanyId: '', driverInsightsKey: '', driverInsightsLoading: false, driverInsights: null, companyInsightsKey: '', companyInsightsLoading: false, companyInsights: null, vehicleSelectorQuery: '', vehicleSelectorFilter: 'all', vehicleSelectorSelectedId: '', vehicleSelectorCategoryCode: '', selectedFinancialTxnId: '', financialTxnPreset: 'payment', activeChargeLine: '', chargeSelections: {} }
+    ui: { activeModal: '', saveState: '', additionalDriversOpen: false, driverLookupDrafts: {}, companyLookupDraft: null, activeDriverSlot: 0, customerSearchTarget: 0, customerSearchSelectedIndex: -1, activeDriverTab: 'general', activeCompanyTab: 'general', activeDriverRegistryMatch: null, activeCompanyRegistryMatch: null, mainDriverCustomerId: '', selectedCompanyId: '', driverInsightsKey: '', driverInsightsLoading: false, driverInsights: null, companyInsightsKey: '', companyInsightsLoading: false, companyInsights: null, vehicleSelectorQuery: '', vehicleSelectorFilter: 'all', vehicleSelectorSelectedId: '', vehicleSelectorCategoryCode: '', selectedFinancialTxnId: '', financialTxnPreset: 'payment', activeChargeLine: '', chargeSelections: {}, documentType: 'agreement', documentActionRequestId: '', documentCapabilities: null, documentPreviewHtml: '' }
   };
   const FINANCIAL_TXN_TYPES = {
     payment: { label:'Payment', bucket:'rental', sign:1 },
@@ -2440,6 +2460,45 @@
     const order = { ready:0, review:1, blocked:2 };
     const overall = Object.values(docs).reduce((acc, d) => (order[d.status] > order[acc] ? d.status : acc), 'ready');
     return { docs, overall, signature: sign };
+  }
+
+  function selectedDocumentType(){
+    return safe(byId('doc_documentType')?.value || state.ui.documentType || 'agreement').toLowerCase() || 'agreement';
+  }
+
+  function requestDocumentAction(action){
+    const requestId = `doc_${Date.now()}_${Math.random().toString(16).slice(2,7)}`;
+    state.ui.documentActionRequestId = requestId;
+    state.ui.documentType = selectedDocumentType();
+    post({
+      type: 'documentAction',
+      requestId,
+      action,
+      documentType: state.ui.documentType,
+      bookingId: state.booking?._id || ''
+    });
+    return requestId;
+  }
+
+  function applyDocumentPreviewHtml(html){
+    const shell = byId('docPreviewShell');
+    const frame = byId('docPreviewFrame');
+    if (!shell || !frame) return;
+    const clean = safe(html || '').trim();
+    if (!clean) { shell.classList.add('hidden'); frame.srcdoc = ''; return; }
+    shell.classList.remove('hidden');
+    frame.srcdoc = clean;
+  }
+
+  function triggerPdfDownload(base64, filename){
+    const bytes = safe(base64 || '').trim();
+    if (!bytes) return;
+    const link = document.createElement('a');
+    link.href = `data:application/pdf;base64,${bytes}`;
+    link.download = filename || `${selectedDocumentType()}_${safe(state.booking?.bookingNumber || 'contract')}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
   }
 
   function billableDays(){
@@ -3694,6 +3753,17 @@ function renderLookups(){
     if (sigNoteInput && document.activeElement !== sigNoteInput) sigNoteInput.value = safe(doc.signature.note || '');
     const sigMeta = byId('docSignatureMeta');
     if (sigMeta) sigMeta.textContent = doc.signature.updatedAt ? `Updated by ${safe(doc.signature.actor || 'Operator')} at ${humanDateTime(doc.signature.updatedAt)}` : 'No signature update recorded.';
+    const docTypeEl = byId('doc_documentType');
+    if (docTypeEl && document.activeElement !== docTypeEl) docTypeEl.value = safe(state.ui.documentType || 'agreement');
+    const docMeta = byId('docRenderMeta');
+    if (docMeta) {
+      const cap = state.ui.documentCapabilities;
+      const capTxt = cap
+        ? `Render: ${cap.supportsPdfFromHtmlHifi ? 'Hi-fi available' : 'Fallback-only'}`
+        : 'Render capability unknown';
+      const previewTxt = state.ui.documentPreviewHtml ? 'Preview loaded.' : 'No preview loaded.';
+      docMeta.textContent = `${capTxt} • ${previewTxt}`;
+    }
 
     renderFinancialLedgerPreview();
   }
@@ -4529,6 +4599,22 @@ function renderLookups(){
       applySignatureState(byId('doc_signatureState')?.value || 'not_started', e.target.value || '');
       renderChargeRail();
     });
+    byId('doc_documentType')?.addEventListener('change', (e) => {
+      state.ui.documentType = safe(e.target.value || 'agreement').toLowerCase();
+      renderChargeRail();
+    });
+    byId('btnDocPreview')?.addEventListener('click', () => {
+      requestDocumentAction('preview');
+      toast('Building document preview…');
+    });
+    byId('btnDocBuildPdf')?.addEventListener('click', () => {
+      requestDocumentAction('pdf');
+      toast('Building PDF…');
+    });
+    byId('btnDocCapabilities')?.addEventListener('click', () => {
+      requestDocumentAction('capabilities');
+      toast('Checking renderer capabilities…');
+    });
 
     const bindDriverAutoLookup = (index) => {
       const input = byId(driverFieldId(index));
@@ -5303,7 +5389,11 @@ function renderLookups(){
         };
       }
       state.rental.signatureState = currentSignatureState();
+      state.ui.documentType = safe(state.ui.documentType || 'agreement').toLowerCase();
+      state.ui.documentPreviewHtml = '';
+      applyDocumentPreviewHtml('');
       syncMainFieldsFromState();
+      requestDocumentAction('capabilities');
       postResize();
       return;
     }
@@ -5314,6 +5404,25 @@ function renderLookups(){
     if (msg.type === 'saveState') {
       toast(msg.message || 'Saved');
       if (msg.at) byId('chipStatus').title = `Last save ${msg.at}`;
+      return;
+    }
+    if (msg.type === 'documentActionResult') {
+      if (safe(msg.requestId) !== safe(state.ui.documentActionRequestId)) return;
+      if (!msg.success) { toast(msg.message || 'Document action failed.'); return; }
+      const action = safe(msg.action).toLowerCase();
+      if (action === 'capabilities') {
+        state.ui.documentCapabilities = msg.capabilities || null;
+        toast('Renderer capabilities loaded.');
+      } else if (action === 'preview') {
+        state.ui.documentPreviewHtml = safe(msg.html || '');
+        applyDocumentPreviewHtml(state.ui.documentPreviewHtml);
+        toast('Document preview ready.');
+      } else if (action === 'pdf') {
+        state.ui.documentCapabilities = msg.capabilities || state.ui.documentCapabilities || null;
+        triggerPdfDownload(msg.pdfBase64, msg.filename);
+        toast(`PDF ready (${safe(msg.renderEngine || 'engine')} ${safe(msg.fidelity || '')}${msg.fallbackUsed ? ', fallback' : ''}).`);
+      }
+      renderChargeRail();
       return;
     }
     if (msg.type === 'customerInsightsData') {
