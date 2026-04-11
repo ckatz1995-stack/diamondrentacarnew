@@ -139,6 +139,16 @@
     .totals{
       display:grid;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid var(--line)
     }
+    .guardrail-panel{margin-top:10px;padding-top:10px;border-top:1px solid var(--line);display:grid;gap:8px}
+    .guardrail-pill{display:inline-flex;align-items:center;gap:8px;padding:7px 11px;border-radius:999px;font-size:12px;font-weight:800;border:1px solid var(--line)}
+    .guardrail-pill.ready{background:#edf8f1;color:#0f6a3d;border-color:#9ed3b3}
+    .guardrail-pill.review{background:#fff7e7;color:#8a5600;border-color:#f3d192}
+    .guardrail-pill.blocked{background:#fff1f0;color:#a12f28;border-color:#f0b8b4}
+    .guardrail-list{display:grid;gap:4px;margin:0;padding-left:18px}
+    .guardrail-list li{font-size:12px;line-height:1.35;color:#5a4a34}
+    .guardrail-actions{display:grid;gap:6px}
+    .guardrail-actions .textarea{min-height:72px}
+    .guardrail-actions .field-inline-actions{justify-content:flex-end}
     .total{
       display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center
     }
@@ -1234,6 +1244,19 @@
             <div class="total"><div class="name">Deposit</div><div class="amount" id="totDeposit">0.00 €</div></div>
             <div class="total"><div class="name">Balance</div><div class="amount" id="totBalance">0.00 €</div></div>
           </div>
+          <div class="guardrail-panel">
+            <div class="guardrail-pill review" id="checkoutGuardrailPill">Financial checkout review</div>
+            <ul class="guardrail-list" id="checkoutGuardrailBlockers"></ul>
+            <ul class="guardrail-list" id="checkoutGuardrailWarnings"></ul>
+            <div class="guardrail-actions">
+              <textarea class="textarea" id="checkoutGuardrailOverrideReason" placeholder="Override reason (required if proceeding with blockers/warnings)…"></textarea>
+              <div class="field-inline-actions">
+                <button class="btn subtle" type="button" id="btnCheckoutGuardrailOverride">Save override note</button>
+                <button class="btn ghost" type="button" id="btnCheckoutGuardrailClearOverride">Clear override</button>
+              </div>
+              <div class="inline-note" id="checkoutGuardrailOverrideMeta">No override recorded.</div>
+            </div>
+          </div>
         </div>
       </section>
     </aside>
@@ -2273,6 +2296,39 @@
       checkoutGross: round2(state.rental?.checkoutFinancialSnapshot?.totals?.gross ?? 0),
       checkoutBalance: round2(state.rental?.checkoutFinancialSnapshot?.settlement?.balance ?? 0)
     };
+  }
+
+  function currentGuardrailOverride(){
+    const o = state.rental?.checkoutGuardrailOverride;
+    return o && typeof o === 'object' ? o : null;
+  }
+
+  function deriveCheckoutGuardrail(){
+    const fin = financials();
+    const blockers = [];
+    const warnings = [];
+    if (fin.balance > 0.01) blockers.push(`Outstanding balance ${money(fin.balance)} must be settled.`);
+    if (!safe(fin.paymentStatus)) warnings.push('Missing payment status.');
+    if (safe(fin.commercialState).toLowerCase() === 'settled' && fin.balance > 0.01) warnings.push('Commercial state says settled but balance is still open.');
+    if (fin.preauthActive > 0.01) warnings.push(`Pre-authorization still active: ${money(fin.preauthActive)}.`);
+    if (!snapshotFromState()) warnings.push('Legacy contract: financial snapshot unavailable, using fallback calculations.');
+    const hasOverride = !!(currentGuardrailOverride() && safe(currentGuardrailOverride().reason));
+    let level = 'ready';
+    if (blockers.length && !hasOverride) level = 'blocked';
+    else if (warnings.length || hasOverride) level = 'review';
+    const label = level === 'ready'
+      ? 'Financial checkout ready'
+      : (level === 'blocked' ? 'Financial checkout blocked' : 'Financial checkout review');
+    return { level, label, blockers, warnings, hasOverride };
+  }
+
+  function applyCheckoutGuardrailOverride(reason){
+    const cleanReason = safe(reason).trim();
+    state.rental.checkoutGuardrailOverride = cleanReason ? {
+      reason: cleanReason,
+      actor: safe(state.context?.user || 'Operator'),
+      updatedAt: new Date().toISOString()
+    } : null;
   }
 
   function billableDays(){
@@ -3481,6 +3537,26 @@ function renderLookups(){
       fin.balance > 0.01 ? 'Checkout financial review needed' : 'Checkout ready'
     ].filter(Boolean).join(' • ');
 
+    const guard = deriveCheckoutGuardrail();
+    const pill = byId('checkoutGuardrailPill');
+    if (pill) {
+      pill.textContent = guard.label;
+      pill.className = `guardrail-pill ${guard.level}`;
+    }
+    const blockersEl = byId('checkoutGuardrailBlockers');
+    if (blockersEl) blockersEl.innerHTML = guard.blockers.length ? guard.blockers.map((b)=> `<li><strong>Blocker:</strong> ${escapeHtml(b)}</li>`).join('') : '<li>No hard blockers detected.</li>';
+    const warningsEl = byId('checkoutGuardrailWarnings');
+    if (warningsEl) warningsEl.innerHTML = guard.warnings.length ? guard.warnings.map((w)=> `<li><strong>Warning:</strong> ${escapeHtml(w)}</li>`).join('') : '<li>No warnings.</li>';
+    const override = currentGuardrailOverride();
+    const overrideMeta = byId('checkoutGuardrailOverrideMeta');
+    if (overrideMeta) {
+      overrideMeta.textContent = override
+        ? `Override by ${safe(override.actor || 'Operator')} at ${humanDateTime(override.updatedAt)}`
+        : 'No override recorded.';
+    }
+    const overrideInput = byId('checkoutGuardrailOverrideReason');
+    if (overrideInput && document.activeElement !== overrideInput) overrideInput.value = safe(override?.reason || '');
+
     renderFinancialLedgerPreview();
   }
 
@@ -3966,6 +4042,7 @@ function renderLookups(){
         outstanding: financials().balance,
         paidTotal: financials().paidTotal
       },
+      checkoutGuardrailOverride: currentGuardrailOverride(),
       charges: chargeDraft,
       checkoutOdometer: num(byId('checkoutOdometer')?.value || 0),
       checkinOdometer: num(byId('checkinOdometer')?.value || 0),
@@ -4293,6 +4370,18 @@ function renderLookups(){
     byId('btnOpenPaymentsDeskModal')?.addEventListener('click', () => openModal('paymentsDeskModal'));
     byId('btnChargeLineSave')?.addEventListener('click', () => saveChargeLineModal());
     byId('btnChargeLineClear')?.addEventListener('click', () => clearChargeLineModal());
+    byId('btnCheckoutGuardrailOverride')?.addEventListener('click', () => {
+      const reason = safe(byId('checkoutGuardrailOverrideReason')?.value || '').trim();
+      if (!reason) { toast('Please enter override reason.'); return; }
+      applyCheckoutGuardrailOverride(reason);
+      renderChargeRail();
+      toast('Checkout override note saved.');
+    });
+    byId('btnCheckoutGuardrailClearOverride')?.addEventListener('click', () => {
+      applyCheckoutGuardrailOverride('');
+      renderChargeRail();
+      toast('Checkout override cleared.');
+    });
 
     const bindDriverAutoLookup = (index) => {
       const input = byId(driverFieldId(index));

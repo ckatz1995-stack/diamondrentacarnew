@@ -433,6 +433,7 @@ function normalizePayload(payload) {
     billing: normalizeBilling(draft.billing),
     financialTransactions: Array.isArray(draft.financialTransactions) ? draft.financialTransactions.map(normalizeFinancialTransaction).filter(Boolean) : [],
     commercialState: normalizeCommercialState(draft.commercialState),
+    checkoutGuardrailOverride: normalizeCheckoutGuardrailOverride(draft.checkoutGuardrailOverride),
     mainDriver: normalizeDriver(draft.mainDriver),
     additionalDrivers: Array.isArray(draft.additionalDrivers) ? draft.additionalDrivers.map(normalizeDriver).filter(Boolean) : []
   };
@@ -512,6 +513,17 @@ function normalizeCommercialState(state) {
     outstanding: toNumber(draft.outstanding),
     paidTotal: toNumber(draft.paidTotal),
     notes: safeText(draft.notes)
+  };
+}
+
+function normalizeCheckoutGuardrailOverride(raw) {
+  if (!raw || typeof raw !== "object") return null;
+  const reason = safeText(raw.reason || raw.note || "");
+  if (!reason) return null;
+  return {
+    reason,
+    actor: safeText(raw.actor || raw.user || ""),
+    updatedAt: safeText(raw.updatedAt || raw.at || "")
   };
 }
 

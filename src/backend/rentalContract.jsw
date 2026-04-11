@@ -348,6 +348,17 @@ function normalizePricingOverridePayload(raw){
   };
 }
 
+function normalizeCheckoutGuardrailOverride(raw){
+  const payload = raw && typeof raw === 'object' ? raw : {};
+  const reason = safeText(payload.reason || payload.note).trim();
+  if (!reason) return null;
+  return {
+    reason,
+    actor: safeText(payload.actor || payload.user).trim(),
+    updatedAt: asDate(payload.updatedAt || payload.at) || new Date()
+  };
+}
+
 function computePricingDrift(snapshot = {}, working = {}){
   const keys = ['rental','insurance','options','ageFee','nightFee','transport','damages','surcharges','discount','gross'];
   const lineItems = keys.map((key) => {
@@ -1649,6 +1660,9 @@ export async function saveContract({ authToken, bookingId, payload, stage }) {
       updatedAt: new Date(),
       notes: safeText(payload?.commercialState?.notes || rental?.commercialState?.notes || '')
     };
+    const guardrailOverride = normalizeCheckoutGuardrailOverride(payload?.checkoutGuardrailOverride);
+    rental.checkoutGuardrailOverride = guardrailOverride || rental.checkoutGuardrailOverride || null;
+    booking.checkoutGuardrailOverride = cloneJson(rental.checkoutGuardrailOverride || null);
     booking.financialSnapshot = cloneJson(financialSnapshot);
     booking.paymentStatus = financialSnapshot?.settlement?.paymentStatus || booking.paymentStatus;
 
