@@ -123,9 +123,12 @@ $w.onReady(async function () {
     if (msg.type === 'dailyRequestAction') {
       const bookingId = String(msg.bookingId || '');
       const action = String(msg.action || '');
+      const actorName = String(msg.actorName || '').trim();
+      const note = String(msg.note || '').trim();
+      const nextFollowUpAt = String(msg.nextFollowUpAt || '').trim();
       if (!bookingId || !action) return;
       try {
-        const result = await actOnDailyRequest({ authToken: resolveAuthToken(), bookingId, action });
+        const result = await actOnDailyRequest({ authToken: resolveAuthToken(), bookingId, action, actorName, note, nextFollowUpAt });
         post({ type:'dailyActionResult', success: !!result?.success, message: result?.message || (result?.success ? 'Done' : 'Action failed') });
         await loadDailyOps({ requestedDate });
       } catch (error) {

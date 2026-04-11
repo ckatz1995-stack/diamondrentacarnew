@@ -81,6 +81,64 @@ function isPendingStatus(status){ const s = norm(status); return ["pending","req
 function isNonRevenueLite(it){ const blob = [it?.rentalState,it?.status,it?.category,it?.categoryCode,it?.source,it?.selectedPackage,it?.extras,it?.internalMemo,it?.remarks].map(safeText).join(" ").toLowerCase(); return /non.?revenue|complimentary|replacement|service|internal use|staff use/.test(blob); }
 function hasEquipmentExtras(it){ if (Array.isArray(it?.selectedExtrasList) && it.selectedExtrasList.length) return true; const extras = safeText(it?.extras); if (extras) return true; const selected = safeText(it?.selectedPackage); return /baby|booster|gps|ski|chains|wifi|seat|equipment|extra/.test((extras + " " + selected).toLowerCase()); }
 function stationOf(it){ return safeText(it?.station || it?.pickupStation || it?.dropoffStation || it?.pickuppoint || it?.dropoffpoint || ""); }
+function isoOrEmpty(value){ const d = asDate(value); return d ? d.toISOString() : ""; }
+function followUpByAction(action, now = new Date()){
+  if (action === "hold") return addDays(now, 2 / 24).toISOString();
+  if (action === "escalate") return addDays(now, 1 / 24).toISOString();
+  return "";
+}
+function triageAuditFromBooking(raw = {}){
+  const blob = raw?.triageAudit && typeof raw.triageAudit === "object" ? raw.triageAudit : {};
+  const owner = safeText(raw?.triageOwner || blob.owner || "");
+  const updatedAt = isoOrEmpty(raw?.triageUpdatedAt || blob.updatedAt);
+  const lastAction = safeText(raw?.triageLastAction || blob.lastAction || "");
+  const lastNote = safeText(raw?.triageLastNote || blob.lastNote || "");
+  const nextFollowUpAt = isoOrEmpty(raw?.triageNextFollowUpAt || blob.nextFollowUpAt);
+  const historySummary = Array.isArray(raw?.triageHistorySummary)
+    ? raw.triageHistorySummary.map((x)=> safeText(x)).filter(Boolean)
+    : (Array.isArray(blob.historySummary) ? blob.historySummary.map((x)=> safeText(x)).filter(Boolean) : []);
+  return { owner, updatedAt, lastAction, lastNote, nextFollowUpAt, historySummary };
+}
+async function updateRequestTriageAudit({ bookingId, actorName, action, note, nextFollowUpAt } = {}){
+  const id = safeText(bookingId);
+  if (!id) return { success:false, message:"Missing booking id" };
+  const booking = await wixData.get("BookingsNew", id);
+  const now = new Date();
+  const normalizedAction = safeText(action).toLowerCase() || "review";
+  const actor = safeText(actorName || "");
+  const existing = triageAuditFromBooking(booking);
+  const normalizedNote = safeText(note || "");
+  const followUpISO = isoOrEmpty(nextFollowUpAt) || followUpByAction(normalizedAction, now) || existing.nextFollowUpAt || "";
+  const historyLine = [now.toISOString(), normalizedAction.toUpperCase(), actor || existing.owner || "Operator", normalizedNote].filter(Boolean).join(" • ");
+  const historySummary = [historyLine, ...existing.historySummary].filter(Boolean).slice(0, 8);
+
+  booking.triageOwner = actor || existing.owner || "";
+  booking.triageUpdatedAt = now;
+  booking.triageLastAction = normalizedAction;
+  booking.triageLastNote = normalizedNote || existing.lastNote || "";
+  booking.triageNextFollowUpAt = followUpISO ? new Date(followUpISO) : null;
+  booking.triageHistorySummary = historySummary;
+  booking.triageAudit = {
+    owner: booking.triageOwner,
+    updatedAt: booking.triageUpdatedAt,
+    lastAction: booking.triageLastAction,
+    lastNote: booking.triageLastNote,
+    nextFollowUpAt: booking.triageNextFollowUpAt,
+    historySummary
+  };
+  await wixData.update("BookingsNew", booking);
+  return {
+    success:true,
+    triageAudit:{
+      owner: booking.triageOwner,
+      updatedAt: booking.triageUpdatedAt.toISOString(),
+      lastAction: booking.triageLastAction,
+      lastNote: booking.triageLastNote,
+      nextFollowUpAt: booking.triageNextFollowUpAt ? booking.triageNextFollowUpAt.toISOString() : "",
+      historySummary
+    }
+  };
+}
 function deriveRequestTriage(item = {}, rangeStart = new Date()){
   const pickup = asDate(item.pickupDateTime);
   const hoursToPickup = pickup ? Math.round((pickup.getTime() - rangeStart.getTime()) / 36e5) : null;
@@ -192,6 +250,7 @@ function mapBookingLite(b, fleet){
   const checkoutEligible = confirmed && hasVehicle && !vehicleServiceBlocked && !vehicleHardHold && vehicleReadyToGo && !/active rental|closed rental/i.test(rentalStateLower);
   const checkinEligible = confirmed && hasVehicle && /active rental|pre check-in/i.test(rentalStateLower);
   const gateReasons = [];
+  const triageAudit = triageAuditFromBooking(b);
   if (!hasVehicle) gateReasons.push("No assigned vehicle");
   if (vehicleServiceBlocked) gateReasons.push("Vehicle is service-blocked");
   if (vehicleHardHold) gateReasons.push("Vehicle is under hard hold");
@@ -249,6 +308,12 @@ function mapBookingLite(b, fleet){
     vehicleReadyToGo,
     vehicleHardHold,
     vehicleServiceBlocked,
+    triageOwner: triageAudit.owner,
+    triageUpdatedAt: triageAudit.updatedAt,
+    triageLastAction: triageAudit.lastAction,
+    triageLastNote: triageAudit.lastNote,
+    triageNextFollowUpAt: triageAudit.nextFollowUpAt,
+    triageHistorySummary: triageAudit.historySummary,
     rentalState,
     actionGate: {
       contractEnabled: true,
@@ -317,14 +382,19 @@ export async function getDailyOps({ authToken, startISO, endISO } = {}) {
   }
 }
 
-export async function actOnDailyRequest({ authToken, bookingId, action } = {}){
+export async function actOnDailyRequest({ authToken, bookingId, action, actorName, note, nextFollowUpAt } = {}){
   await requireStaffAccess({ sessionToken: authToken, area: "bookings", action: "Edit" });
   const id = safeText(bookingId);
   const act = norm(action);
   if (!id || !act) return { success:false, message:"Missing params" };
-  if (act === "accept") return setBookingBoardStatus({ authToken, bookingId:id, newStatus:"Confirmed" });
-  if (act === "hold") return setBookingBoardStatus({ authToken, bookingId:id, newStatus:"Hold" });
-  if (act === "escalate") return setBookingBoardStatus({ authToken, bookingId:id, newStatus:"Escalated" });
-  if (act === "decline") return setBookingBoardStatus({ authToken, bookingId:id, newStatus:"Canceled" });
-  return { success:false, message:"Unknown action" };
+  let statusResult = { success:true, message:"Triage review saved" };
+  if (act === "accept") statusResult = await setBookingBoardStatus({ authToken, bookingId:id, newStatus:"Confirmed" });
+  else if (act === "hold") statusResult = await setBookingBoardStatus({ authToken, bookingId:id, newStatus:"Hold" });
+  else if (act === "escalate") statusResult = await setBookingBoardStatus({ authToken, bookingId:id, newStatus:"Escalated" });
+  else if (act === "decline") statusResult = await setBookingBoardStatus({ authToken, bookingId:id, newStatus:"Canceled" });
+  else if (act !== "review") return { success:false, message:"Unknown action" };
+  if (!statusResult?.success) return statusResult;
+  const audit = await updateRequestTriageAudit({ bookingId:id, actorName, action:act, note, nextFollowUpAt });
+  if (!audit?.success) return { success:false, message:audit?.message || "Audit update failed" };
+  return { success:true, message:statusResult?.message || "Done", triageAudit:audit.triageAudit };
 }

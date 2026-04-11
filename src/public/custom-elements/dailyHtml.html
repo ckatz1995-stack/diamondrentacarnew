@@ -506,8 +506,19 @@
       <button class="closeBtn" id="requestModalClose" type="button">Close</button>
     </div>
     <div class="modalBody" id="requestModalBody"></div>
+    <div class="modalBody">
+      <div class="fieldBox full">
+        <div class="fk">Triage note</div>
+        <textarea class="input" id="requestAuditNote" placeholder="Add triage note / reason…" style="width:100%;min-height:88px;resize:vertical"></textarea>
+      </div>
+      <div class="fieldBox full">
+        <div class="fk">Next follow-up</div>
+        <input class="input" id="requestFollowUpAt" type="datetime-local" />
+      </div>
+    </div>
     <div class="modalActions">
       <button class="inspectorBtn primary" id="requestAcceptBtn" type="button">Confirm booking</button>
+      <button class="inspectorBtn" id="requestReviewBtn" type="button">Save triage note</button>
       <button class="inspectorBtn" id="requestHoldBtn" type="button">Put on hold</button>
       <button class="inspectorBtn" id="requestEscalateBtn" type="button">Escalate</button>
       <button class="inspectorBtn" id="requestDeclineBtn" type="button">Decline booking</button>
@@ -637,12 +648,27 @@
     if (deltaMin < 60) return `Due in ${deltaMin}m`;
     return `Due in ${Math.round(deltaMin / 60)}h`;
   }
+  function triageOwner(item){ return safe(item.triageOwner || item.requestTriage?.owner || ''); }
+  function triageLastAction(item){ return safe(item.triageLastAction || item.requestTriage?.lastAction || ''); }
+  function triageLastNote(item){ return safe(item.triageLastNote || item.requestTriage?.lastNote || ''); }
+  function triageUpdatedAt(item){ return asDate(item.triageUpdatedAt || item.requestTriage?.updatedAt); }
+  function triageFollowUpAt(item){ return asDate(item.triageNextFollowUpAt || item.requestTriage?.nextFollowUpAt); }
+  function triageUpdatedLabel(item){ const d = triageUpdatedAt(item); return d ? fmtDT(d) : 'No activity'; }
+  function triageFollowUpLabel(item){ const d = triageFollowUpAt(item); return d ? fmtDT(d) : 'No follow-up'; }
+  function triageFollowUpOverdue(item){ const d = triageFollowUpAt(item); return !!(d && d.getTime() < Date.now()); }
+  function triageMine(item){ return triageOwner(item).toLowerCase() === safe(state.user?.name).toLowerCase(); }
+  function triageUnowned(item){ return !triageOwner(item); }
   function matchesRequestQueue(item){
     switch (state.requestQueue) {
       case 'pending': return isPending(item);
       case 'overdue': return requestIsOverdue(item);
       case 'airport': return requestIsAirport(item);
       case 'unpaid': return requestIsUnpaid(item);
+      case 'unowned': return triageUnowned(item);
+      case 'mine': return triageMine(item);
+      case 'escalated': return triageLastAction(item).toLowerCase() === 'escalate';
+      case 'onhold': return triageLastAction(item).toLowerCase() === 'hold' || norm(item.status) === 'hold';
+      case 'followupoverdue': return triageFollowUpOverdue(item);
       case 'noflight': return requestNeedsFlight(item);
       case 'novoucher': return requestNeedsVoucher(item);
       case 'novehicle': return requestNeedsVehicle(item);
@@ -660,6 +686,11 @@
       overdue:list.filter((item)=> requestIsOverdue(item)).length,
       airport:list.filter((item)=> requestIsAirport(item)).length,
       unpaid:list.filter((item)=> requestIsUnpaid(item)).length,
+      unowned:list.filter((item)=> triageUnowned(item)).length,
+      mine:list.filter((item)=> triageMine(item)).length,
+      escalated:list.filter((item)=> triageLastAction(item).toLowerCase() === 'escalate').length,
+      onhold:list.filter((item)=> triageLastAction(item).toLowerCase() === 'hold' || norm(item.status) === 'hold').length,
+      followupoverdue:list.filter((item)=> triageFollowUpOverdue(item)).length,
       noflight:list.filter((item)=> requestNeedsFlight(item)).length,
       novoucher:list.filter((item)=> requestNeedsVoucher(item)).length,
       novehicle:list.filter((item)=> requestNeedsVehicle(item)).length,
@@ -676,6 +707,11 @@
       overdue:{ label:'SLA overdue', hint:'Request rows που πέρασαν το SLA due time και θέλουν άμεση ενέργεια.', count:counts.overdue },
       airport:{ label:'Airport', hint:'Airport-related requests που χρειάζονται άμεση travel επιβεβαίωση.', count:counts.airport },
       unpaid:{ label:'Unpaid / due', hint:'Rows με outstanding balance ή pending payment.', count:counts.unpaid },
+      unowned:{ label:'Unowned', hint:'Rows χωρίς triage owner.', count:counts.unowned },
+      mine:{ label:'My queue', hint:'Rows που χειρίζεσαι εσύ ως triage owner.', count:counts.mine },
+      escalated:{ label:'Escalated', hint:'Rows με τελευταίο triage action το escalate.', count:counts.escalated },
+      onhold:{ label:'On hold', hint:'Rows που έχουν μπει σε hold και θέλουν follow-up.', count:counts.onhold },
+      followupoverdue:{ label:'Follow-up overdue', hint:'Rows με follow-up timestamp στο παρελθόν.', count:counts.followupoverdue },
       noflight:{ label:'Missing flight', hint:'Rows χωρίς flight number ή arrival πληροφορία, άρα θέλουν travel follow-up.', count:counts.noflight },
       novoucher:{ label:'Missing voucher', hint:'Rows χωρίς voucher / confirmation, άρα θέλουν εμπορικό ή partner check.', count:counts.novoucher },
       novehicle:{ label:'Missing vehicle', hint:'Rows χωρίς assigned vehicle, άρα θέλουν άμεσο operational assignment.', count:counts.novehicle },
@@ -796,7 +832,7 @@
   }
   function requestRowClass(item,key){
     if (key !== 'requests') return '';
-    if (requestIsOverdue(item) || requestPriority(item) === 'urgent') return 'request-critical';
+    if (requestIsOverdue(item) || triageFollowUpOverdue(item) || requestPriority(item) === 'urgent') return 'request-critical';
     if (requestPriority(item) === 'high') return 'request-warning';
     if (requestNeedsVehicle(item) || requestNeedsFlight(item) || requestNeedsVoucher(item)) return 'request-warning';
     if (isPending(item)) return 'request-pending';
@@ -843,6 +879,11 @@
       overdue:['triage','status','time','booking','customer','pickup','vehicle','flags','notes','actions'],
       airport:['triage','status','time','booking','customer','pickup','dropoff','flight','originCity','vehicle','notes','actions'],
       unpaid:['triage','status','time','booking','customer','source','agent','flags','notes','actions'],
+      unowned:['triage','status','time','booking','customer','phone','pickup','dropoff','notes','actions'],
+      mine:['triage','status','time','booking','customer','phone','pickup','dropoff','flags','notes','actions'],
+      escalated:['triage','status','time','booking','customer','vehicle','flags','notes','actions'],
+      onhold:['triage','status','time','booking','customer','vehicle','flags','notes','actions'],
+      followupoverdue:['triage','status','time','booking','customer','vehicle','flags','notes','actions'],
       noflight:['status','time','booking','customer','phone','pickup','dropoff','flight','originCity','station','notes','actions'],
       novoucher:['status','time','booking','customer','phone','source','agent','voucher','confirmation','notes','actions'],
       novehicle:['triage','status','time','booking','customer','phone','pickup','dropoff','vehicle','category','station','notes','actions'],
@@ -1113,6 +1154,11 @@
       { key:'overdue', label:'Overdue', count:counts.overdue },
       { key:'airport', label:'Airport', count:counts.airport },
       { key:'unpaid', label:'Unpaid', count:counts.unpaid },
+      { key:'unowned', label:'Unowned', count:counts.unowned },
+      { key:'mine', label:'Mine', count:counts.mine },
+      { key:'escalated', label:'Escalated', count:counts.escalated },
+      { key:'onhold', label:'On hold', count:counts.onhold },
+      { key:'followupoverdue', label:'Follow-up overdue', count:counts.followupoverdue },
       { key:'noflight', label:'No flight', count:counts.noflight },
       { key:'novoucher', label:'No voucher', count:counts.novoucher },
       { key:'novehicle', label:'No vehicle', count:counts.novehicle },
@@ -1192,14 +1238,15 @@
     if (col === 'triage') {
       const badgeCls = requestPriority(item) === 'urgent' ? 'overdue' : requestPriority(item) === 'high' ? 'warn' : requestPriority(item) === 'medium' ? 'info' : 'neutral';
       const reasons = Array.isArray(item.requestTriage?.reasons) && item.requestTriage.reasons.length ? item.requestTriage.reasons.join(' • ') : 'No triage reasons';
-      return `<div class="toolCell"><div class="toolFlags"><span class="flagPill ${esc(badgeCls)}">${esc(requestPriorityLabel(item))}</span><span class="flagPill neutral">Score ${esc(String(requestTriageScore(item)))}</span></div><div class="toolSub">${esc(`${requestDueLabel(item)} • ${reasons}`)}</div></div>`;
+      const owner = triageOwner(item) || 'Unowned';
+      return `<div class="toolCell"><div class="toolFlags"><span class="flagPill ${esc(badgeCls)}">${esc(requestPriorityLabel(item))}</span><span class="flagPill neutral">Score ${esc(String(requestTriageScore(item)))}</span><span class="flagPill ${triageUnowned(item)?'warn':'ok'}">${esc(owner)}</span></div><div class="toolSub">${esc(`${requestDueLabel(item)} • ${reasons}`)}</div></div>`;
     }
     if (col === 'status') {
       const pillClass = item.itemType === 'fleet' ? 'neutral' : bookingStatusClass(item);
       const sub = item.itemType === 'fleet'
         ? [safe(item.state || item.status), safe(item.location || item.branch || item.station)].filter(Boolean).join(' • ') || 'Fleet'
         : (key === 'requests'
-          ? [safe(item.requestTriage?.suggestedAction), requestDueLabel(item)].filter(Boolean).join(' • ') || safe(item.itemType || key || 'Daily')
+          ? [safe(item.requestTriage?.suggestedAction), requestDueLabel(item), triageLastAction(item) ? `Last ${triageLastAction(item)}` : '', triageUpdatedLabel(item)].filter(Boolean).join(' • ') || safe(item.itemType || key || 'Daily')
           : safe(item.itemType || key || 'Daily'));
       return `<div class="toolCell"><div class="toolFlags"><span class="flagPill ${esc(pillClass)}">${esc(statusLabel(item))}</span></div><div class="toolSub">${esc(sub)}</div></div>`;
     }
@@ -1221,7 +1268,14 @@
     if (col === 'voucher') return simpleCell(voucherText(item) || '—', confirmationText(item) || '—');
     if (col === 'confirmation') return simpleCell(confirmationText(item) || '—', voucherText(item) || '—');
     if (col === 'flags') return `<div class="toolCell"><div class="toolFlags">${bookingFlags(item).map(([label,cls])=> `<span class="flagPill ${esc(cls)}">${esc(label)}</span>`).join('') || '<span class="flagPill neutral">Clean</span>'}</div><div class="toolSub">${esc(key === 'requests' ? (safe(item.requestTriage?.suggestedAction || 'Review and schedule')) : ([packageText(item), stationOf(item)].filter(Boolean).join(' • ') || '—'))}</div></div>`;
-    if (col === 'notes') return simpleCell(key === 'requests' ? ((Array.isArray(item.requestTriage?.reasons) ? item.requestTriage.reasons.join(' • ') : '') || notesText(item) || safe(item.reason || item.comment || item.description || '—')) : (notesText(item) || safe(item.reason || item.comment || item.description || '—')), safe(item.internalMemo || item.remarks || item.reason || '—'));
+    if (col === 'notes') return simpleCell(
+      key === 'requests'
+        ? (triageLastNote(item) || (Array.isArray(item.requestTriage?.reasons) ? item.requestTriage.reasons.join(' • ') : '') || notesText(item) || safe(item.reason || item.comment || item.description || '—'))
+        : (notesText(item) || safe(item.reason || item.comment || item.description || '—')),
+      key === 'requests'
+        ? [triageOwner(item) ? `Owner ${triageOwner(item)}` : 'Unowned', triageFollowUpLabel(item), triageFollowUpOverdue(item) ? 'Follow-up overdue' : ''].filter(Boolean).join(' • ')
+        : safe(item.internalMemo || item.remarks || item.reason || '—')
+    );
     if (col === 'actions') return `<div class="toolCell"><div class="toolActions">${rowActionButtons(item,key,true)}</div><div class="toolSub">${esc(safe(item.bookingNumber || item._id || item.id || '—'))}</div></div>`;
     return simpleCell('—');
   }
@@ -1285,6 +1339,9 @@
       const p = requestPriorityLabel(item);
       out.push([`Priority ${p}`, p === 'Critical' ? 'overdue' : (p === 'High' ? 'warn' : (p === 'Medium' ? 'info' : 'neutral'))]);
       if (requestIsOverdue(item)) out.push(['SLA overdue','overdue']);
+      if (triageUnowned(item)) out.push(['Unowned','warn']);
+      if (triageLastAction(item)) out.push([`Last ${triageLastAction(item)}`,'info']);
+      if (triageFollowUpOverdue(item)) out.push(['Follow-up overdue','overdue']);
     }
     if (!safe(item.assignedVehicleLabel || item.assignedVehiclePlate || item.assignedVehicle)) out.push(['No vehicle','warn']);
     if (safe(item.flightNumber)) out.push(['Flight','info']);
@@ -1351,6 +1408,13 @@
     const contractLabel = key === 'checkout' ? 'Check out' : (key === 'checkin' ? 'Check in' : 'Contract');
 
     if (item.itemType !== 'fleet') {
+      if (key === 'requests') {
+        btns.push(`<button class="${cls}" type="button" data-row-action="review" data-row-id="${esc(id)}" data-row-tab="${esc(key)}">Review</button>`);
+        btns.push(`<button class="${cls} primary" type="button" data-request-action="accept" data-row-id="${esc(id)}">Accept</button>`);
+        btns.push(`<button class="${cls}" type="button" data-request-action="hold" data-row-id="${esc(id)}">Hold</button>`);
+        btns.push(`<button class="${cls}" type="button" data-request-action="escalate" data-row-id="${esc(id)}">Escalate</button>`);
+        btns.push(`<button class="${cls} warn" type="button" data-request-action="decline" data-row-id="${esc(id)}">Decline</button>`);
+      }
       const contractBlocked = (key === 'checkout' && gate.checkoutEligible === false) || (key === 'checkin' && gate.checkinEligible === false);
       btns.push(`<button class="${cls} primary" type="button" data-row-action="contract" data-row-id="${esc(id)}" data-row-tab="${esc(key)}"${disableIf(contractBlocked)}>${esc(contractLabel)}</button>`);
       btns.push(`<button class="${cls}" type="button" data-row-action="fleet" data-row-id="${esc(id)}" data-row-tab="${esc(key)}"${disableIf(gate.fleetEnabled === false)}>Fleet</button>`);
@@ -1414,9 +1478,15 @@
   function openFleet(item){ const bookingId = safe(item && (item._id || item.id)); if (!bookingId) return; postToWix({ type:'openOnFleet', bookingId, startDate:itemStart(item), endDate:itemEnd(item) }); }
   function openBookings(item){ const bookingId = safe(item && (item._id || item.id)); postToWix({ type:'openOnBookings', bookingId, startDate:itemStart(item), endDate:itemEnd(item) }); }
   function openRequestModal(item){ if (!item) return; state.requestFocus = item; els.requestTitle.textContent = `${safe(item.bookingNumber || item._id || 'Request')} • ${safe(item.customerName || '—')}`; els.requestSub.textContent = `Κίνηση ${fmtDT(item.pickupDateTime)} → ${fmtDT(item.dropoffDateTime)}`; const rows = [
-    ['Priority', `${requestPriorityLabel(item)} · score ${requestTriageScore(item)}`], ['SLA', requestDueLabel(item)], ['Triage reasons', Array.isArray(item.requestTriage?.reasons) ? item.requestTriage.reasons.join(' • ') : '—'], ['Suggested action', safe(item.requestTriage?.suggestedAction || 'Review and schedule')], ['Status', statusLabel(item)], ['Route', routeText(item)], ['Contact', [safe(item.phone),safe(item.email)].filter(Boolean).join(' · ') || '—'], ['Flight', safe(item.flightNumber || '—')], ['Source / agent', [safe(item.source),safe(item.agent)].filter(Boolean).join(' · ') || '—'], ['Voucher / confirmation', [safe(item.voucherNumber),safe(item.confirmationNumber)].filter(Boolean).join(' · ') || '—'], ['Category / package', [safe(item.category || item.categoryCode),safe(item.selectedPackage)].filter(Boolean).join(' • ') || '—'], ['Extras', Array.isArray(item.selectedExtrasList)&&item.selectedExtrasList.length ? item.selectedExtrasList.join(', ') : (safe(item.extras) || '—')], ['Total', money(item.totalPrice)], ['Flags', bookingActionFlags(item).join(' • ') || '—'], ['Notes', [safe(item.pickupComment),safe(item.dropoffComment),safe(item.remarks),safe(item.internalMemo)].filter(Boolean).join(' • ') || '—']
-  ]; $('requestAcceptBtn').style.display = isPending(item) ? '' : 'none'; $('requestHoldBtn').style.display = ''; $('requestEscalateBtn').style.display = ''; $('requestDeclineBtn').style.display = isPending(item) ? '' : 'none'; els.requestBody.innerHTML = rows.map(([k,v])=> field(k,v,true)).join(''); els.requestOverlay.style.display = 'flex'; reportHeight(260); }
+    ['Priority', `${requestPriorityLabel(item)} · score ${requestTriageScore(item)}`], ['SLA', requestDueLabel(item)], ['Triage reasons', Array.isArray(item.requestTriage?.reasons) ? item.requestTriage.reasons.join(' • ') : '—'], ['Suggested action', safe(item.requestTriage?.suggestedAction || 'Review and schedule')], ['Owner', triageOwner(item) || 'Unowned'], ['Last triage action', triageLastAction(item) || '—'], ['Last updated', triageUpdatedLabel(item)], ['Follow-up', triageFollowUpLabel(item)], ['Status', statusLabel(item)], ['Route', routeText(item)], ['Contact', [safe(item.phone),safe(item.email)].filter(Boolean).join(' · ') || '—'], ['Flight', safe(item.flightNumber || '—')], ['Source / agent', [safe(item.source),safe(item.agent)].filter(Boolean).join(' · ') || '—'], ['Voucher / confirmation', [safe(item.voucherNumber),safe(item.confirmationNumber)].filter(Boolean).join(' · ') || '—'], ['Category / package', [safe(item.category || item.categoryCode),safe(item.selectedPackage)].filter(Boolean).join(' • ') || '—'], ['Extras', Array.isArray(item.selectedExtrasList)&&item.selectedExtrasList.length ? item.selectedExtrasList.join(', ') : (safe(item.extras) || '—')], ['Total', money(item.totalPrice)], ['Flags', bookingActionFlags(item).join(' • ') || '—'], ['Notes', [safe(item.pickupComment),safe(item.dropoffComment),safe(item.remarks),safe(item.internalMemo)].filter(Boolean).join(' • ') || '—']
+  ]; $('requestAcceptBtn').style.display = isPending(item) ? '' : 'none'; $('requestReviewBtn').style.display = ''; $('requestHoldBtn').style.display = ''; $('requestEscalateBtn').style.display = ''; $('requestDeclineBtn').style.display = isPending(item) ? '' : 'none'; els.requestBody.innerHTML = rows.map(([k,v])=> field(k,v,true)).join(''); const noteEl = $('requestAuditNote'); if (noteEl) noteEl.value = triageLastNote(item); const followEl = $('requestFollowUpAt'); if (followEl) { const raw = triageFollowUpAt(item); followEl.value = raw ? new Date(raw.getTime() - (raw.getTimezoneOffset() * 60000)).toISOString().slice(0,16) : ''; } els.requestOverlay.style.display = 'flex'; reportHeight(260); }
   function closeRequestModal(){ els.requestOverlay.style.display = 'none'; reportHeight(); }
+  function requestAuditPayload(action, bookingId){
+    const note = safe($('requestAuditNote') && $('requestAuditNote').value);
+    const followRaw = safe($('requestFollowUpAt') && $('requestFollowUpAt').value);
+    const nextFollowUpAt = followRaw ? new Date(followRaw).toISOString() : '';
+    return { type:'dailyRequestAction', bookingId, action, actorName:safe(state.user?.name || 'Operator'), note, nextFollowUpAt };
+  }
   function csvCell(v){ const s = safe(v); return '"' + s.replace(/"/g,'""') + '"'; }
   function exportCurrent(){ const key = state.viewMode === 'desk' ? 'checkout' : state.activeTab; const rows = state.viewMode === 'desk' ? [...deskItems('out'), ...deskItems('in')] : currentTabItems(key); const header = ['Time','Booking','Customer','Vehicle','Route','Status','Contact']; const lines = [header.map(csvCell).join(';')].concat(rows.map((item)=> [itemTime(item,key), safe(item.bookingNumber || item.vehicleLabel || item._id || item.id), safe(item.customerName || item.station), safe(item.assignedVehicleLabel || item.vehicleLabel), routeText(item), statusLabel(item), [safe(item.phone), safe(item.email)].filter(Boolean).join(' · ')].map(csvCell).join(';'))); const blob = new Blob([lines.join('\n')], { type:'text/csv;charset=utf-8' }); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `daily-${state.viewMode === 'desk' ? 'desk' : key}-${els.datePick.value || 'date'}.csv`; a.click(); setTimeout(()=> URL.revokeObjectURL(url), 3000); setStatus(`Export CSV • ${rows.length} rows`); }
   function printCurrent(){ const key = state.viewMode === 'desk' ? 'desk' : state.activeTab; const rows = state.viewMode === 'desk' ? [...deskItems('out'), ...deskItems('in')] : currentTabItems(state.activeTab); const html = `<!doctype html><html><head><meta charset="utf-8"><title>Daily print</title><style>body{font-family:Arial,sans-serif;padding:20px}table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:8px;font-size:12px;text-align:left}th{background:#f5f5f5}</style></head><body><h2>Daily ${key} • ${esc(els.datePick.value)}</h2><table><thead><tr><th>Time</th><th>Booking</th><th>Customer</th><th>Vehicle</th><th>Route</th><th>Status</th></tr></thead><tbody>${rows.map((item)=> `<tr><td>${esc(itemTime(item,key))}</td><td>${esc(safe(item.bookingNumber || item.vehicleLabel || item._id || item.id))}</td><td>${esc(safe(item.customerName || item.station))}</td><td>${esc(safe(item.assignedVehicleLabel || item.vehicleLabel))}</td><td>${esc(routeText(item))}</td><td>${esc(statusLabel(item))}</td></tr>`).join('')}</tbody></table></body></html>`; const w = window.open('', '_blank'); if (!w) return; w.document.write(html); w.document.close(); w.focus(); w.print(); }
@@ -1453,23 +1523,24 @@
     const summaryBtn = e.target.closest('[data-summary-tab]');
     if (summaryBtn) { const target = summaryTarget(summaryBtn.getAttribute('data-summary-tab') || 'bookings'); state.viewMode = target.mode; state.activeTab = target.tab === 'checkin' ? 'checkin' : (target.tab === 'checkout' ? 'checkout' : target.tab); state.selected = { tab: state.activeTab, id:'' }; render(); return; }
     const rowAct = e.target.closest('[data-row-action]');
-    if (rowAct) { const tab = rowAct.getAttribute('data-row-tab') || state.activeTab; const id = rowAct.getAttribute('data-row-id') || ''; const item = itemByTabId(tab, id); if (!item) return; state.selected = { tab, id }; const action = rowAct.getAttribute('data-row-action') || ''; if (action === 'contract') return openContract(safe(item._id || item.id)); if (action === 'fleet') return openFleet(item); if (action === 'vehicle') return openVehicleCard(item); if (action === 'bookings') return openBookings(item); return; }
+    if (rowAct) { const tab = rowAct.getAttribute('data-row-tab') || state.activeTab; const id = rowAct.getAttribute('data-row-id') || ''; const item = itemByTabId(tab, id); if (!item) return; state.selected = { tab, id }; const action = rowAct.getAttribute('data-row-action') || ''; if (action === 'review') return openRequestModal(item); if (action === 'contract') return openContract(safe(item._id || item.id)); if (action === 'fleet') return openFleet(item); if (action === 'vehicle') return openVehicleCard(item); if (action === 'bookings') return openBookings(item); return; }
     const row = e.target.closest('[data-select-id]');
     if (row) { state.selected = { tab: row.getAttribute('data-select-tab') || state.activeTab, id: row.getAttribute('data-select-id') || '' }; render(); return; }
     const act = e.target.closest('[data-action]');
     if (act) { const item = selectedItem(); const action = act.getAttribute('data-action'); if (!item) return; if (action === 'contract') return openContract(safe(item._id || item.id)); if (action === 'fleet') return openFleet(item); if (action === 'vehicle') return openVehicleCard(item); if (action === 'bookings') return openBookings(item); }
     if (e.target.closest('#requestModalClose')) return closeRequestModal();
     if (e.target === els.requestOverlay) return closeRequestModal();
-    if (e.target.closest('#requestAcceptBtn') && state.requestFocus) return postToWix({ type:'dailyRequestAction', bookingId:safe(state.requestFocus._id || state.requestFocus.id), action:'accept' });
-    if (e.target.closest('#requestHoldBtn') && state.requestFocus) return postToWix({ type:'dailyRequestAction', bookingId:safe(state.requestFocus._id || state.requestFocus.id), action:'hold' });
-    if (e.target.closest('#requestEscalateBtn') && state.requestFocus) return postToWix({ type:'dailyRequestAction', bookingId:safe(state.requestFocus._id || state.requestFocus.id), action:'escalate' });
-    if (e.target.closest('#requestDeclineBtn') && state.requestFocus) return postToWix({ type:'dailyRequestAction', bookingId:safe(state.requestFocus._id || state.requestFocus.id), action:'decline' });
+    if (e.target.closest('#requestAcceptBtn') && state.requestFocus) return postToWix(requestAuditPayload('accept', safe(state.requestFocus._id || state.requestFocus.id)));
+    if (e.target.closest('#requestReviewBtn') && state.requestFocus) return postToWix(requestAuditPayload('review', safe(state.requestFocus._id || state.requestFocus.id)));
+    if (e.target.closest('#requestHoldBtn') && state.requestFocus) return postToWix(requestAuditPayload('hold', safe(state.requestFocus._id || state.requestFocus.id)));
+    if (e.target.closest('#requestEscalateBtn') && state.requestFocus) return postToWix(requestAuditPayload('escalate', safe(state.requestFocus._id || state.requestFocus.id)));
+    if (e.target.closest('#requestDeclineBtn') && state.requestFocus) return postToWix(requestAuditPayload('decline', safe(state.requestFocus._id || state.requestFocus.id)));
     if (e.target.closest('#requestOpenContractBtn') && state.requestFocus) return openContract(safe(state.requestFocus._id || state.requestFocus.id));
     const requestRowAction = e.target.closest('[data-request-action]');
     if (requestRowAction) {
       const bookingId = safe(requestRowAction.getAttribute('data-row-id'));
       const action = safe(requestRowAction.getAttribute('data-request-action')).toLowerCase();
-      if (bookingId && action) return postToWix({ type:'dailyRequestAction', bookingId, action });
+      if (bookingId && action) return postToWix({ type:'dailyRequestAction', bookingId, action, actorName:safe(state.user?.name || 'Operator') });
     }
   });
 
