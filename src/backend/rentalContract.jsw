@@ -995,6 +995,80 @@ function getRendererCapabilitySnapshot(){
   };
 }
 
+async function runRendererSelfTestInternal(){
+  const started = Date.now();
+  const capabilitySnapshot = getRendererCapabilitySnapshot();
+  const sampleHtml = '<!doctype html><html><body><h1>Renderer self-test</h1><p>Diamond Rent a Car · synthetic render probe.</p></body></html>';
+  const result = {
+    checkedAt: new Date().toISOString(),
+    capabilitySnapshot,
+    attemptedEngines: [],
+    stages: {
+      hifi: { modulePresent: false, launchSupported: false, renderSupported: false, durationMs: 0, error: '' },
+      fallback: { launchSupported: false, renderSupported: false, durationMs: 0, error: '' }
+    },
+    fallbackRequired: false,
+    failureStage: '',
+    hifiReady: false,
+    preferredEngineConfidence: 'low',
+    recommendedRenderMode: 'legacy_pdfkit',
+    status: 'unavailable',
+    durationMs: 0,
+    warnings: []
+  };
+
+  const hifiStart = Date.now();
+  result.attemptedEngines.push('puppeteer_html_pdf');
+  try {
+    require("puppeteer");
+    result.stages.hifi.modulePresent = true;
+    const hifiBuffer = await renderPdfBufferFromHtmlHighFidelity(sampleHtml, { title: 'Renderer self-test' });
+    result.stages.hifi.launchSupported = true;
+    result.stages.hifi.renderSupported = !!(hifiBuffer && hifiBuffer.length > 0);
+  } catch (e) {
+    result.stages.hifi.error = safeText(e?.message || e || 'unknown hifi error');
+    result.failureStage = result.failureStage || (result.stages.hifi.modulePresent ? 'HIFI_RENDER' : 'HIFI_MODULE');
+  } finally {
+    result.stages.hifi.durationMs = Date.now() - hifiStart;
+  }
+
+  const fallbackStart = Date.now();
+  result.attemptedEngines.push('pdfkit_text_fallback');
+  try {
+    const fallbackBuffer = await renderPdfBufferFromHtml(sampleHtml, { title: 'Renderer self-test' });
+    result.stages.fallback.launchSupported = true;
+    result.stages.fallback.renderSupported = !!(fallbackBuffer && fallbackBuffer.length > 0);
+  } catch (e) {
+    result.stages.fallback.error = safeText(e?.message || e || 'unknown fallback error');
+    result.failureStage = result.failureStage || 'FALLBACK_RENDER';
+  } finally {
+    result.stages.fallback.durationMs = Date.now() - fallbackStart;
+  }
+
+  result.hifiReady = !!result.stages.hifi.renderSupported;
+  result.fallbackRequired = !result.hifiReady;
+  if (result.hifiReady) {
+    result.status = 'healthy';
+    result.preferredEngineConfidence = 'high';
+    result.recommendedRenderMode = 'pdf_from_html';
+  } else if (result.stages.fallback.renderSupported) {
+    result.status = 'fallback-only';
+    result.preferredEngineConfidence = 'medium';
+    result.recommendedRenderMode = 'pdf_from_html';
+    result.warnings.push('High-fidelity renderer not verified; running in fallback-only mode.');
+  } else {
+    result.status = 'degraded';
+    result.preferredEngineConfidence = 'low';
+    result.recommendedRenderMode = 'legacy_pdfkit';
+    result.warnings.push('Fallback renderer self-test failed; use legacy PDFKit path.');
+  }
+  if (capabilitySnapshot.runtimeLimitations?.length) {
+    result.warnings.push(...capabilitySnapshot.runtimeLimitations);
+  }
+  result.durationMs = Date.now() - started;
+  return result;
+}
+
 async function renderPdfBufferFromHtmlAdapter(html, options = {}){
   const started = Date.now();
   const capabilitySnapshot = getRendererCapabilitySnapshot();
@@ -2240,6 +2314,19 @@ export async function getContractDocumentRenderCapabilities({ authToken }) {
   await requireStaffAccess({ sessionToken: authToken, area: "rentals", action: "View" });
   try {
     return { success:true, capabilities: getRendererCapabilitySnapshot() };
+  } catch (e) {
+    return { success:false, message:e?.message || String(e) };
+  }
+}
+
+export async function selfTestContractDocumentRenderer({ authToken }) {
+  await requireStaffAccess({ sessionToken: authToken, area: "rentals", action: "View" });
+  try {
+    const selfTest = await runRendererSelfTestInternal();
+    return {
+      success: true,
+      selfTest
+    };
   } catch (e) {
     return { success:false, message:e?.message || String(e) };
   }
