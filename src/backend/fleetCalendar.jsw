@@ -50,7 +50,11 @@ const VF = {
   station: "station",
   mileage: "mileage",
   ready: "ready",
-  stall: "stall"
+  stall: "stall",
+  operationalStatus: "operationalStatus",
+  hardHold: "hardHold",
+  currentStationCode: "currentStationCode",
+  currentStationLabel: "currentStationLabel"
 };
 
 /**
@@ -148,6 +152,10 @@ async function ensureFieldMapping() {
     VF.mileage = _pickKey(v, ["Mileage", "mileage", "Kms", "kms"], VF.mileage);
     VF.ready = _pickKey(v, ["Ready", "ready", "VehicleReady", "vehicleReady"], VF.ready);
     VF.stall = _pickKey(v, ["Stall", "stall", "Parking", "parking"], VF.stall);
+    VF.operationalStatus = _pickKey(v, ["operationalStatus", "OperationalStatus", "status", "Status"], VF.operationalStatus);
+    VF.hardHold = _pickKey(v, ["hardHold", "HardHold"], VF.hardHold);
+    VF.currentStationCode = _pickKey(v, ["currentStationCode", "CurrentStationCode"], VF.currentStationCode);
+    VF.currentStationLabel = _pickKey(v, ["currentStationLabel", "CurrentStationLabel", "stationLabel", "StationLabel"], VF.currentStationLabel);
   } catch (_) {
     // keep defaults
   }
@@ -544,17 +552,26 @@ function buildGroups(fleet) {
       const plate = String(v?.[VF.plate] || v[VF.id] || "").trim();
       const model = String(v?.[VF.model] || "").trim();
       const station = String(v?.[VF.station] || "").trim();
+      const stationCode = String(v?.[VF.currentStationCode] || "").trim();
+      const stationLabel = String(v?.[VF.currentStationLabel] || "").trim();
       const mileage = String(v?.[VF.mileage] || "").trim();
       const ready = yesNo(v?.[VF.ready]);
       const stall = String(v?.[VF.stall] || "").trim();
+      const operationalStatus = String(v?.[VF.operationalStatus] || "").trim();
+      const hardHold = v?.[VF.hardHold] === true || String(v?.[VF.hardHold] || "").toLowerCase() === "true";
+      const serviceBlocked = ["service","blocked","inactive"].includes(String(operationalStatus || "").toLowerCase());
+      const assignable = !hardHold && !serviceBlocked && ready !== "Not ready";
       const label = model ? `${plate} • ${model}` : plate;
       const titleLines = [
         label,
         cat ? `Category: ${cat}` : "",
-        station ? `Station: ${station}` : "",
+        stationLabel || stationCode || station ? `Station: ${stationLabel || stationCode || station}` : "",
         mileage ? `Mileage: ${mileage}` : "",
         ready && ready !== "—" ? `Ready: ${ready}` : "",
-        stall ? `Stall: ${stall}` : ""
+        stall ? `Stall: ${stall}` : "",
+        operationalStatus ? `Operational: ${operationalStatus}` : "",
+        hardHold ? "Hard hold: Yes" : "",
+        `Assignable: ${assignable ? "Yes" : "No"}`
       ].filter(Boolean);
       groups.push({
         id: v[VF.id],
@@ -565,6 +582,12 @@ function buildGroups(fleet) {
         mileage,
         ready,
         stall,
+        operationalStatus,
+        hardHold,
+        serviceBlocked,
+        assignable,
+        stationCode,
+        stationLabel,
         categoryCode: cat,
         title: titleLines.join("\n"),
         className: idx % 2 === 0 ? "fleetRowEven" : "fleetRowOdd"
