@@ -111,7 +111,7 @@ async function refreshAuthState(message = '') {
     nextPath,
     denied,
     errorMessage: message,
-    bootstrapHelp: bootstrap?.bootstrapPassword ? `Bootstrap password: ${bootstrap.bootstrapPassword}` : '',
+    bootstrapHelp: '',
     bootstrap: bootstrap || null,
     authHealth: authHealth || null
   });
