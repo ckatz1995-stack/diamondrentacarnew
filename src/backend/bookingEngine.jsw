@@ -3,17 +3,11 @@ import wixUsersBackend from 'wix-users-backend';
 import { VAT_RATE } from 'backend/bookingConfig';
 import { getPricingCatalog, getFallbackCatalogSnapshot, computeAutomaticFees, resolveDynamicPricingRate } from 'backend/pricingCatalog.jsw';
 import { buildPricingSnapshot } from 'backend/pricingSnapshot.js';
+import { computeBillableDaysDetailed } from 'backend/billableDays';
 
 // ==========================
 // Helpers
 // ==========================
-function billableDaysFromHours(pickup, dropoff) {
-    const diffMs = dropoff.getTime() - pickup.getTime();
-    const hours = diffMs / (1000 * 60 * 60);
-    const billableDays = Math.max(1, Math.ceil(hours / 24));
-    return { hours, billableDays };
-}
-
 async function generateBookingNumber() {
     const year = new Date().getFullYear();
 
@@ -569,7 +563,7 @@ export async function createBooking(data) {
         );
 
         const fallbackBasePricePerDay = toFiniteNumber(vehicle.price, 0);
-        const { hours, billableDays } = billableDaysFromHours(pickup, dropoff);
+        const { hours, billableDays } = computeBillableDaysDetailed(pickup, dropoff, 1);
 
         const insuranceMap = pricingCatalog?.maps?.insurance || {};
         const extrasMap = pricingCatalog?.maps?.extras || {};

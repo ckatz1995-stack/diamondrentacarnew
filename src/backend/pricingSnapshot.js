@@ -1,3 +1,5 @@
+import { computeBillableDays } from 'backend/billableDays';
+
 function text(value, fallback = '') {
   const out = String(value ?? '').trim();
   return out || fallback;
@@ -10,19 +12,6 @@ function num(value, fallback = 0) {
 
 function round2(value) {
   return Math.round(num(value) * 100) / 100;
-}
-
-function asDate(value) {
-  if (!value && value !== 0) return null;
-  const d = value instanceof Date ? value : new Date(value);
-  return Number.isNaN(d.getTime()) ? null : d;
-}
-
-function billableDaysBetween(pickup, dropoff, fallback = 1) {
-  const a = asDate(pickup);
-  const b = asDate(dropoff);
-  if (!a || !b || b <= a) return Math.max(1, num(fallback, 1));
-  return Math.max(1, Math.ceil((b.getTime() - a.getTime()) / 86400000));
 }
 
 function buildCatalogMaps(catalog = {}) {
@@ -81,7 +70,7 @@ function normalizeExtraDetails(rawExtras, days, extrasByKey) {
 export function buildPricingSnapshot({ catalog = {}, booking = {}, selectedPackage, selectedExtrasDetails, charges = {}, capturedAt, source = 'booking-flow' } = {}) {
   const businessSettings = catalog?.businessSettings || {};
   const { insuranceByKey, extrasByKey } = buildCatalogMaps(catalog);
-  const days = Math.max(1, num(booking?.billableDays, billableDaysBetween(booking?.pickupDateTime, booking?.dropoffDateTime, 1)));
+  const days = Math.max(1, num(booking?.billableDays, computeBillableDays(booking?.pickupDateTime, booking?.dropoffDateTime, 1)));
   const packageKey = text(selectedPackage || booking?.selectedPackage, '').toLowerCase();
   const packageCfg = insuranceByKey[packageKey] || {};
   const normalizedExtras = normalizeExtraDetails(selectedExtrasDetails || booking?.selectedExtrasDetails || booking?.selectedExtras, days, extrasByKey);

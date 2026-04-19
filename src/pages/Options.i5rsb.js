@@ -11,8 +11,10 @@ let categoryPromise = null;
 let fleetPromise = null;
 let pricingCatalog = null;
 let pricingPromise = null;
+let cacheEpoch = 0;
 
 function resetCaches() {
+  cacheEpoch += 1;
   categoryItem = null;
   fleetModels = null;
   categoryPromise = null;
@@ -46,8 +48,10 @@ async function ensureCategoryItem() {
   const vehicleId = readVehicleId();
   const categoryCode = readCategoryCode();
 
+  const requestEpoch = cacheEpoch;
   categoryPromise = getVehicleCategoryDetails({ vehicleId, categoryCode })
     .then((item) => {
+      if (requestEpoch !== cacheEpoch) return categoryItem;
       categoryItem = item || null;
       return categoryItem;
     })
@@ -70,8 +74,10 @@ async function ensureFleetModels() {
   const vehicleId = readVehicleId();
   const categoryCode = readCategoryCode();
 
+  const requestEpoch = cacheEpoch;
   fleetPromise = getFleetModelsPreview({ vehicleId, categoryCode })
     .then((data) => {
+      if (requestEpoch !== cacheEpoch) return fleetModels;
       fleetModels = data || { category: categoryCode, items: [] };
       return fleetModels;
     })
@@ -92,8 +98,10 @@ async function ensurePricingCatalog() {
   if (pricingCatalog) return pricingCatalog;
   if (pricingPromise) return pricingPromise;
 
+  const requestEpoch = cacheEpoch;
   pricingPromise = getPublicPricingCatalog()
     .then((data) => {
+      if (requestEpoch !== cacheEpoch) return pricingCatalog;
       pricingCatalog = data || null;
       return pricingCatalog;
     })
