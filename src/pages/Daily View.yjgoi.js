@@ -2,16 +2,8 @@ import wixLocation from 'wix-location';
 import { getDailyOps, actOnDailyRequest } from 'backend/dailyOps';
 import { buildUserContext, logoutBackroom, requireBackroomAccess, getSessionToken } from 'public/backroomAuth';
 import { isTrustedBridgeOrigin, normalizeBridgeMessage, postMessageSafe, resolveHtmlComponent } from 'public/bridgeUtils';
-
-const ROUTES = {
-  home: '/myroom-home',
-  daily: '/myroom-daily',
-  fleet: '/myroom-fleetchart',
-  bookings: '/myroom-bookingboard',
-  contract: '/myroom-contract',
-  vehiclecard: '/vehiclecard',
-  settings: '/account-settings'
-};
+import { APP_ROUTES as ROUTES } from 'public/appRoutes';
+import { collapseHtmlSiblings } from 'public/pageVisibility';
 const HTML_IDS = ['#dailyHtml', '#bpage1'];
 const MIN_HEIGHT = 860;
 const MAX_HEIGHT = 5200;
@@ -195,18 +187,7 @@ function post(payload) {
   if (!postMessageSafe(html, payload, 'daily-view')) logSuppressed('postMessage failed');
 }
 function hideOtherComponents(keepIds) {
-  ['#tabsHtml', '#homeHtml', '#fleetCalendarHtml', '#bookingsHtml', '#bpage1', '#bpage2', '#bpage3', '#bpage4', '#html1', '#html2'].forEach(id => {
-    if (keepIds.includes(id)) return;
-    let component = null;
-    try { component = $w(id); } catch (error) { logSuppressed(`lookup failed for ${id}`, error); }
-    if (!component) return;
-    if (typeof component.collapse === 'function') {
-      try { component.collapse(); } catch (error) { logSuppressed(`collapse failed for ${id}`, error); }
-    }
-    if (typeof component.hide === 'function') {
-      try { component.hide(); } catch (error) { logSuppressed(`hide failed for ${id}`, error); }
-    }
-  });
+  collapseHtmlSiblings($w, keepIds);
 }
 function clampHeight(value) { if (!Number.isFinite(value) || value <= 0) return null; return Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, Math.round(value))); }
 function todayYMD() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; }

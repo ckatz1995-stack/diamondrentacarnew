@@ -13,17 +13,10 @@ import { setBookingBoardStatus } from "backend/bookingsBoard";
 import { getPricingCatalog } from 'backend/pricingCatalog';
 import { logoutBackroom, requireBackroomAccess } from 'public/backroomAuth';
 import { isTrustedBridgeOrigin, normalizeBridgeMessage, postMessageSafe, resolveHtmlComponent } from "public/bridgeUtils";
+import { APP_ROUTES as ROUTES } from "public/appRoutes";
+import { collapseHtmlSiblings } from "public/pageVisibility";
 
 const CONTRACT_HTML_ID = "#contractHtml";
-const ROUTES = {
-  home: "/myroom-home",
-  daily: "/myroom-daily",
-  bookings: "/myroom-bookingboard",
-  fleet: "/myroom-fleetchart",
-  settings: "/account-settings",
-  pricing: "/account-settings",
-  vehiclecard: "/vehiclecard"
-};
 
 let bookingId = "";
 let returnTab = "daily";
@@ -172,11 +165,7 @@ $w.onReady(async function () {
 });
 
 function hideNonContractComponents(keepIds) {
-  ["#tabsHtml", "#homeHtml", "#dailyHtml", "#bookingsHtml", "#fleetCalendarHtml", "#bpage1", "#bpage2", "#bpage3", "#bpage4", "#html1", "#html2"].forEach((id) => {
-    if (keepIds.includes(id)) return;
-    try { $w(id).collapse(); } catch (error) { logSuppressed(`collapse failed for ${id}`, error); }
-    try { $w(id).hide(); } catch (error) { logSuppressed(`hide failed for ${id}`, error); }
-  });
+  collapseHtmlSiblings($w, keepIds);
 }
 
 async function loadContract() {

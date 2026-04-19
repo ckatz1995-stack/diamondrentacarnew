@@ -2,16 +2,9 @@
 import wixLocation from 'wix-location';
 import { requireBackroomAccess, logoutBackroom } from 'public/backroomAuth';
 import { getVehicleCardData, saveVehicleCardData } from 'backend/vehicleCard';
+import { APP_ROUTES as ROUTES } from 'public/appRoutes';
 
 const HTML_ID = '#vehicleCardHtml';
-const ROUTES = {
-  home: '/myroom-home',
-  daily: '/myroom-daily',
-  fleet: '/myroom-fleetchart',
-  bookings: '/myroom-bookingboard',
-  contract: '/myroom-contract',
-  settings: '/account-settings'
-};
 
 let authState = null;
 let fleetVehicleId = '';

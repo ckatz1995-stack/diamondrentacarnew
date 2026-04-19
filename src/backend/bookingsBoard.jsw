@@ -1,28 +1,9 @@
 import wixData from "wix-data";
 import { confirmAndAutoAssign } from "backend/fleetCalendar";
 import { requireStaffAccess } from "backend/staffAccess.jsw";
+import { addDays, asDate, extractCode, pickLabel, safeNum, safeText } from "backend/utils";
 
 const BOOKING_LIMIT = 1000;
-
-function safeText(value) { return String(value ?? "").trim(); }
-function safeNum(value) { const n = Number(value); return Number.isFinite(n) ? n : 0; }
-function asDate(value) { const d = value instanceof Date ? value : new Date(value); return Number.isNaN(d.getTime()) ? null : d; }
-function pickLabel(value) {
-  if (!value) return "";
-  if (typeof value === "object") return safeText(value.label || value.title || value.name || value.value || value._id || "");
-  return safeText(value);
-}
-function isOpaqueId(value) {
-  const s = safeText(value);
-  return /^[0-9a-f]{8}-[0-9a-f-]{12,}$/i.test(s) || /^[0-9a-z]{20,}$/i.test(s);
-}
-function extractCode(value) {
-  const raw = safeText(value);
-  if (!raw || isOpaqueId(raw)) return "";
-  if (raw.includes(" - ")) return safeText(raw.split(" - ")[0]);
-  const m = raw.match(/^([A-Za-z0-9]{1,4})\b/);
-  return m ? safeText(m[1]) : raw;
-}
 async function getFleetMap(ids) {
   const uniq = Array.from(new Set((ids || []).map(String).filter(Boolean)));
   const map = new Map();
@@ -55,11 +36,6 @@ function rowSource(booking) {
 function startOfDay(date) {
   const d = new Date(date);
   d.setHours(0,0,0,0);
-  return d;
-}
-function addDays(date, days) {
-  const d = new Date(date);
-  d.setDate(d.getDate() + Number(days || 0));
   return d;
 }
 function normalizeBoardRange({ startDate, endDate } = {}) {

@@ -1,6 +1,7 @@
 // backend/fleetCalendar.jsw
 import wixData from "wix-data";
 import { requireStaffAccess } from "backend/staffAccess.jsw";
+import { extractCode as sharedExtractCode, isLikelyId } from "backend/utils";
 
 /**
  * =========================
@@ -70,17 +71,10 @@ function _safeText(value) {
   return String(value == null ? "" : value).trim();
 }
 
-function _isLikelyId(value) {
-  const s = _safeText(value);
-  return /^[0-9a-f]{8}-[0-9a-f-]{12,}$/i.test(s) || /^[0-9a-z]{20,}$/i.test(s);
-}
-
 function extractCode(labelOrCode) {
   const s = _safeText(labelOrCode);
-  if (!s || _isLikelyId(s)) return "";
-  if (s.includes(" - ")) return _safeText(s.split(" - ")[0]);
-  const m = s.match(/^([A-Za-z0-9]+)/);
-  return m ? _safeText(m[1]) : _safeText(s.split(/\s+/)[0]);
+  if (!s || isLikelyId(s)) return "";
+  return sharedExtractCode(s);
 }
 
 function _has(obj, key) {

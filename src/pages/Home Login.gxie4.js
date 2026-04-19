@@ -2,10 +2,7 @@ import wixLocation from 'wix-location';
 import { getPublicAuthHealth, getPublicLoginBootstrap, loginStaff, requestAccessRecovery } from 'backend/staffAccess.jsw';
 import { buildUserContext, readBackroomSession, storeSessionToken } from 'public/backroomAuth';
 import { isTrustedBridgeOrigin, normalizeBridgeMessage, postMessageSafe, resolveHtmlComponent } from 'public/bridgeUtils';
-
-const ROUTES = {
-  home: '/myroom-home'
-};
+import { APP_ROUTES as ROUTES } from 'public/appRoutes';
 
 const LOGIN_COMPONENT_IDS = ['#loginHtml', '#homeHtml', '#bpage1', '#html1', '#html2', '#customElement1'];
 const MIN_HEIGHT = 640;

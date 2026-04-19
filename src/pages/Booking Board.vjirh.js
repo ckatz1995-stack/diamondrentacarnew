@@ -3,15 +3,8 @@ import wixLocation from "wix-location";
 import { getBookingsBoardData, setBookingBoardStatus } from "backend/bookingsBoard";
 import { buildUserContext, logoutBackroom, requireBackroomAccess } from "public/backroomAuth";
 import { isTrustedBridgeOrigin, normalizeBridgeMessage, postMessageSafe, resolveHtmlComponent } from "public/bridgeUtils";
-
-const ROUTES = {
-  home: "/myroom-home",
-  daily: "/myroom-daily",
-  fleet: "/myroom-fleetchart",
-  bookings: "/myroom-bookingboard",
-  contract: "/myroom-contract",
-  settings: "/account-settings"
-};
+import { APP_ROUTES as ROUTES } from "public/appRoutes";
+import { collapseHtmlSiblings } from "public/pageVisibility";
 
 const HTML_ID = "#bookingsHtml";
 const MIN_HEIGHT = 900;
@@ -160,11 +153,7 @@ function getHtmlComponent() {
 }
 
 function hideOtherComponents(keepIds) {
-  ["#tabsHtml", "#homeHtml", "#dailyHtml", "#fleetCalendarHtml", "#bpage1", "#bpage2", "#bpage3", "#bpage4", "#html1", "#html2"].forEach(id => {
-    if (keepIds.includes(id)) return;
-    try { $w(id).collapse(); } catch (error) { logSuppressed(`collapse failed for ${id}`, error); }
-    try { $w(id).hide(); } catch (error) { logSuppressed(`hide failed for ${id}`, error); }
-  });
+  collapseHtmlSiblings($w, keepIds);
 }
 
 function clampHeight(value) {

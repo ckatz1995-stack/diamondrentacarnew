@@ -8,6 +8,7 @@ let pricingCatalog = null;
 let vehicleCategories = [];
 let pricingPromise = null;
 let categoriesPromise = null;
+let bridgeReadyAck = false;
 
 function go(path) {
   if (!path) return;
@@ -53,6 +54,11 @@ async function syncData(){
 function handleMessage(event) {
   const data = normalizeBridgeMessage(event && event.data);
   if (!data) return;
+  if (data.type === "home-ready" || data.type === "bridge-ready") {
+    bridgeReadyAck = true;
+    syncData();
+    return;
+  }
   if (data.type === BRIDGE_TYPES.WIX_NAV && data.path) { go(data.path); return; }
   if (data.type === BRIDGE_TYPES.REQUEST_CONTEXT) {
     post(buildBookingContext(wixLocation));
@@ -69,7 +75,9 @@ $w.onReady(async function () {
     try { comp.onMessage(handleMessage); } catch (e) { console.error("Bind home html onMessage failed", e); }
   }
   await syncData();
-  [120, 400, 1000, 2200].forEach((delay) => setTimeout(() => { syncData(); }, delay));
+  setTimeout(() => {
+    if (!bridgeReadyAck) syncData();
+  }, 1200);
   if (typeof window !== "undefined") {
     window.addEventListener("message", (event) => {
       if (!isTrustedBridgeOrigin(event?.origin, wixLocation.url)) return;
