@@ -32,14 +32,7 @@ import {
 } from 'backend/staffAccess.jsw';
 import { logoutBackroom, requireBackroomAccess } from 'public/backroomAuth';
 import { getBridgeTelemetrySnapshot, resetBridgeTelemetry } from 'public/bridgeUtils';
-
-const ROUTES = {
-  home: '/myroom-home',
-  daily: '/myroom-daily',
-  fleet: '/myroom-fleetchart',
-  bookings: '/myroom-bookingboard',
-  pricing: '/account-settings'
-};
+import { APP_ROUTES as ROUTES } from 'public/appRoutes';
 
 const COMP = '#pricingAdminHtml';
 let authState = null;
@@ -184,12 +177,30 @@ async function handleAction(type, payload = {}) {
         newPassword: payload.newPassword,
         mustChangePassword: payload.mustChangePassword
       });
-      post({ type: 'staffPasswordResult', result: { mode: 'set', ...res, email: payload.email, mustChangePassword: !!payload.mustChangePassword } });
+      post({
+        type: 'staffPasswordResult',
+        result: {
+          mode: 'set',
+          success: !!res?.success,
+          email: res?.email || payload.email || '',
+          changedAt: new Date().toISOString(),
+          mustChangePassword: !!(res?.mustChangePassword ?? payload.mustChangePassword)
+        }
+      });
       return sendSnapshots('Το password αποθηκεύτηκε.');
     }
     if (type === 'resetStaffPassword') {
       const res = await resetStaffPassword({ sessionToken: authState.sessionToken, email: payload.email });
-      post({ type: 'staffPasswordResult', result: { mode: 'reset', ...res } });
+      post({
+        type: 'staffPasswordResult',
+        result: {
+          mode: 'reset',
+          success: !!res?.success,
+          email: res?.email || payload.email || '',
+          changedAt: new Date().toISOString(),
+          mustChangePassword: !!res?.mustChangePassword
+        }
+      });
       return sendSnapshots('Έγινε reset προσωρινού password.');
     }
     if (type === 'revokeStaffSessions') {

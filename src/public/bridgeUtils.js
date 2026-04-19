@@ -33,6 +33,19 @@ export const BRIDGE_TYPES = {
   PRICING: 'pricing-catalog-data'
 };
 
+const SENSITIVE_QUERY_KEYS = ['password', 'pass', 'token', 'auth', 'session', 'secret', 'email', 'phone'];
+
+function sanitizeQuery(query = {}) {
+  const src = query && typeof query === 'object' ? query : {};
+  return Object.keys(src).reduce((acc, key) => {
+    const value = src[key];
+    const lower = String(key || '').toLowerCase();
+    const sensitive = SENSITIVE_QUERY_KEYS.some((needle) => lower.includes(needle));
+    acc[key] = sensitive ? '' : value;
+    return acc;
+  }, {});
+}
+
 export function normalizeBridgeMessage(raw) {
   if (!raw) return null;
   if (typeof raw === 'string') {
@@ -53,10 +66,11 @@ export function normalizeBridgeMessage(raw) {
 }
 
 export function buildBookingContext(wixLocation) {
+  const query = wixLocation?.query || {};
   return {
     type: BRIDGE_TYPES.CONTEXT,
     protocolVersion: BRIDGE_PROTOCOL_VERSION,
-    query: wixLocation?.query || {},
+    query: sanitizeQuery(query),
     url: wixLocation?.url,
     path: wixLocation?.path || []
   };

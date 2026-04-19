@@ -2,32 +2,15 @@
 import wixData from "wix-data";
 import { requireStaffAccess } from "backend/staffAccess.jsw";
 import { setBookingBoardStatus } from "backend/bookingsBoard.jsw";
+import { addDays, asDate, extractCode, isLikelyId, pickLabel, safeNum, safeText } from "backend/utils";
 
 const BOOKING_LIMIT = 1000;
 const FLEET_LIMIT = 1000;
 
-function safeText(x){ return String(x ?? "").trim(); }
-function safeNum(x){ const n = Number(x); return Number.isFinite(n) ? n : 0; }
-function asDate(x){
-  if (x === null || x === undefined || x === "") return null;
-  if (x instanceof Date) return Number.isNaN(x.getTime()) ? null : x;
-  const d = new Date(x);
-  return Number.isNaN(d.getTime()) ? null : d;
-}
-function addDays(date, days){ const d = new Date(date); d.setDate(d.getDate() + Number(days || 0)); return d; }
 function overlaps(start, end, rangeStart, rangeEnd){
   const s = asDate(start), e = asDate(end), rs = asDate(rangeStart), re = asDate(rangeEnd);
   if (!s || !e || !rs || !re) return false;
   return s < re && e > rs;
-}
-function isLikelyId(value){ const s = safeText(value); return /^[0-9a-f]{8}-[0-9a-f-]{12,}$/i.test(s) || /^[0-9a-z]{20,}$/i.test(s); }
-function pickLabel(x){ if (!x) return ""; if (typeof x === "object") return safeText(x.label || x.title || x.name || x.value || x._id || ""); return safeText(x); }
-function extractCode(labelOrCode){
-  const s = safeText(labelOrCode);
-  if (!s || isLikelyId(s)) return "";
-  if (s.includes(" - ")) return safeText(s.split(" - ")[0]);
-  const m = s.match(/^([A-Za-z0-9]+)/);
-  return m ? safeText(m[1]) : safeText(s.split(/\s+/)[0]);
 }
 function norm(x){ return safeText(x).toLowerCase(); }
 function diffDays(startValue, endValue){ const start = asDate(startValue), end = asDate(endValue); if (!start || !end || end <= start) return 0; return Math.max(1, Math.ceil((end - start) / 86400000)); }

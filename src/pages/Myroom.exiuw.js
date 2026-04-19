@@ -2,16 +2,8 @@ import wixLocation from 'wix-location';
 import { getPublicAuthHealth } from 'backend/staffAccess.jsw';
 import { buildUserContext, clearSessionToken, logoutBackroom, readBackroomSession } from 'public/backroomAuth';
 import { isTrustedBridgeOrigin, normalizeBridgeMessage, postMessageSafe, resolveHtmlComponent } from 'public/bridgeUtils';
-
-const ROUTES = {
-  login: '/home-login',
-  home: '/myroom-home',
-  daily: '/myroom-daily',
-  fleet: '/myroom-fleetchart',
-  bookings: '/myroom-bookingboard',
-  pricing: '/account-settings',
-  settings: '/account-settings'
-};
+import { APP_ROUTES as ROUTES } from 'public/appRoutes';
+import { collapseHtmlSiblings } from 'public/pageVisibility';
 const HOME_IDS = ['#homeHtml', '#bpage1'];
 const MIN_HEIGHT = 720;
 const MAX_HEIGHT = 3200;
@@ -122,15 +114,5 @@ function clampHeight(value) {
 }
 
 function hideOtherComponents() {
-  ['#tabsHtml', '#dailyHtml', '#fleetCalendarHtml', '#bookingsHtml'].forEach(id => {
-    let component = null;
-    try { component = $w(id); } catch (error) { logSuppressed(`lookup failed for ${id}`, error); }
-    if (!component) return;
-    if (typeof component.collapse === 'function') {
-      try { component.collapse(); } catch (error) { logSuppressed(`collapse failed for ${id}`, error); }
-    }
-    if (typeof component.hide === 'function') {
-      try { component.hide(); } catch (error) { logSuppressed(`hide failed for ${id}`, error); }
-    }
-  });
+  collapseHtmlSiblings($w, HOME_IDS);
 }

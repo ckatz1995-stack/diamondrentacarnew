@@ -1,4 +1,5 @@
 import wixData from 'wix-data';
+import { getSecret } from 'wix-secrets-backend';
 
 export const COLLECTIONS = {
   users: 'StaffUsers',
@@ -46,7 +47,7 @@ const TOKEN_BYTES = 32;
 const PBKDF2_ITERATIONS = 120000;
 const KEY_LENGTH = 32;
 const HASH_DIGEST = 'sha256';
-const DEFAULT_BOOTSTRAP_PASSWORD = 'DiamondBackroom!2026';
+const BOOTSTRAP_PASSWORD_SECRET = 'BACKROOM_BOOTSTRAP_PASSWORD';
 
 function cleanId(value) {
   const raw = String(value ?? '').trim();
@@ -183,7 +184,19 @@ function safeEqual(a, b) {
       return api.timingSafeEqual(left, right);
     } catch (_) {}
   }
-  return leftRaw && rightRaw && leftRaw === rightRaw;
+  // Degraded fallback mode (when crypto.timingSafeEqual is unavailable):
+  // keep a constant-time style comparison loop and avoid direct string equality.
+  const left = leftRaw;
+  const right = rightRaw;
+  const max = Math.max(left.length, right.length);
+  if (!max) return false;
+  let diff = left.length ^ right.length;
+  for (let i = 0; i < max; i += 1) {
+    const lc = i < left.length ? left.charCodeAt(i) : 0;
+    const rc = i < right.length ? right.charCodeAt(i) : 0;
+    diff |= (lc ^ rc);
+  }
+  return diff === 0;
 }
 
 function verifyPassword(password, credential) {
@@ -468,6 +481,21 @@ async function canUseBootstrapLogin(user = {}) {
   return activeCredentialCount === 0;
 }
 
+let _bootstrapPasswordPromise = null;
+async function getBootstrapPassword() {
+  if (_bootstrapPasswordPromise) return _bootstrapPasswordPromise;
+  _bootstrapPasswordPromise = (async () => {
+    const envCandidate = text((typeof process !== 'undefined' && process?.env?.BACKROOM_BOOTSTRAP_PASSWORD) || '');
+    if (envCandidate) return envCandidate;
+    try {
+      return text(await getSecret(BOOTSTRAP_PASSWORD_SECRET));
+    } catch (_) {
+      return '';
+    }
+  })();
+  return _bootstrapPasswordPromise;
+}
+
 async function getAllSessions() {
   const res = await wixData.query(COLLECTIONS.sessions).descending('lastSeenAt').limit(500).find({ suppressAuth: true }).catch(() => ({ items: [] }));
   return (res.items || []).filter((item) => {
@@ -579,7 +607,9 @@ export async function loginStaff({ email, password, remember = false, userAgent 
   let credential = await getCredential(safeEmail);
   if (!credential) {
     const bootstrapAllowed = await canUseBootstrapLogin(user);
-    if (!bootstrapAllowed || rawPassword !== DEFAULT_BOOTSTRAP_PASSWORD) {
+    const bootstrapPassword = await getBootstrapPassword();
+    const bootstrapValid = !!bootstrapPassword && safeEqual(sha256(rawPassword), sha256(bootstrapPassword));
+    if (!bootstrapAllowed || !bootstrapValid) {
       await logAudit({ entityId: safeEmail, action: 'loginFailed', summary: 'Invalid bootstrap login', actorEmail: safeEmail, actorName: text(user.fullName) });
       throw new Error('Λάθος email ή password.');
     }
@@ -1017,7 +1047,8 @@ export async function getPublicLoginBootstrap() {
     bootstrapAvailable: false,
     bootstrapMode: 'private',
     cryptoMode: cryptoMode(),
-    notes: 'Το login setup παραμένει ιδιωτικό και δεν εμφανίζει δημόσια διαγνωστικά στοιχεία.'
+    notes: 'Το login setup παραμένει ιδιωτικό και δεν εμφανίζει δημόσια διαγνωστικά στοιχεία.',
+    setupHint: 'Για initial bootstrap απαιτείται private secret BACKROOM_BOOTSTRAP_PASSWORD.'
   };
 }
 
@@ -1036,11 +1067,11 @@ export async function getBootstrapHelp() {
     bootstrapAvailable: false,
     bootstrapMode: 'private',
     cryptoMode: cryptoMode(),
-    notes: 'Το bootstrap/login diagnostic layer δεν εμφανίζει πλέον δημόσια στοιχεία.'
+    notes: 'Το bootstrap/login diagnostic layer δεν εμφανίζει πλέον δημόσια στοιχεία.',
+    setupHint: 'Για initial bootstrap απαιτείται private secret BACKROOM_BOOTSTRAP_PASSWORD.'
   };
 }
 
 function hasSpecialPermission(state = {}, key = '') {
   return Array.isArray(state?.specialPermissions) && state.specialPermissions.includes(String(key || ''));
 }
-

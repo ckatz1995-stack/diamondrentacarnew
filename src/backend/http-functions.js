@@ -4,6 +4,13 @@ import { createBooking } from "backend/bookingEngine";
 import { INSURANCE_OPTIONS } from "backend/bookingConfig";
 import { getPublicPricingCatalog } from "backend/pricingCatalog.jsw";
 function respond(body, fn = ok){ return fn({ headers: {"Content-Type":"application/json","Cache-Control":"no-store","Access-Control-Allow-Origin":"*","Access-Control-Allow-Methods":"GET, POST, OPTIONS","Access-Control-Allow-Headers":"Content-Type"}, body }); }
+function readOrigin(request){ const origin = String(request?.headers?.origin || '').trim(); if (origin) return origin; const referer = String(request?.headers?.referer || '').trim(); if (!referer) return ''; try { return new URL(referer).origin; } catch (_) { return ''; } }
+function parseCsv(value){ return String(value || '').split(',').map((item) => item.trim()).filter(Boolean); }
+function normalizeOrigin(origin){ try { return new URL(String(origin || '')).origin; } catch (_) { return ''; } }
+function getMutationOriginAllowlist(){ return parseCsv((typeof process !== 'undefined' && process?.env?.BOOKING_MUTATION_ALLOWED_ORIGINS) || '').map((item) => normalizeOrigin(item)).filter(Boolean); }
+function isAllowedMutationOrigin(request){ const origin = normalizeOrigin(readOrigin(request)); if (!origin) return false; const allowlist = getMutationOriginAllowlist(); if (allowlist.length) return allowlist.includes(origin); const host = String(request?.headers?.host || '').trim(); if (!host) return false; return origin === normalizeOrigin(`https://${host}`) || origin === normalizeOrigin(`http://${host}`); }
+function jsonCorsHeadersForMutation(request){ const origin = normalizeOrigin(readOrigin(request)); const headers = {"Access-Control-Allow-Methods":"POST, OPTIONS","Access-Control-Allow-Headers":"Content-Type","Vary":"Origin"}; if (origin && isAllowedMutationOrigin(request)) headers["Access-Control-Allow-Origin"] = origin; return headers; }
+function respondRestricted(request, body, fn = ok){ const origin = normalizeOrigin(readOrigin(request)); const headers = {"Content-Type":"application/json","Cache-Control":"no-store","Access-Control-Allow-Methods":"POST, OPTIONS","Access-Control-Allow-Headers":"Content-Type","Vary":"Origin"}; if (origin && isAllowedMutationOrigin(request)) headers["Access-Control-Allow-Origin"] = origin; return fn({ headers, body }); }
 function toImageUrl(value){ const src = value?.src || value; if (!src) return ""; const s = String(src); if (s.startsWith("http://") || s.startsWith("https://")) return s; const m = s.match(/^wix:image:\/\/v1\/([^\/]+)\//); if (m) return `https://static.wixstatic.com/media/${m[1]}`; return s; }
 function mapVehicle(v){ const label=String(v.category||"").trim(); const title=String(v.title||"").trim(); const shortName=title.includes(" - ") ? title.split(" - ").slice(1).join(" - ") : (title || label || "Όχημα"); return { id:v._id, name:shortName, title:title, label, price:Number(v.price)||0, image:toImageUrl(v.image), specs:{ gearbox:v.transmission||"-", fuel:v.fuelType||"-", seats:v.seats||"-", doors:v.doors||"-", bags:v.luggage1||"-", luggage:v.luggage||"-", ac:v.airCondition ? "Ναι" : "Όχι", engineCc:v.engineCc||"-" } }; }
 export async function get_vehicles(request){ try{ const category=String(request.query?.category||"all").trim(); let q=wixData.query("VehiclesNew").eq("active", true).ascending("price").limit(1000); if(category && category!=="all" && category!=="default") q=q.eq("category", category); const res=await q.find(); return respond({success:true, items:(res.items||[]).map(mapVehicle)}); }catch(err){ return respond({success:false,message:err.message||String(err)}, serverError); } }
@@ -218,7 +225,7 @@ export async function get_fleet_models(request){
   }
 }
 
-export async function post_createBooking(request){ try{ const payload=await request.body.json(); const result=await createBooking(payload||{}); if(!result?.success) return respond({success:false,message:result?.message||"Booking failed"}, badRequest); return respond({success:true, bookingNumber:result.bookingNumber, id:result._id}); }catch(err){ return respond({success:false,message:err.message||String(err)}, serverError); } }
+export async function post_createBooking(request){ try{ if(!isAllowedMutationOrigin(request)) return respondRestricted(request, {success:false,message:"Origin not allowed"}, badRequest); const payload=await request.body.json(); const result=await createBooking(payload||{}); if(!result?.success) return respondRestricted(request, {success:false,message:result?.message||"Booking failed"}, badRequest); return respondRestricted(request, {success:true, bookingNumber:result.bookingNumber, id:result._id}); }catch(err){ return respondRestricted(request, {success:false,message:err.message||String(err)}, serverError); } }
 
 
 function htmlResponse(body, fn = ok){ return fn({ headers: {"Content-Type":"text/html; charset=utf-8","Cache-Control":"no-store","Access-Control-Allow-Origin":"*"}, body }); }
@@ -343,7 +350,7 @@ export async function get_ui_success(request){ return htmlResponse(UI_SUCCESS_HT
 
 
 export function options_createBooking(request){
-  return ok({ headers: {"Access-Control-Allow-Origin":"*","Access-Control-Allow-Methods":"GET, POST, OPTIONS","Access-Control-Allow-Headers":"Content-Type"} });
+  return ok({ headers: jsonCorsHeadersForMutation(request) });
 }
 
 export function options_vehicle(request){

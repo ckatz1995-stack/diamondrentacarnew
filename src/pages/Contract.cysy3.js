@@ -12,17 +12,11 @@ import {
 import { setBookingBoardStatus } from "backend/bookingsBoard";
 import { getPricingCatalog } from 'backend/pricingCatalog';
 import { logoutBackroom, requireBackroomAccess } from 'public/backroomAuth';
+import { isTrustedBridgeOrigin, normalizeBridgeMessage, postMessageSafe, resolveHtmlComponent } from "public/bridgeUtils";
+import { APP_ROUTES as ROUTES } from "public/appRoutes";
+import { collapseHtmlSiblings } from "public/pageVisibility";
 
 const CONTRACT_HTML_ID = "#contractHtml";
-const ROUTES = {
-  home: "/myroom-home",
-  daily: "/myroom-daily",
-  bookings: "/myroom-bookingboard",
-  fleet: "/myroom-fleetchart",
-  settings: "/account-settings",
-  pricing: "/account-settings",
-  vehiclecard: "/vehiclecard"
-};
 
 let bookingId = "";
 let returnTab = "daily";
@@ -32,9 +26,20 @@ let returnDate = "";
 let returnStartDate = "";
 let returnEndDate = "";
 let authState = null;
+let htmlComponent = null;
 
 function logSuppressed(context, error) {
   console.warn(`[Contract] ${context}`, error?.message || error || 'unknown error');
+}
+
+function getHtmlComponent() {
+  return resolveHtmlComponent($w, [CONTRACT_HTML_ID]);
+}
+
+function normalizeIncomingMessage(event) {
+  if (event && !isTrustedBridgeOrigin(event?.origin, wixLocation.url)) return null;
+  const msg = normalizeBridgeMessage(event && event.data);
+  return msg && typeof msg === "object" ? msg : null;
 }
 
 $w.onReady(async function () {
@@ -51,9 +56,15 @@ $w.onReady(async function () {
   returnEndDate = normalizeDate(String(query.endDate || "").trim());
   currentUserLabel = authState.fullName || authState.email || currentUserLabel;
 
-  $w(CONTRACT_HTML_ID).onMessage(async (event) => {
-    const msg = event.data || {};
-    if (!msg.type) return;
+  htmlComponent = getHtmlComponent();
+  if (!htmlComponent) {
+    post({ type: "toast", message: "Contract bridge unavailable." });
+    return;
+  }
+
+  htmlComponent.onMessage(async (event) => {
+    const msg = normalizeIncomingMessage(event);
+    if (!msg || !msg.type) return;
 
     if (msg.type === "contractReady") {
       await loadContract();
@@ -143,7 +154,7 @@ $w.onReady(async function () {
 
     if (msg.type === "resize") {
       const nextHeight = Math.max(1200, Math.min(Number(msg.height || 0) || 0, 5000));
-      try { $w(CONTRACT_HTML_ID).height = nextHeight; } catch (error) { logSuppressed('resize height set failed', error); }
+      try { htmlComponent.height = nextHeight; } catch (error) { logSuppressed('resize height set failed', error); }
       return;
     }
   });
@@ -154,11 +165,7 @@ $w.onReady(async function () {
 });
 
 function hideNonContractComponents(keepIds) {
-  ["#tabsHtml", "#homeHtml", "#dailyHtml", "#bookingsHtml", "#fleetCalendarHtml", "#bpage1", "#bpage2", "#bpage3", "#bpage4", "#html1", "#html2"].forEach((id) => {
-    if (keepIds.includes(id)) return;
-    try { $w(id).collapse(); } catch (error) { logSuppressed(`collapse failed for ${id}`, error); }
-    try { $w(id).hide(); } catch (error) { logSuppressed(`hide failed for ${id}`, error); }
-  });
+  collapseHtmlSiblings($w, keepIds);
 }
 
 async function loadContract() {
@@ -668,7 +675,9 @@ function toNumber(value, fallback = 0) {
 }
 
 function post(msg) {
-  try { $w(CONTRACT_HTML_ID).postMessage(msg); } catch (error) { logSuppressed('postMessage failed', error); }
+  if (!htmlComponent) htmlComponent = getHtmlComponent();
+  if (!htmlComponent) return;
+  if (!postMessageSafe(htmlComponent, msg, 'contract')) logSuppressed('postMessage failed');
 }
 
 function clonePlain(v) {
