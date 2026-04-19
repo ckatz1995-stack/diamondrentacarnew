@@ -6,8 +6,10 @@ const HTML_COMPONENT_ID = "#termsHtml";
 let htmlComponent = null;
 let pricingCatalog = null;
 let pricingPromise = null;
+let cacheEpoch = 0;
 
 function resetCaches() {
+  cacheEpoch += 1;
   pricingCatalog = null;
   pricingPromise = null;
 }
@@ -24,8 +26,10 @@ async function ensurePricingCatalog() {
   if (pricingCatalog) return pricingCatalog;
   if (pricingPromise) return pricingPromise;
 
+  const requestEpoch = cacheEpoch;
   pricingPromise = getPublicPricingCatalog()
     .then((data) => {
+      if (requestEpoch !== cacheEpoch) return pricingCatalog;
       pricingCatalog = data || null;
       return pricingCatalog;
     })
