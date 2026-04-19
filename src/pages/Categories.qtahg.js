@@ -11,8 +11,10 @@ let vehiclesPromise = null;
 let pricingCatalog = null;
 let pricingPromise = null;
 let vehiclesMeta = { displayMode: "categories", modelsSource: "fleet" };
+let cacheEpoch = 0;
 
 function resetCaches() {
+  cacheEpoch += 1;
   vehicleItems = [];
   vehicleError = '';
   vehiclesPromise = null;
@@ -59,7 +61,9 @@ async function ensureVehicles() {
   if (vehiclesPromise) return vehiclesPromise;
 
   vehiclesPromise = (async () => {
+    const requestEpoch = cacheEpoch;
     await ensurePricingCatalog();
+    if (requestEpoch !== cacheEpoch) return vehicleItems;
     const displayMode = readVehiclesPageMode();
     const modelsSource = readVehiclesPageModelsSource();
     vehiclesMeta = { displayMode, modelsSource };
@@ -107,8 +111,10 @@ async function ensurePricingCatalog() {
   if (pricingCatalog) return pricingCatalog;
   if (pricingPromise) return pricingPromise;
 
+  const requestEpoch = cacheEpoch;
   pricingPromise = getPublicPricingCatalog()
     .then((data) => {
+      if (requestEpoch !== cacheEpoch) return pricingCatalog;
       pricingCatalog = data || null;
       vehiclesMeta = { displayMode: readVehiclesPageMode(), modelsSource: readVehiclesPageModelsSource() };
       return pricingCatalog;

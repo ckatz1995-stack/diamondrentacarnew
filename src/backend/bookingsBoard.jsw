@@ -119,6 +119,10 @@ function mapBooking(booking, fleetMap, todayStart, tomorrowStart) {
     assignedVehicleLabel,
     assignedVehiclePlate,
     assignedVehicleModel,
+    triageOwner: safeText(booking.triageOwner || ""),
+    triageLastAction: safeText(booking.triageLastAction || ""),
+    triageNextFollowUpAt: booking.triageNextFollowUpAt || null,
+    triageScore: safeNum(booking.triageScore),
     overdue,
     startsToday,
     unassigned
@@ -166,9 +170,12 @@ export async function setBookingBoardStatus({ authToken, bookingId, newStatus } 
     if (!id || !targetStatus) return { success: false, message: "Missing params" };
 
     if (targetStatus === "Confirmed") {
+      const booking = await wixData.get("BookingsNew", id);
+      if (safeText(booking?.status).toLowerCase() === "confirmed") {
+        return { success: true, noOp: true, message: "Booking already confirmed" };
+      }
       const result = await confirmAndAutoAssign({ authToken, bookingId: id });
       if (!result?.success) return { success: false, message: result?.message || "Confirm failed" };
-      const booking = await wixData.get("BookingsNew", id);
       booking.status = "Confirmed";
       booking.confirmedAt = booking.confirmedAt || new Date();
       booking.statusChangedAt = new Date();
