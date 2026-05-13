@@ -383,14 +383,16 @@ export async function confirmAndAutoAssign({ authToken, bookingId } = {}) {
   if (!b) return { success: false, message: "NotFound" };
 
   // Only transition Pending/empty bookings to Confirmed; never overwrite Canceled or active/closed rentals.
-  const currentStatus = String(b[F.status] || "");
-  if (currentStatus === "Canceled") {
+  // Normalize for comparison so legacy lowercase/whitespace values (e.g. "pending", "Confirmed ") still flow.
+  const currentStatusRaw = String(b[F.status] || "").trim();
+  const currentStatusNorm = currentStatusRaw.toLowerCase();
+  if (currentStatusNorm === "canceled" || currentStatusNorm === "cancelled") {
     return { success: false, message: "Cannot confirm a canceled booking" };
   }
-  if (currentStatus && currentStatus !== "Pending" && currentStatus !== "Confirmed") {
-    return { success: false, message: `Cannot confirm a booking in status: ${currentStatus}` };
+  if (currentStatusNorm && currentStatusNorm !== "pending" && currentStatusNorm !== "confirmed") {
+    return { success: false, message: `Cannot confirm a booking in status: ${currentStatusRaw}` };
   }
-  if (currentStatus !== "Confirmed") {
+  if (currentStatusNorm !== "confirmed") {
     b[F.status] = "Confirmed";
   }
 // If already assigned
