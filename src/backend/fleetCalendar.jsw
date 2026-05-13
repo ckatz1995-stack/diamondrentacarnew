@@ -382,9 +382,15 @@ export async function confirmAndAutoAssign({ authToken, bookingId } = {}) {
   const b = await wixData.get(COLLECTIONS.Bookings, bookingId);
   if (!b) return { success: false, message: "NotFound" };
 
-  
-  // Ensure booking is Confirmed when user clicks Confirm
-  if (String(b[F.status] || "") !== "Confirmed") {
+  // Only transition Pending/empty bookings to Confirmed; never overwrite Canceled or active/closed rentals.
+  const currentStatus = String(b[F.status] || "");
+  if (currentStatus === "Canceled") {
+    return { success: false, message: "Cannot confirm a canceled booking" };
+  }
+  if (currentStatus && currentStatus !== "Pending" && currentStatus !== "Confirmed") {
+    return { success: false, message: `Cannot confirm a booking in status: ${currentStatus}` };
+  }
+  if (currentStatus !== "Confirmed") {
     b[F.status] = "Confirmed";
   }
 // If already assigned
