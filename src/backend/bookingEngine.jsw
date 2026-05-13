@@ -506,15 +506,6 @@ export async function createBooking(data) {
             customerComments,
             customerData,
             billingData,
-            ageFee,
-            nightFee,
-            baseCost,
-            insuranceCost,
-            extrasCost,
-            pickupLocationFee,
-            dropoffLocationFee,
-            locationFee,
-            total,
             source
         } = data || {};
 
@@ -612,26 +603,16 @@ export async function createBooking(data) {
           businessSettings,
           feeRules: pricingCatalog?.feeRules || []
         });
-        const derivedAgeFee = Number(toFiniteNumber(automaticFees?.ageFee, deriveAgeFee(driverAge)).toFixed(2));
-        const derivedNightFee = Number(toFiniteNumber(automaticFees?.nightFee, ((isNightShift(pickup) ? 15 : 0) + (isNightShift(dropoff) ? 15 : 0))).toFixed(2));
-        const computedAgeFee = Number((driverAge ? derivedAgeFee : toFiniteNumber(ageFee, derivedAgeFee)).toFixed(2));
-        const computedNightFee = Number((derivedNightFee).toFixed(2));
-        const computedExtrasCost = Number(computedExtrasTotal.toFixed(2));
-        const computedPickupLocationFee = resolvePickupLocationFee(pricingCatalog, pickuppoint, 'pickup');
-        const computedDropoffLocationFee = resolvePickupLocationFee(pricingCatalog, dropoffpoint, 'dropoff');
-
-        const hasLockedBreakdown = [baseCost, insuranceCost, extrasCost, ageFee, nightFee, locationFee].every((v) => Number.isFinite(Number(v)));
-        const finalBaseCost = Number((hasLockedBreakdown ? toFiniteNumber(baseCost, computedBaseCost) : computedBaseCost).toFixed(2));
-        const finalInsuranceCost = Number((hasLockedBreakdown ? toFiniteNumber(insuranceCost, computedInsuranceCost) : computedInsuranceCost).toFixed(2));
-        const finalExtrasCost = Number((hasLockedBreakdown ? toFiniteNumber(extrasCost, computedExtrasCost) : computedExtrasCost).toFixed(2));
-        const finalAgeFee = Number((hasLockedBreakdown ? toFiniteNumber(ageFee, computedAgeFee) : computedAgeFee).toFixed(2));
-        const finalNightFee = Number((hasLockedBreakdown ? toFiniteNumber(nightFee, computedNightFee) : computedNightFee).toFixed(2));
-        const finalPickupLocationFee = Number((Number.isFinite(Number(pickupLocationFee)) ? Number(pickupLocationFee) : computedPickupLocationFee).toFixed(2));
-        const finalDropoffLocationFee = Number((Number.isFinite(Number(dropoffLocationFee)) ? Number(dropoffLocationFee) : computedDropoffLocationFee).toFixed(2));
-        const finalLocationFee = Number((Number.isFinite(Number(locationFee)) ? Number(locationFee) : (finalPickupLocationFee + finalDropoffLocationFee)).toFixed(2));
-        const lockedTotal = Number.isFinite(Number(total)) ? Number(total) : NaN;
-        const calculatedTotal = Number((finalBaseCost + finalInsuranceCost + finalExtrasCost + finalAgeFee + finalNightFee + finalLocationFee).toFixed(2));
-        const totalPrice = Number((Number.isFinite(lockedTotal) ? lockedTotal : calculatedTotal).toFixed(2));
+        // Money fields are server-authoritative: ignore anything the client sends to prevent price tampering.
+        const finalAgeFee = Number(toFiniteNumber(automaticFees?.ageFee, deriveAgeFee(driverAge)).toFixed(2));
+        const finalNightFee = Number(toFiniteNumber(automaticFees?.nightFee, ((isNightShift(pickup) ? 15 : 0) + (isNightShift(dropoff) ? 15 : 0))).toFixed(2));
+        const finalBaseCost = computedBaseCost;
+        const finalInsuranceCost = computedInsuranceCost;
+        const finalExtrasCost = Number(computedExtrasTotal.toFixed(2));
+        const finalPickupLocationFee = Number(resolvePickupLocationFee(pricingCatalog, pickuppoint, 'pickup').toFixed(2));
+        const finalDropoffLocationFee = Number(resolvePickupLocationFee(pricingCatalog, dropoffpoint, 'dropoff').toFixed(2));
+        const finalLocationFee = Number((finalPickupLocationFee + finalDropoffLocationFee).toFixed(2));
+        const totalPrice = Number((finalBaseCost + finalInsuranceCost + finalExtrasCost + finalAgeFee + finalNightFee + finalLocationFee).toFixed(2));
         const vatRateDecimal = toFiniteNumber(businessSettings?.vatRateDecimal, VAT_RATE);
         const netAmount = Number((totalPrice / (1 + vatRateDecimal)).toFixed(2));
         const vatAmount = Number((totalPrice - netAmount).toFixed(2));
