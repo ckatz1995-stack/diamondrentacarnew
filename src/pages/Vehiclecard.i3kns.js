@@ -3,6 +3,7 @@ import wixLocation from 'wix-location';
 import { requireBackroomAccess, logoutBackroom } from 'public/backroomAuth';
 import { getVehicleCardData, saveVehicleCardData } from 'backend/vehicleCard';
 import { APP_ROUTES as ROUTES } from 'public/appRoutes';
+import { isTrustedBridgeOrigin, normalizeBridgeMessage } from 'public/bridgeUtils';
 
 const HTML_ID = '#vehicleCardHtml';
 
@@ -26,8 +27,10 @@ $w.onReady(async function () {
   try { html.expand(); html.height = 1400; } catch (error) { logSuppressed('expand/initial height failed', error); }
 
   html.onMessage(async (event) => {
-    const msg = event.data || {};
-    if (!msg.type) return;
+    const origin = String(event?.origin || '').trim();
+    if (origin && !isTrustedBridgeOrigin(origin, wixLocation.url)) return;
+    const msg = normalizeBridgeMessage(event && event.data);
+    if (!msg || !msg.type) return;
 
     if (msg.type === 'vehicleCardReady') {
       await loadVehicleCard();

@@ -223,7 +223,7 @@ async function handleAction(type, payload = {}) {
     }
     if (type === 'logoutBackroom') {
       await logoutBackroom();
-      post({ type: 'toast', tone: 'success', message: 'Έγινε αποσύνδεση.' });
+      wixLocation.to(ROUTES.home);
       return;
     }
   } catch (err) {
