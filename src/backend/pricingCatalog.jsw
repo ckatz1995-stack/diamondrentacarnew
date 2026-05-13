@@ -20,7 +20,7 @@ function readBool(value, fallback = false){ if (typeof value === 'boolean') retu
 function toNumber(value, fallback = 0){ const num = Number(value); return Number.isFinite(num) ? num : fallback; }
 function text(value, fallback = ''){ const out = String(value ?? '').trim(); return out || fallback; }
 function sortByOrder(a, b){ const sa = toNumber(a?.sortOrder, 9999); const sb = toNumber(b?.sortOrder, 9999); if (sa !== sb) return sa - sb; return text(a?.label).localeCompare(text(b?.label), 'el'); }
-async function safeQuery(collectionName, queryBuilder){ try { const q = typeof queryBuilder === 'function' ? queryBuilder(wixData.query(collectionName)) : wixData.query(collectionName); const res = await q.limit(1000).find(); return Array.isArray(res?.items) ? res.items : []; } catch (_) { return []; } }
+async function safeQuery(collectionName, queryBuilder){ try { const q = typeof queryBuilder === 'function' ? queryBuilder(wixData.query(collectionName)) : wixData.query(collectionName); const res = await q.limit(1000).find({ suppressAuth: true }); return Array.isArray(res?.items) ? res.items : []; } catch (_) { return []; } }
 
 const VAT_RATE = toNumber(bookingConfig?.VAT_RATE, 0.24);
 const DEFAULT_BUSINESS_SETTINGS = bookingConfig?.DEFAULT_BUSINESS_SETTINGS || {
