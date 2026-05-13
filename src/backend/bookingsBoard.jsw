@@ -134,19 +134,22 @@ export async function getBookingsBoardData({ authToken, startDate, endDate } = {
   }
 }
 
+const ALLOWED_BOOKING_STATUSES = new Set(["Confirmed", "Pending", "Hold", "Escalated", "Canceled"]);
+
 export async function setBookingBoardStatus({ authToken, bookingId, newStatus } = {}) {
   await requireStaffAccess({ sessionToken: authToken, area: "bookings", action: "Edit" });
   try {
     const id = safeText(bookingId);
     const targetStatus = safeText(newStatus);
+    if (!id || !targetStatus) return { success: false, message: "Missing params" };
+    if (!ALLOWED_BOOKING_STATUSES.has(targetStatus)) return { success: false, message: "Invalid status" };
     const normalizedStatus = targetStatus.toLowerCase();
     if (["canceled", "cancelled", "canceled booking", "cancel booking"].includes(normalizedStatus)) {
       await requireStaffAccess({ sessionToken: authToken, area: "bookings", action: "Edit", specialPermission: "cancelBooking" });
     }
-    if (!id || !targetStatus) return { success: false, message: "Missing params" };
 
     if (targetStatus === "Confirmed") {
-      const booking = await wixData.get("BookingsNew", id);
+      const booking = await wixData.get("BookingsNew", id, { suppressAuth: true });
       if (safeText(booking?.status).toLowerCase() === "confirmed") {
         return { success: true, noOp: true, message: "Booking already confirmed" };
       }
@@ -155,16 +158,16 @@ export async function setBookingBoardStatus({ authToken, bookingId, newStatus } 
       booking.status = "Confirmed";
       booking.confirmedAt = booking.confirmedAt || new Date();
       booking.statusChangedAt = new Date();
-      await wixData.update("BookingsNew", booking);
+      await wixData.update("BookingsNew", booking, { suppressAuth: true });
       const message = result.assigned ? "Booking confirmed & vehicle assigned" : "Booking confirmed";
       return { success: true, message };
     }
 
-    const booking = await wixData.get("BookingsNew", id);
+    const booking = await wixData.get("BookingsNew", id, { suppressAuth: true });
     booking.status = targetStatus;
     booking.statusChangedAt = new Date();
     if (targetStatus === "Canceled") booking.canceledAt = new Date();
-    await wixData.update("BookingsNew", booking);
+    await wixData.update("BookingsNew", booking, { suppressAuth: true });
     return { success: true, message: `Booking ${targetStatus.toLowerCase()}` };
   } catch (error) {
     return { success: false, message: error?.message || String(error) };
