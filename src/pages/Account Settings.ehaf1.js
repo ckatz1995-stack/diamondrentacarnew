@@ -31,7 +31,7 @@ import {
   revokeStaffSessions
 } from 'backend/staffAccess.jsw';
 import { logoutBackroom, requireBackroomAccess } from 'public/backroomAuth';
-import { getBridgeTelemetrySnapshot, resetBridgeTelemetry } from 'public/bridgeUtils';
+import { getBridgeTelemetrySnapshot, isTrustedBridgeOrigin, resetBridgeTelemetry } from 'public/bridgeUtils';
 import { APP_ROUTES as ROUTES } from 'public/appRoutes';
 
 const COMP = '#pricingAdminHtml';
@@ -239,6 +239,8 @@ $w.onReady(async function () {
 
   try {
     $w(COMP).onMessage(async (event) => {
+      const origin = String(event?.origin || '').trim();
+      if (origin && !isTrustedBridgeOrigin(origin, wixLocation.url)) return;
       const msg = normalizeMessage(event && event.data);
       if (!msg || !msg.type) return;
 
