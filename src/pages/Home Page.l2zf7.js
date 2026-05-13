@@ -52,6 +52,8 @@ async function syncData(){
 }
 
 function handleMessage(event) {
+  const origin = String(event?.origin || '').trim();
+  if (origin && !isTrustedBridgeOrigin(origin, wixLocation.url)) return;
   const data = normalizeBridgeMessage(event && event.data);
   if (!data) return;
   if (data.type === "home-ready" || data.type === "bridge-ready") {

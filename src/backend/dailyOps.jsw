@@ -85,7 +85,7 @@ function triageAuditFromBooking(raw = {}){
 async function updateRequestTriageAudit({ bookingId, actorName, action, note, nextFollowUpAt, ownerOverride, clearOwner } = {}){
   const id = safeText(bookingId);
   if (!id) return { success:false, message:"Missing booking id" };
-  const booking = await wixData.get("BookingsNew", id);
+  const booking = await wixData.get("BookingsNew", id, { suppressAuth: true });
   const now = new Date();
   const normalizedAction = safeText(action).toLowerCase() || "review";
   const actor = safeText(actorName || "");
@@ -111,7 +111,7 @@ async function updateRequestTriageAudit({ bookingId, actorName, action, note, ne
     nextFollowUpAt: booking.triageNextFollowUpAt,
     historySummary
   };
-  await wixData.update("BookingsNew", booking);
+  await wixData.update("BookingsNew", booking, { suppressAuth: true });
   return {
     success:true,
     triageAudit:{

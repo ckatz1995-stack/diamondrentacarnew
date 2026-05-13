@@ -40,6 +40,8 @@ function go(path) {
 }
 
 function handleMessage(event) {
+  const origin = String(event?.origin || '').trim();
+  if (origin && !isTrustedBridgeOrigin(origin, wixLocation.url)) return;
   const data = normalizeMessage(event && event.data);
   if (data && data.type === "request-booking-context") { sendContext(); return; }
   if (data && data.type === 'request-pricing-catalog-data') { sendPricingCatalog(); return; }
