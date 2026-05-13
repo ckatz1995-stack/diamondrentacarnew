@@ -148,6 +148,8 @@ async function handleSubmitBooking(component, payload) {
 function bindComponent(component) {
   try {
     component.onMessage(async (event) => {
+      const origin = String(event?.origin || '').trim();
+      if (origin && !isTrustedBridgeOrigin(origin, wixLocation.url)) return;
       const data = normalizeMessage(event && event.data);
       if (!data) return;
       if (data.type === "request-member-prefill") {

@@ -446,14 +446,18 @@ async function upsertByKey(collectionName, item){
 export async function upsertInsurancePlan({ authToken, payload = {} } = {}){
   const actor = await requirePricingEdit(authToken);
   await ensurePricingSeeded();
-  const result = await upsertByKey(PRICING_COLLECTIONS.insurancePlans, normalizeCatalogItem(payload, 'insurance'));
+  const normalized = normalizeCatalogItem(payload, 'insurance');
+  if (normalized.pricePerDay < 0) throw new Error('Invalid insurance pricePerDay');
+  const result = await upsertByKey(PRICING_COLLECTIONS.insurancePlans, normalized);
   await writePricingAudit(actor, `pricing.${result.mode}`, 'pricing.insurance', String(result.saved?.key || result.saved?._id || ''), result.previous, result.saved, `${result.mode === 'insert' ? 'Νέο' : 'Ενημέρωση'} insurance plan ${text(result.saved?.label)}`);
   return result.saved;
 }
 export async function upsertExtraService({ authToken, payload = {} } = {}){
   const actor = await requirePricingEdit(authToken);
   await ensurePricingSeeded();
-  const result = await upsertByKey(PRICING_COLLECTIONS.extraServices, normalizeCatalogItem(payload, 'extra'));
+  const normalized = normalizeCatalogItem(payload, 'extra');
+  if (normalized.price < 0) throw new Error('Invalid extra service price');
+  const result = await upsertByKey(PRICING_COLLECTIONS.extraServices, normalized);
   await writePricingAudit(actor, `pricing.${result.mode}`, 'pricing.extra', String(result.saved?.key || result.saved?._id || ''), result.previous, result.saved, `${result.mode === 'insert' ? 'Νέο' : 'Ενημέρωση'} extra service ${text(result.saved?.label)}`);
   return result.saved;
 }
