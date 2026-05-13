@@ -3,10 +3,10 @@ import wixData from 'wix-data';
 import { requireStaffAccess } from 'backend/staffAccess.jsw';
 
 const COLLECTIONS = {
-  vehicles: 'Vehicles',
-  fleet: 'Fleet',
-  bookings: 'Bookings',
-  rentals: 'Rentals'
+  vehicles: 'VehiclesNew',
+  fleet: 'FleetNew',
+  bookings: 'BookingsNew',
+  rentals: 'RentalsNew'
 };
 const COLLECTION_CANDIDATES = {
   fleet: ['Fleet', 'FleetNew'],
