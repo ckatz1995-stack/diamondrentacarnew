@@ -152,6 +152,8 @@ function go(path) {
 }
 
 function handleMessage(event) {
+  const origin = String(event?.origin || '').trim();
+  if (origin && !isTrustedBridgeOrigin(origin, wixLocation.url)) return;
   const data = normalizeBridgeMessage(event && event.data);
   if (!data) return;
   if (data.type === BRIDGE_TYPES.WIX_NAV && data.path) {
