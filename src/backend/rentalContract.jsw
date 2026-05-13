@@ -7,8 +7,8 @@ import { asDate, extractCode, pickLabel, safeNum } from "backend/utils";
 
 const FLEET_LIMIT = 1000;
 const BOOKING_LIMIT = 1000;
-const VEHICLE_CATEGORY_COLLECTION = "Vehicles";
-const VEHICLE_FLEET_COLLECTION = "Fleet";
+const VEHICLE_CATEGORY_COLLECTION = "VehiclesNew";
+const VEHICLE_FLEET_COLLECTION = "FleetNew";
 
 // --------------------
 // Utils
@@ -1335,20 +1335,12 @@ async function getFleetMapByIds(ids){
   };
 
   try {
-    const resNew = await wixData.query(VEHICLE_FLEET_COLLECTION).hasSome("_id", uniq).limit(FLEET_LIMIT).find({ suppressAuth:true });
-    mapFromItems(resNew.items || []);
+    const res = await wixData.query(VEHICLE_FLEET_COLLECTION).hasSome("_id", uniq).include("category").limit(FLEET_LIMIT).find({ suppressAuth:true });
+    mapFromItems((res.items || []).map((f) => ({
+      ...f,
+      categoryCode: (f.category && typeof f.category === "object") ? (f.category.category || f.category.code || f.category.title || f.category.name || "") : (f.category || "")
+    })));
   } catch (_) {}
-
-  const remaining = uniq.filter((id) => !fleetMap.has(String(id)));
-  if (remaining.length) {
-    try {
-      const resOld = await wixData.query("FleetNew").hasSome("_id", remaining).include("category").limit(FLEET_LIMIT).find({ suppressAuth:true });
-      mapFromItems((resOld.items || []).map((f) => ({
-        ...f,
-        categoryCode: (f.category && typeof f.category === "object") ? (f.category.category || f.category.code || f.category.title || f.category.name || "") : (f.category || "")
-      })));
-    } catch (_) {}
-  }
 
   return fleetMap;
 }
@@ -1678,18 +1670,11 @@ async function buildContractLookups(booking = {}){
   try {
     const categoryRes = await wixData.query(VEHICLE_CATEGORY_COLLECTION).limit(BOOKING_LIMIT).find({ suppressAuth:true });
     for (const item of (categoryRes.items || [])) {
-      addCategory(item.categoryCode || item.categoryLabel || item.categoryRecordId || item._id || '', item.categoryLabel || item.categoryCode || '', item.categoryLabel || '', item._id || item.categoryRecordId || '');
+      const rawCode = item.categoryId || item.category || item.label || item.name || item.title || item._id || '';
+      const rawLabel = item.category || item.label || item.name || item.title || '';
+      addCategory(rawCode, rawLabel, item.name || item.title || '', item._id || '');
     }
-  } catch (_) {
-    try {
-      const categoryRes = await wixData.query("VehiclesNew").limit(BOOKING_LIMIT).find({ suppressAuth:true });
-      for (const item of (categoryRes.items || [])) {
-        const rawCode = item.categoryId || item.category || item.label || item.name || item.title || item._id || '';
-        const rawLabel = item.category || item.label || item.name || item.title || '';
-        addCategory(rawCode, rawLabel, item.name || item.title || '', item._id || '');
-      }
-    } catch (_) {}
-  }
+  } catch (_) {}
 
   const vehicles = [];
   const bookingStart = asDate(booking.pickupDateTime);
@@ -1799,34 +1784,27 @@ async function buildContractLookups(booking = {}){
   };
 
   try {
-    const fleetRes = await wixData.query(VEHICLE_FLEET_COLLECTION).limit(FLEET_LIMIT).find({ suppressAuth:true });
-    for (const item of (fleetRes.items || [])) pushVehicleRow(item);
+    const fleetRes = await wixData.query(VEHICLE_FLEET_COLLECTION).include("category").limit(FLEET_LIMIT).find({ suppressAuth:true });
+    for (const rawItem of (fleetRes.items || [])) {
+      const categoryObj = rawItem.category && typeof rawItem.category === 'object' ? rawItem.category : null;
+      pushVehicleRow({
+        ...rawItem,
+        categoryCode: rawItem.categoryCode || rawItem.Category || categoryObj?.category || categoryObj?.code || categoryObj?.title || categoryObj?.name || '',
+        categoryLabel: rawItem.categoryLabel || categoryObj?.category || categoryObj?.title || categoryObj?.name || '',
+        categoryId: rawItem.categoryId || categoryObj?._id || '',
+        plate: rawItem.plate || rawItem.Plate || '',
+        model: rawItem.model || rawItem.Model || rawItem.title || rawItem.Title || '',
+        vehicleLabel: rawItem.vehicleLabel || rawItem.label || rawItem.title || rawItem.Title || '',
+        currentStationCode: rawItem.currentStationCode || rawItem.stationCode || '',
+        currentStationLabel: rawItem.currentStationLabel || rawItem.stationLabel || rawItem.station || '',
+        operationalStatus: rawItem.operationalStatus || rawItem.status || rawItem.vehicleStatus || '',
+        status: rawItem.status || rawItem.operationalStatus || '',
+        mileage: rawItem.mileage || rawItem.kilometers || rawItem.km || 0,
+        fuelLevel: rawItem.fuelLevel || rawItem.fuel || 0,
+        excess: rawItem.excess || rawItem.excessAmount || 0
+      });
+    }
   } catch (_) {}
-
-  if (!vehicles.length) {
-    try {
-      const fleetLegacyRes = await wixData.query("FleetNew").include("category").limit(FLEET_LIMIT).find({ suppressAuth:true });
-      for (const rawItem of (fleetLegacyRes.items || [])) {
-        const categoryObj = rawItem.category && typeof rawItem.category === 'object' ? rawItem.category : null;
-        pushVehicleRow({
-          ...rawItem,
-          categoryCode: rawItem.categoryCode || rawItem.Category || categoryObj?.category || categoryObj?.code || categoryObj?.title || categoryObj?.name || '',
-          categoryLabel: rawItem.categoryLabel || categoryObj?.category || categoryObj?.title || categoryObj?.name || '',
-          categoryId: rawItem.categoryId || categoryObj?._id || '',
-          plate: rawItem.plate || rawItem.Plate || '',
-          model: rawItem.model || rawItem.Model || rawItem.title || rawItem.Title || '',
-          vehicleLabel: rawItem.vehicleLabel || rawItem.label || rawItem.title || rawItem.Title || '',
-          currentStationCode: rawItem.currentStationCode || rawItem.stationCode || '',
-          currentStationLabel: rawItem.currentStationLabel || rawItem.stationLabel || rawItem.station || '',
-          operationalStatus: rawItem.operationalStatus || rawItem.status || rawItem.vehicleStatus || '',
-          status: rawItem.status || rawItem.operationalStatus || '',
-          mileage: rawItem.mileage || rawItem.kilometers || rawItem.km || 0,
-          fuelLevel: rawItem.fuelLevel || rawItem.fuel || 0,
-          excess: rawItem.excess || rawItem.excessAmount || 0
-        });
-      }
-    } catch (_) {}
-  }
 
   if (!categoryMap.size && booking) {
     const fallbackCode = bookingCategoryCode(booking);

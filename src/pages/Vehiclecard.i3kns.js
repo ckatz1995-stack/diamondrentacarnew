@@ -3,6 +3,7 @@ import wixLocation from 'wix-location';
 import { requireBackroomAccess, logoutBackroom } from 'public/backroomAuth';
 import { getVehicleCardData, saveVehicleCardData } from 'backend/vehicleCard';
 import { APP_ROUTES as ROUTES } from 'public/appRoutes';
+import { isTrustedBridgeOrigin, normalizeBridgeMessage, postMessageSafe, resolveHtmlComponent } from 'public/bridgeUtils';
 
 const HTML_ID = '#vehicleCardHtml';
 
@@ -22,12 +23,18 @@ $w.onReady(async function () {
   fleetVehicleId = String(query.fleetVehicleId || query.id || '').trim();
   returnTab = String(query.from || 'fleet').trim() || 'fleet';
 
-  const html = $w(HTML_ID);
+  const html = getHtmlComponent();
+  if (!html) {
+    logSuppressed('HtmlComponent not found', new Error(`Missing ${HTML_ID}`));
+    return;
+  }
   try { html.expand(); html.height = 1400; } catch (error) { logSuppressed('expand/initial height failed', error); }
 
   html.onMessage(async (event) => {
-    const msg = event.data || {};
-    if (!msg.type) return;
+    const origin = String(event?.origin || '').trim();
+    if (origin && !isTrustedBridgeOrigin(origin, wixLocation.url)) return;
+    const msg = normalizeBridgeMessage(event && event.data);
+    if (!msg || !msg.type) return;
 
     if (msg.type === 'vehicleCardReady') {
       await loadVehicleCard();
@@ -69,8 +76,15 @@ $w.onReady(async function () {
   });
 });
 
+function getHtmlComponent() {
+  try { return resolveHtmlComponent($w, [HTML_ID]); } catch (error) { logSuppressed('HtmlComponent lookup failed', error); }
+  return null;
+}
+
 function post(payload) {
-  try { $w(HTML_ID).postMessage(payload); } catch (error) { logSuppressed('postMessage failed', error); }
+  const html = getHtmlComponent();
+  if (!html) return;
+  if (!postMessageSafe(html, payload, 'vehicle-card')) logSuppressed('postMessage failed');
 }
 
 async function loadVehicleCard() {
