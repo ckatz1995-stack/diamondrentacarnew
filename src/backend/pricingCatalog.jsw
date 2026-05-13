@@ -1,5 +1,6 @@
 import wixData from 'wix-data';
 import * as bookingConfig from 'backend/bookingConfig.js';
+import { requireStaffAccess } from 'backend/staffAccess.jsw';
 
 export const PRICING_COLLECTIONS = {
   businessSettings: 'BusinessSettings',
@@ -363,4 +364,9 @@ export function resolveDynamicPricingRate({ categoryCode = '', vehicleCategoryId
     season: resolvedSeason ? { key: resolvedSeason.key, label: resolvedSeason.label, startDate: resolvedSeason.startDate, endDate: resolvedSeason.endDate } : null,
     rule: rule ? { key: rule.key, label: rule.label, minDays: rule.minDays, maxDays: rule.maxDays, seasonKey: rule.seasonKey, categoryCode: rule.categoryCode || code || '', pricePerDay: toNumber(rule.pricePerDay, 0) } : null
   };
+}
+
+export async function getStaffPricingCatalog({ authToken } = {}) {
+  await requireStaffAccess({ sessionToken: authToken, area: 'pricing', action: 'View' });
+  return getPricingCatalog({ scope: 'all' });
 }

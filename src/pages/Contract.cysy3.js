@@ -10,7 +10,7 @@ import {
   getContractDocumentRenderCapabilities
 } from "backend/rentalContract";
 import { setBookingBoardStatus } from "backend/bookingsBoard";
-import { getPublicPricingCatalog } from 'backend/pricingCatalog.jsw';
+import { getStaffPricingCatalog } from 'backend/pricingCatalog.jsw';
 import { logoutBackroom, requireBackroomAccess } from 'public/backroomAuth';
 import { isTrustedBridgeOrigin, normalizeBridgeMessage, postMessageSafe, resolveHtmlComponent } from "public/bridgeUtils";
 import { APP_ROUTES as ROUTES } from "public/appRoutes";
@@ -177,7 +177,7 @@ async function loadContract() {
   try {
     const [res, pricingCatalog] = await Promise.all([
       getContract({ authToken: authState.sessionToken, bookingId }),
-      getPublicPricingCatalog().catch(() => null)
+      getStaffPricingCatalog({ authToken: authState.sessionToken }).catch(() => null)
     ]);
     if (!res?.success) {
       post({ type: "toast", message: res?.message || "Failed to load contract." });

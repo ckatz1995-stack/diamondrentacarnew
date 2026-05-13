@@ -459,6 +459,17 @@
       }
     },
     "backend/pricingCatalog.jsw": {
+      "getStaffPricingCatalog": {
+        "siteOwner": {
+          "invoke": true
+        },
+        "siteMember": {
+          "invoke": true
+        },
+        "anonymous": {
+          "invoke": true
+        }
+      },
       "getPublicPricingCatalog": {
         "siteOwner": {
           "invoke": true
