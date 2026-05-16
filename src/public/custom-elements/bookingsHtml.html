@@ -1812,7 +1812,10 @@
   document.addEventListener('click', (e)=>{ if (userMenu && !e.target.closest('.userMenuWrap')) userMenu.classList.remove('open'); });
   document.querySelectorAll('[data-menu-action]').forEach((btn)=>{ btn.addEventListener('click', ()=>{ const action = btn.getAttribute('data-menu-action'); userMenu.classList.remove('open'); postToWix({ type:'menuAction', action }); }); });
 
+  const TRUSTED_PARENT_SUFFIXES = ['wix.com','wixsite.com','parastorage.com','wixstatic.com'];
+  function isTrustedParentOrigin(origin){ const raw=String(origin||'').trim().toLowerCase(); if(!raw) return true; try{ const host=new URL(raw).hostname.toLowerCase(); return TRUSTED_PARENT_SUFFIXES.some(s=>host===s||host.endsWith('.'+s)); }catch(_){ return false; } }
   window.addEventListener('message', (evt)=>{
+    if (evt.origin && !isTrustedParentOrigin(evt.origin)) return;
     const d = evt.data || {};
     if (!d.type) return;
     if (d.type === 'userContext') { siteBase = safe(d.siteBase || ''); applyUserContext(d); return; }

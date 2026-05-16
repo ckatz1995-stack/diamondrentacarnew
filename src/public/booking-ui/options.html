@@ -1406,7 +1406,10 @@ async function loadVehicle(){
     });
 
 
+    const TRUSTED_PARENT_SUFFIXES = ['wix.com','wixsite.com','parastorage.com','wixstatic.com'];
+    function isTrustedParentOrigin(origin){ const raw=String(origin||'').trim().toLowerCase(); if(!raw) return true; try{ const host=new URL(raw).hostname.toLowerCase(); return TRUSTED_PARENT_SUFFIXES.some(s=>host===s||host.endsWith('.'+s)); }catch(_){ return false; } }
     window.addEventListener('message', (event) => {
+      if (event.origin && !isTrustedParentOrigin(event.origin)) return;
       const data = parseMessage(event.data);
       if(!data) return;
       if(data.type === 'booking-context'){

@@ -1329,7 +1329,10 @@ setTimeout(()=>{ suppressRangeEvents = false; }, 0);
     writeFleetSnapshot();
   });
 
+  const TRUSTED_PARENT_SUFFIXES = ['wix.com','wixsite.com','parastorage.com','wixstatic.com'];
+  function isTrustedParentOrigin(origin){ const raw=String(origin||'').trim().toLowerCase(); if(!raw) return true; try{ const host=new URL(raw).hostname.toLowerCase(); return TRUSTED_PARENT_SUFFIXES.some(s=>host===s||host.endsWith('.'+s)); }catch(_){ return false; } }
   window.addEventListener("message", (evt) => {
+    if (evt.origin && !isTrustedParentOrigin(evt.origin)) return;
     const data = evt.data;
     if (!data || !data.type) return;
 
