@@ -706,12 +706,7 @@
     return `${dd}/${mm}/${yyyy} ${hhmm(dt)}`;
   }
   function norm(s){ return (s ?? "").toString().toLowerCase().trim(); }
-  function escHtml(s){
-    return (s ?? "").toString()
-      .replace(/&/g,"&amp;")
-      .replace(/</g,"&lt;")
-      .replace(/>/g,"&gt;");
-  }
+  function escHtml(s){ return String(s ?? '').replace(/[&<>"']/g,(ch)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
 
   function assertVisReady(){
     if (!window.vis || !vis.DataSet || !vis.Timeline) {
@@ -1329,7 +1324,10 @@ setTimeout(()=>{ suppressRangeEvents = false; }, 0);
     writeFleetSnapshot();
   });
 
+  const TRUSTED_PARENT_SUFFIXES = ['wix.com','wixsite.com','parastorage.com','wixstatic.com'];
+  function isTrustedParentOrigin(origin){ const raw=String(origin||'').trim().toLowerCase(); if(!raw) return true; try{ const host=new URL(raw).hostname.toLowerCase(); if(!host) return false; if(TRUSTED_PARENT_SUFFIXES.some(s=>host===s||host.endsWith('.'+s))) return true; try{ const ref=document.referrer; if(ref){ const rh=new URL(ref).hostname.toLowerCase(); if(rh&&host===rh) return true; } }catch(_){} return false; }catch(_){ return false; } }
   window.addEventListener("message", (evt) => {
+    if (evt.origin && !isTrustedParentOrigin(evt.origin)) return;
     const data = evt.data;
     if (!data || !data.type) return;
 

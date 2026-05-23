@@ -919,6 +919,7 @@ let lastBookingContext = { pickup, dropoff, pickupLocation, dropoffLocation, cat
 let requestTimers = [];
 let missingDataTimer = null;
 const list = document.getElementById("list");
+list.addEventListener('click', (e) => { const btn = e.target.closest('button.cta[data-vehicle-id]'); if (!btn) return; goBooking(btn.dataset.vehicleId, btn.dataset.categoryCode); });
 const sortSelect = document.getElementById("sortSelect");
 const categorySelect = document.getElementById("category");
 const ageGroup = document.getElementById('ageGroup');
@@ -1143,7 +1144,7 @@ function render(){
               <div class=\"total-row grand\"><span class=\"k\">Σύνολο</span><span class=\"v\">${fmtMoney(grandTotal)}</span></div>
             </div>
           </div>
-          <div class="card-footer"><button class="cta" type="button" onclick="goBooking('${escapeHtml(vehicle.vehicleCategoryId || vehicle.id || "")}', '${escapeHtml(extractCategoryCode(vehicle.categoryCode || vehicle.label || vehicle.category || categorySelect.value || category || ""))}')">${escapeHtml(selectionButtonLabel())}</button></div>
+          <div class="card-footer"><button class="cta" type="button" data-vehicle-id="${escapeHtml(vehicle.vehicleCategoryId || vehicle.id || '')}" data-category-code="${escapeHtml(extractCategoryCode(vehicle.categoryCode || vehicle.label || vehicle.category || categorySelect.value || category || ''))}">${escapeHtml(selectionButtonLabel())}</button></div>
         </div>
       </article>`;
   }).join("");
@@ -1180,7 +1181,10 @@ function startEmbeddedHandshake(){
     if(!Array.isArray(embeddedVehicleItems) || !embeddedVehicleItems.length) setError(`Δεν ήρθαν ακόμα live δεδομένα ${pageObjectLabel()} από τη σελίδα Wix.`);
   }, 12000);
 }
+const TRUSTED_PARENT_SUFFIXES = ['wix.com','wixsite.com','parastorage.com','wixstatic.com'];
+function isTrustedParentOrigin(origin){ const raw=String(origin||'').trim().toLowerCase(); if(!raw) return true; try{ const host=new URL(raw).hostname.toLowerCase(); if(!host) return false; if(TRUSTED_PARENT_SUFFIXES.some(s=>host===s||host.endsWith('.'+s))) return true; try{ const ref=document.referrer; if(ref){ const rh=new URL(ref).hostname.toLowerCase(); if(rh&&host===rh) return true; } }catch(_){} return false; }catch(_){ return false; } }
 window.addEventListener('message', (event) => {
+  if (event.origin && !isTrustedParentOrigin(event.origin)) return;
   const data = parseMessage(event && event.data);
   if(!data) return;
   if(data.type === 'booking-context' && data.query){

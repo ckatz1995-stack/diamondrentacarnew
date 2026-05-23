@@ -234,7 +234,10 @@ async function loadTerms(){
   applyCatalog(data);
 }
 
+const TRUSTED_PARENT_SUFFIXES = ['wix.com','wixsite.com','parastorage.com','wixstatic.com'];
+function isTrustedParentOrigin(origin){ const raw=String(origin||'').trim().toLowerCase(); if(!raw) return true; try{ const host=new URL(raw).hostname.toLowerCase(); if(!host) return false; if(TRUSTED_PARENT_SUFFIXES.some(s=>host===s||host.endsWith('.'+s))) return true; try{ const ref=document.referrer; if(ref){ const rh=new URL(ref).hostname.toLowerCase(); if(rh&&host===rh) return true; } }catch(_){} return false; }catch(_){ return false; } }
 function handleMessage(event){
+  if (event.origin && !isTrustedParentOrigin(event.origin)) return;
   const data = normalizeMessage(event && event.data);
   if (!data) return;
   if (data.type === 'booking-context') {

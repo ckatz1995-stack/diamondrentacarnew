@@ -98,7 +98,7 @@ async function ensureFieldMapping() {
 
   // --- Bookings sample ---
   try {
-    const bRes = await wixData.query(COLLECTIONS.Bookings).limit(1).find();
+    const bRes = await wixData.query(COLLECTIONS.Bookings).limit(1).find({ suppressAuth: true });
     const b = (bRes.items && bRes.items[0]) || {};
 
     // status: avoid picking publish-status if that's what "status" means in this schema
@@ -135,7 +135,7 @@ async function ensureFieldMapping() {
 
   // --- Fleet sample ---
   try {
-    const fRes = await wixData.query(COLLECTIONS.Fleet).limit(1).find();
+    const fRes = await wixData.query(COLLECTIONS.Fleet).limit(1).find({ suppressAuth: true });
     const v = (fRes.items && fRes.items[0]) || {};
 
     VF.plate = _pickKey(v, ["Plate", "plate"], VF.plate);
@@ -161,7 +161,7 @@ async function getFleetMetaById(vehicleId) {
   const id = refId(vehicleId);
   if (!id) return null;
   try {
-    const item = await wixData.get(COLLECTIONS.Fleet, id);
+    const item = await wixData.get(COLLECTIONS.Fleet, id, { suppressAuth: true });
     if (!item) return null;
     const plate = String(item?.[VF.plate] || item?.plate || "").trim();
     const model = String(item?.[VF.model] || item?.model || "").trim();
@@ -323,7 +323,7 @@ export async function moveBookingVehicleOnly({ authToken, bookingId, newVehicleI
   const rawTarget = newVehicleId || resourceId;
   if (!bookingId || rawTarget === undefined || rawTarget === null || rawTarget === "") return { success: false, message: "MissingParams" };
 
-  const b = await wixData.get(COLLECTIONS.Bookings, bookingId);
+  const b = await wixData.get(COLLECTIONS.Bookings, bookingId, { suppressAuth: true });
   if (!b) return { success: false, message: "NotFound" };
   const rs = String(b[F.rentalState] || "");
   if (rs === "Active Rental" || rs === "Pre Check-In") {
@@ -346,7 +346,7 @@ export async function moveBookingVehicleOnly({ authToken, bookingId, newVehicleI
       .lt(F.pickupDT, iso(end))
       .gt(F.dropoffDT, iso(start))
       .limit(1000)
-      .find();
+      .find({ suppressAuth: true });
 
     if ((res.items || []).length > 0) return { success: false, message: "Overlap" };
     b[F.assignedFleetId] = String(targetVehicleId);
@@ -365,7 +365,7 @@ export async function moveBookingVehicleOnly({ authToken, bookingId, newVehicleI
     b.assignedCategoryCode = "";
   }
 
-  await wixData.update(COLLECTIONS.Bookings, b);
+  await wixData.update(COLLECTIONS.Bookings, b, { suppressAuth: true });
   return { success: true, assignedVehicle: targetVehicleId || null };
 }
 
@@ -379,7 +379,7 @@ export async function confirmAndAutoAssign({ authToken, bookingId } = {}) {
 
   if (!bookingId) return { success: false, message: "MissingParams" };
 
-  const b = await wixData.get(COLLECTIONS.Bookings, bookingId);
+  const b = await wixData.get(COLLECTIONS.Bookings, bookingId, { suppressAuth: true });
   if (!b) return { success: false, message: "NotFound" };
 
   // Only transition Pending/empty bookings to Confirmed; never overwrite Canceled or active/closed rentals.
@@ -417,7 +417,7 @@ export async function confirmAndAutoAssign({ authToken, bookingId } = {}) {
       .lt(F.pickupDT, iso(end))
       .gt(F.dropoffDT, iso(start))
       .limit(1)
-      .find();
+      .find({ suppressAuth: true });
 
     if ((check.items || []).length === 0) {
       b[F.assignedFleetId] = String(v[VF.id]);
@@ -428,7 +428,7 @@ export async function confirmAndAutoAssign({ authToken, bookingId } = {}) {
         b.assignedVehicleLabel = meta.label || "";
         b.assignedCategoryCode = meta.assignedCategoryCode || "";
       }
-      await wixData.update(COLLECTIONS.Bookings, b);
+      await wixData.update(COLLECTIONS.Bookings, b, { suppressAuth: true });
       return { success: true, assigned: true, vehicleId: String(v[VF.id]) };
     }
   }
@@ -474,7 +474,7 @@ export async function acknowledgeUnassignedInRange({ authToken, from, to } = {})
 async function fetchVehicleCategoryMap() {
   // Maps Vehicles._id -> Vehicles.category (A/B/...) for decoding Fleet.Category references
   try {
-    const res = await wixData.query("VehiclesNew").limit(1000).find();
+    const res = await wixData.query("VehiclesNew").limit(1000).find({ suppressAuth: true });
     const map = {};
     for (const v of (res.items || [])) {
       const id = String(v._id || "");
@@ -493,7 +493,7 @@ async function fetchFleet() {
   let q = wixData.query(COLLECTIONS.Fleet).include(VF.category).limit(1000);
   // filter active if field exists
   try { q = q.eq(VF.active, true); } catch (_) {}
-  const res = await q.find();
+  const res = await q.find({ suppressAuth: true });
   return res.items || [];
 }
 
@@ -507,7 +507,7 @@ async function fetchBookingsInRange(fromISO, toISO) {
     .lt(F.pickupDT, toDate)
     .gt(F.dropoffDT, fromDate)
     .limit(1000)
-    .find();
+    .find({ suppressAuth: true });
 
   return res.items || [];
 }

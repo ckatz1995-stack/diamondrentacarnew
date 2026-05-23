@@ -1109,7 +1109,7 @@ function populateLocationSelectsFromCatalog(){
   const updateLocationsFor = (type, stationSelect, locationSelect, currentValue) => {
     const stationKey = stationSelect.value || 'default';
     const filtered = build(type, stationKey);
-    locationSelect.innerHTML = filtered.map((row)=>`<option value="${String(row.label || row.key || '').replace(/"/g,'&quot;')}">${String(row.label || row.key || '')}</option>`).join('');
+    locationSelect.innerHTML = filtered.map((row)=>`<option value="${escapeHtml(row.label || row.key || '')}">${escapeHtml(row.label || row.key || '')}</option>`).join('');
     if([...locationSelect.options].some((opt)=>opt.value===currentValue)) locationSelect.value = currentValue;
     else if (locationSelect.options.length) locationSelect.selectedIndex = 0;
   };
@@ -1123,7 +1123,7 @@ function populateCategorySelectFromCatalog(){
   const current = select.value || 'all';
   const keys = [...new Set((vehicleCategories || []).map((item)=>String(item?.label || item?.category || '').trim()).filter(Boolean))];
   if(!keys.length) return;
-  select.innerHTML = '<option value="all">Όλες οι κατηγορίες</option>' + keys.map((key)=>`<option value="${key}">Κατηγορία ${key}</option>`).join('');
+  select.innerHTML = '<option value="all">Όλες οι κατηγορίες</option>' + keys.map((key)=>`<option value="${escapeHtml(key)}">Κατηγορία ${escapeHtml(key)}</option>`).join('');
   if([...select.options].some((opt)=>opt.value===current)) select.value = current;
   if (typeof window.refreshCustomControls === 'function') window.refreshCustomControls(['category']);
 }
@@ -1142,7 +1142,7 @@ function populateAgeSelectFromCatalog(){
   const groups = [...new Set(rules.filter((row)=>String(row?.ruleType || '').trim() === 'ageRange').map((row)=>String(row?.audienceGroup || '').trim()).filter(Boolean))];
   if(!groups.includes('23-69')) groups.push('23-69');
   groups.sort((a,b)=>ageGroupSortValue(a)-ageGroupSortValue(b));
-  select.innerHTML = groups.map((value)=>`<option value="${value}">${value}</option>`).join('');
+  select.innerHTML = groups.map((value)=>`<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join('');
   if([...select.options].some((opt)=>opt.value===current)) select.value = current;
   if (typeof window.refreshCustomControls === 'function') window.refreshCustomControls(['category']);
 }
@@ -1221,7 +1221,11 @@ function parseCtx(qs){
 function mergeCtx(next){
   ctx = { ...ctx, ...next };
 }
+const TRUSTED_PARENT_SUFFIXES = ['wix.com','wixsite.com','parastorage.com','wixstatic.com'];
+function isTrustedParentOrigin(origin){ const raw=String(origin||'').trim().toLowerCase(); if(!raw) return true; try{ const host=new URL(raw).hostname.toLowerCase(); if(!host) return false; if(TRUSTED_PARENT_SUFFIXES.some(s=>host===s||host.endsWith('.'+s))) return true; try{ const ref=document.referrer; if(ref){ const rh=new URL(ref).hostname.toLowerCase(); if(rh&&host===rh) return true; } }catch(_){} return false; }catch(_){ return false; } }
+function escapeHtml(value){ return String(value??'').replace(/[&<>"']/g,(ch)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
 window.addEventListener('message', event => {
+  if (event.origin && !isTrustedParentOrigin(event.origin)) return;
   const data = event.data || {};
   if (data.type === 'booking-context') {
     mergeCtx(parseCtx(new URLSearchParams(data.query || {}).toString()));
