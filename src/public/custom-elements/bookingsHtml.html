@@ -1106,7 +1106,7 @@
 
   function safe(v){ return (v == null ? '' : String(v)).trim(); }
   function norm(v){ return safe(v).toLowerCase(); }
-  function esc(s){ return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function esc(s){ return String(s ?? '').replace(/[&<>"']/g,(ch)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
   function normalizeStatusValue(st){
     const s = norm(st);
     if (!s) return 'Pending';

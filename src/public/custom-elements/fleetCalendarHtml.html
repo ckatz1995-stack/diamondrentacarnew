@@ -706,12 +706,7 @@
     return `${dd}/${mm}/${yyyy} ${hhmm(dt)}`;
   }
   function norm(s){ return (s ?? "").toString().toLowerCase().trim(); }
-  function escHtml(s){
-    return (s ?? "").toString()
-      .replace(/&/g,"&amp;")
-      .replace(/</g,"&lt;")
-      .replace(/>/g,"&gt;");
-  }
+  function escHtml(s){ return String(s ?? '').replace(/[&<>"']/g,(ch)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch])); }
 
   function assertVisReady(){
     if (!window.vis || !vis.DataSet || !vis.Timeline) {
