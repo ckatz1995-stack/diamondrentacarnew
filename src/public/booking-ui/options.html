@@ -1287,7 +1287,7 @@ async function renderModels(category){
       const categoryCode = extractCategoryCode(v.label || v.category || state.category || 'A');
       document.getElementById('vehicleName').textContent = buildVehicleHeading(v.shortName || v.title || v.name || v.displayName || v.displayTitle, categoryCode);
       document.getElementById('categoryBadge').textContent = categoryCode || 'A';
-      document.getElementById('dateRangeText').innerHTML = `${formatDateTime(state.pickup)}<br>έως<br>${formatDateTime(state.dropoff)}`;
+      document.getElementById('dateRangeText').innerHTML = `${escapeHtml(formatDateTime(state.pickup))}<br>έως<br>${escapeHtml(formatDateTime(state.dropoff))}`;
       document.getElementById('summaryDates').textContent = `${formatDateTime(state.pickup)} — ${formatDateTime(state.dropoff)}`;
       document.getElementById('summaryLocations').textContent = `${state.pickupLocation} → ${state.dropoffLocation}`;
       renderFacts(v.specs);
