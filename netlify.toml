@@ -2,9 +2,11 @@
   publish = "src/public"
   command = ""
 
+[build.environment]
+  NPM_FLAGS = "--ignore-scripts"
+
 [[headers]]
   for = "/booking-ui/*"
   [headers.values]
     Access-Control-Allow-Origin = "*"
-    X-Frame-Options = "ALLOWALL"
     Content-Security-Policy = "frame-ancestors *"
