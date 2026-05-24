@@ -1,0 +1,65 @@
+import wixData from 'wix-data';
+
+const COLLECTIONS = [
+  'BookingsNew', 'RentalsNew', 'VehiclesNew', 'FleetNew',
+  'Customers', 'Companies', 'ExtraServices', 'FeeRules',
+  'InsurancePlans', 'PickupLocations', 'PricingSeasons',
+  'CategoryRateRules', 'BusinessSettings',
+  'StaffCredentials', 'StaffSessions', 'StaffUsers', 'StaffRoles', 'StaffAuditLog'
+];
+
+const SYSTEM_FIELDS = new Set(['_id', '_createdDate', '_updatedDate', '_owner']);
+
+function classifyField(key, value) {
+  if (value === null || value === undefined) return 'empty';
+  if (Array.isArray(value)) return 'array';
+  if (typeof value === 'object') {
+    if (value._id) return 'reference';
+    if (value.src || value.url) return 'image/media';
+    return 'object';
+  }
+  if (typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(value)) return 'ref-id(string)';
+  return typeof value;
+}
+
+export async function auditCollections() {
+  const results = {};
+
+  for (const col of COLLECTIONS) {
+    try {
+      const [total, sample] = await Promise.all([
+        wixData.query(col).count({ suppressAuth: true }),
+        wixData.query(col).limit(5).find({ suppressAuth: true })
+      ]);
+
+      const items = sample.items || [];
+      const allKeys = new Set();
+      items.forEach(item => Object.keys(item).forEach(k => allKeys.add(k)));
+
+      const userFields = {};
+      const referenceFields = [];
+
+      for (const key of allKeys) {
+        if (SYSTEM_FIELDS.has(key)) continue;
+        const valueExamples = items.map(i => i[key]).filter(v => v !== undefined && v !== null && v !== '');
+        const type = valueExamples.length ? classifyField(key, valueExamples[0]) : 'empty';
+        userFields[key] = type;
+        if (type === 'reference' || type === 'ref-id(string)') {
+          referenceFields.push(key);
+        }
+      }
+
+      results[col] = {
+        totalRecords: total,
+        fieldCount: Object.keys(userFields).length,
+        fields: userFields,
+        referenceFields,
+        sampleIds: items.map(i => i._id)
+      };
+    } catch (err) {
+      results[col] = { error: err.message || String(err) };
+    }
+  }
+
+  return results;
+}
