@@ -310,7 +310,14 @@ function normalizePickupLocationItem(payload = {}) {
     extraFee: toNumber(payload.extraFee ?? payload.fee ?? payload.price, 0),
     sortOrder: toNumber(payload.sortOrder, 9999),
     active: readBool(payload.active, true),
-    publicVisible: readBool(payload.publicVisible, true)
+    publicVisible: readBool(payload.publicVisible, true),
+    pickupInfoLabel: text(payload.pickupInfoLabel),
+    pickupInfoPlaceholder: text(payload.pickupInfoPlaceholder),
+    showOriginField: readBool(payload.showOriginField, true),
+    originFieldLabel: text(payload.originFieldLabel),
+    originFieldPlaceholder: text(payload.originFieldPlaceholder),
+    dropoffInfoLabel: text(payload.dropoffInfoLabel),
+    dropoffInfoPlaceholder: text(payload.dropoffInfoPlaceholder)
   };
 }
 
