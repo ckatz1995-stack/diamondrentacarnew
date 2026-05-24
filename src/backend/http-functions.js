@@ -1,6 +1,6 @@
 import wixData from "wix-data";
 import { ok, badRequest, serverError } from "wix-http-functions";
-import { createBooking, testTelegramNotification } from "backend/bookingEngine";
+import { createBooking } from "backend/bookingEngine";
 import { INSURANCE_OPTIONS } from "backend/bookingConfig";
 import { getPublicPricingCatalog } from "backend/pricingCatalog.jsw";
 function respond(body, fn = ok){ return fn({ headers: {"Content-Type":"application/json","Cache-Control":"no-store","Access-Control-Allow-Origin":"*","Access-Control-Allow-Methods":"GET, POST, OPTIONS","Access-Control-Allow-Headers":"Content-Type"}, body }); }
@@ -365,14 +365,3 @@ export function options_pricing_catalog(request){
   return ok({ headers: {"Access-Control-Allow-Origin":"*","Access-Control-Allow-Methods":"GET, OPTIONS","Access-Control-Allow-Headers":"Content-Type"} });
 }
 
-// TEMPORARY diagnostic — delete after Telegram is confirmed working
-const TG_TEST_SECRET = 'diamond-tg-test-2026';
-export async function get_tg_test(request) {
-  if (String(request.query?.key || '').trim() !== TG_TEST_SECRET) return respond({ success: false, message: 'Unauthorized' }, badRequest);
-  try {
-    const result = await testTelegramNotification();
-    return respond({ success: result?.apiStatus === 200, ...result });
-  } catch (err) {
-    return respond({ success: false, error: err.message || String(err) }, serverError);
-  }
-}
