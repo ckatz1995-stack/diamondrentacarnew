@@ -18,6 +18,26 @@ function formatDT(value) {
   } catch (_) { return String(value); }
 }
 
+export async function testTelegramNotification() {
+  const result = { secretFound: false, tokenLength: 0, apiStatus: null, apiResponse: null, error: null };
+  try {
+    const token = await getSecret('TELEGRAM_BOT_TOKEN');
+    result.secretFound = !!token;
+    result.tokenLength = token ? String(token).trim().length : 0;
+    if (!token) return result;
+    const res = await fetch(`https://api.telegram.org/bot${String(token).trim()}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: '✅ Test από Diamond Rent A Car — σύνδεση Telegram επιβεβαιώθηκε!' })
+    });
+    result.apiStatus = res.status;
+    result.apiResponse = await res.json();
+  } catch (err) {
+    result.error = err.message || String(err);
+  }
+  return result;
+}
+
 async function sendTelegramNotification(booking) {
   try {
     const token = await getSecret('TELEGRAM_BOT_TOKEN');

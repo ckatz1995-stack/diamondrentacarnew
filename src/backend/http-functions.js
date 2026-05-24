@@ -1,8 +1,6 @@
 import wixData from "wix-data";
 import { ok, badRequest, serverError } from "wix-http-functions";
-import { fetch } from 'wix-fetch';
-import { getSecret } from 'wix-secrets-backend';
-import { createBooking } from "backend/bookingEngine";
+import { createBooking, testTelegramNotification } from "backend/bookingEngine";
 import { INSURANCE_OPTIONS } from "backend/bookingConfig";
 import { getPublicPricingCatalog } from "backend/pricingCatalog.jsw";
 function respond(body, fn = ok){ return fn({ headers: {"Content-Type":"application/json","Cache-Control":"no-store","Access-Control-Allow-Origin":"*","Access-Control-Allow-Methods":"GET, POST, OPTIONS","Access-Control-Allow-Headers":"Content-Type"}, body }); }
@@ -371,21 +369,10 @@ export function options_pricing_catalog(request){
 const TG_TEST_SECRET = 'diamond-tg-test-2026';
 export async function get_tg_test(request) {
   if (String(request.query?.key || '').trim() !== TG_TEST_SECRET) return respond({ success: false, message: 'Unauthorized' }, badRequest);
-  const result = { secretFound: false, tokenLength: 0, apiResponse: null, apiStatus: null, error: null };
   try {
-    const token = await getSecret('TELEGRAM_BOT_TOKEN');
-    result.secretFound = !!token;
-    result.tokenLength = token ? token.trim().length : 0;
-    if (!token) return respond({ success: false, ...result });
-    const res = await fetch(`https://api.telegram.org/bot${token.trim()}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: '1578329343', text: '✅ Test από Diamond Rent A Car — σύνδεση Telegram επιβεβαιώθηκε!' })
-    });
-    result.apiStatus = res.status;
-    result.apiResponse = await res.json();
+    const result = await testTelegramNotification();
+    return respond({ success: result?.apiStatus === 200, ...result });
   } catch (err) {
-    result.error = err.message || String(err);
+    return respond({ success: false, error: err.message || String(err) }, serverError);
   }
-  return respond({ success: result.apiStatus === 200, ...result });
 }
