@@ -10,7 +10,7 @@ import {
   getContractDocumentRenderCapabilities
 } from "backend/rentalContract";
 import { setBookingBoardStatus } from "backend/bookingsBoard";
-import { getStaffPricingCatalog } from 'backend/pricingCatalog.jsw';
+import { getStaffPricingCatalog } from 'backend/pricingAdmin.jsw';
 import { logoutBackroom, requireBackroomAccess } from 'public/backroomAuth';
 import { isTrustedBridgeOrigin, normalizeBridgeMessage, postMessageSafe, resolveHtmlComponent } from "public/bridgeUtils";
 import { APP_ROUTES as ROUTES } from "public/appRoutes";
