@@ -681,9 +681,13 @@ function locationTypeFor(label){
   const hit = rows.find(row => normalizeKey(row?.label) === target || normalizeKey(row?.key) === target);
   const catalogType = String(hit?.locationType || 'both').toLowerCase();
   if(catalogType !== 'both') return catalogType;
-  if(/αεροδρόμ|airport|aerodrom/.test(target)) return 'airport';
-  if(/ξενοδοχε|hotel/.test(target)) return 'hotel';
-  if(/λιμαν|port|λιμένα/.test(target)) return 'port';
+  const rowKey = normalizeKey(hit?.key || '');
+  if(/airport|aerodrom/.test(rowKey)) return 'airport';
+  if(/hotel/.test(rowKey)) return 'hotel';
+  if(/port|liman/.test(rowKey)) return 'port';
+  if(/αεροδρόμ|airport/i.test(label)) return 'airport';
+  if(/ξενοδοχ|hotel/i.test(label)) return 'hotel';
+  if(/λιμάν|λιμαν|port/i.test(label)) return 'port';
   return 'both';
 }
 function setFieldVisible(el, visible){
@@ -1109,6 +1113,7 @@ window.addEventListener('message', (event) => {
     state.dropoffLocation = query.dropoffLocation || state.dropoffLocation;
     state.age = String(query.age || state.age || '23-69').replace('23-70', '23-69');
     state.category = query.category || state.category;
+    updateLocationFields();
     return;
   }
   if (data.type === 'pricing-catalog-data') {
