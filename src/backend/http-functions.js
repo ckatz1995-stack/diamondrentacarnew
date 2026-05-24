@@ -1,6 +1,5 @@
 import wixData from "wix-data";
-import { ok, badRequest, serverError, forbidden } from "wix-http-functions";
-import { auditCollections } from "backend/cmsAudit.jsw";
+import { ok, badRequest, serverError } from "wix-http-functions";
 import { createBooking } from "backend/bookingEngine";
 import { INSURANCE_OPTIONS } from "backend/bookingConfig";
 import { getPublicPricingCatalog } from "backend/pricingCatalog.jsw";
@@ -364,17 +363,4 @@ export function options_vehicles(request){
 
 export function options_pricing_catalog(request){
   return ok({ headers: {"Access-Control-Allow-Origin":"*","Access-Control-Allow-Methods":"GET, OPTIONS","Access-Control-Allow-Headers":"Content-Type"} });
-}
-
-// TEMPORARY — delete after CMS audit is done
-const CMS_AUDIT_SECRET = "diamond-audit-2026";
-export async function get_cms_audit(request){
-  const key = String(request.query?.key || '').trim();
-  if (key !== CMS_AUDIT_SECRET) return respond({success:false,message:'Unauthorized'}, forbidden);
-  try {
-    const data = await auditCollections();
-    return respond({ success: true, collections: data });
-  } catch (err) {
-    return respond({ success: false, message: err.message || String(err) }, serverError);
-  }
 }

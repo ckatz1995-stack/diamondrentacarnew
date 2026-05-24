@@ -1,63 +1,74 @@
 import wixLocation from "wix-location";
 import { getPublicPricingCatalog } from "backend/pricingCatalog.jsw";
-import { isTrustedBridgeOrigin } from "public/bridgeUtils";
-const COMP = "#html1";
+import { BRIDGE_TYPES, buildBookingContext, isTrustedBridgeOrigin, normalizeBridgeMessage, postMessageSafe, resolveHtmlComponent } from "public/bridgeUtils";
 
-function normalizeMessage(raw) {
-  if (!raw) return null;
-  if (typeof raw === "string") {
-    try { return JSON.parse(raw); } catch (_e) { return null; }
-  }
-  return raw;
-}
+const COMPONENT_CANDIDATES = ["#html1", "#successHtml"];
+let htmlComponent = null;
+let pricingCatalog = null;
+let pricingPromise = null;
 
 function post(payload) {
-  try { $w(COMP).postMessage(payload); } catch (e) { console.error('postMessage to success html failed', e); }
+  return postMessageSafe(htmlComponent, payload, "Success");
 }
 
 function sendContext() {
-  const payload = {
-    type: "booking-context",
-    query: wixLocation.query || {},
-    url: wixLocation.url,
-    path: wixLocation.path || []
-  };
-  post(payload);
+  post(buildBookingContext(wixLocation));
+}
+
+async function ensurePricingCatalog() {
+  if (pricingCatalog) return pricingCatalog;
+  if (pricingPromise) return pricingPromise;
+  pricingPromise = getPublicPricingCatalog()
+    .then((data) => { pricingCatalog = data || null; return pricingCatalog; })
+    .catch((err) => { console.warn("Success pricing catalog unavailable", err); pricingCatalog = null; return null; })
+    .finally(() => { pricingPromise = null; });
+  return pricingPromise;
 }
 
 async function sendPricingCatalog() {
-  try {
-    const catalog = await getPublicPricingCatalog();
-    post({ type: 'pricing-catalog-data', catalog: catalog || null });
-  } catch (err) {
-    console.warn('Success pricing catalog unavailable', err);
-  }
+  const catalog = await ensurePricingCatalog();
+  post({ type: BRIDGE_TYPES.PRICING, catalog: catalog || null });
 }
 
 function go(path) {
   if (!path) return;
-  try { wixLocation.to(String(path)); } catch (err) { console.error("success navigation failed", err); }
+  try { wixLocation.to(String(path)); } catch (err) { console.error("Success navigation failed", err); }
 }
 
 function handleMessage(event) {
   const origin = String(event?.origin || '').trim();
   if (origin && !isTrustedBridgeOrigin(origin, wixLocation.url)) return;
-  const data = normalizeMessage(event && event.data);
-  if (data && data.type === "request-booking-context") { sendContext(); return; }
-  if (data && data.type === 'request-pricing-catalog-data') { sendPricingCatalog(); return; }
-  if (data && data.type === "wix-booking-nav" && data.path) go(data.path);
+  const data = normalizeBridgeMessage(event && event.data);
+  if (!data) return;
+  if (data.type === BRIDGE_TYPES.REQUEST_CONTEXT) { sendContext(); return; }
+  if (data.type === BRIDGE_TYPES.REQUEST_PRICING) { sendPricingCatalog(); return; }
+  if (data.type === BRIDGE_TYPES.WIX_NAV && data.path) go(data.path);
 }
 
-$w.onReady(function () {
-  try { $w(COMP).onMessage(handleMessage); } catch (e) { console.error("Bind success html onMessage failed", e); }
-  const resend = () => { setTimeout(sendContext, 100); setTimeout(sendContext, 500); setTimeout(sendContext, 1200); setTimeout(sendPricingCatalog, 180); setTimeout(sendPricingCatalog, 700); };
+$w.onReady(async function () {
+  htmlComponent = resolveHtmlComponent($w, COMPONENT_CANDIDATES);
+  if (!htmlComponent) {
+    console.error("Success HTML component not found");
+    return;
+  }
+
+  try { htmlComponent.onMessage(handleMessage); } catch (e) { console.error("Bind success html onMessage failed", e); }
+
+  const resend = () => {
+    [100, 300, 800, 1800].forEach((delay) => {
+      setTimeout(() => { sendContext(); sendPricingCatalog(); }, delay);
+    });
+  };
+
   resend();
   try { wixLocation.onChange(() => resend()); } catch (_e) {}
+
   if (typeof window !== "undefined") {
     window.addEventListener("message", (event) => {
       if (!isTrustedBridgeOrigin(event?.origin, wixLocation.url)) return;
-      const data = normalizeMessage(event && event.data);
-      if (data && data.type === "wix-booking-nav" && data.path) go(data.path);
+      const data = normalizeBridgeMessage(event && event.data);
+      if (!data) return;
+      if (data.type === BRIDGE_TYPES.WIX_NAV && data.path) go(data.path);
     });
   }
 });
