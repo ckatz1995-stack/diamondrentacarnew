@@ -1,18 +1,10 @@
 import wixLocation from "wix-location";
 import { currentMember } from "wix-members-frontend";
 import { getVehicleCategoryDetails, createBooking } from "backend/bookingEngine";
-import { isTrustedBridgeOrigin } from "public/bridgeUtils";
+import { BRIDGE_TYPES, buildBookingContext, isTrustedBridgeOrigin, normalizeBridgeMessage, postMessageSafe } from "public/bridgeUtils";
 
 let categoryItem = null;
 let categoryPromise = null;
-
-function normalizeMessage(raw) {
-  if (!raw) return null;
-  if (typeof raw === "string") {
-    try { return JSON.parse(raw); } catch (_e) { return null; }
-  }
-  return raw;
-}
 
 function getHtmlComponents() {
   try {
@@ -26,13 +18,8 @@ function getHtmlComponents() {
   }
 }
 
-function buildContext() {
-  return {
-    type: "booking-context",
-    query: wixLocation.query || {},
-    url: wixLocation.url,
-    path: wixLocation.path || []
-  };
+function post(component, payload) {
+  return postMessageSafe(component, payload, "Booking");
 }
 
 function readVehicleId() {
@@ -95,22 +82,6 @@ async function getMemberPrefill() {
   }
 }
 
-function post(component, payload) {
-  if (!component || !payload) return false;
-  try {
-    component.postMessage(payload);
-    return true;
-  } catch (_err) {
-    try {
-      component.postMessage(JSON.stringify(payload));
-      return true;
-    } catch (innerErr) {
-      console.warn("Failed to post payload", innerErr || _err);
-      return false;
-    }
-  }
-}
-
 async function sendPrefill(component) {
   const payload = await getMemberPrefill();
   if (!payload) return;
@@ -123,7 +94,7 @@ async function sendCategoryItem(component) {
 }
 
 function sendContext(component) {
-  post(component, buildContext());
+  post(component, buildBookingContext(wixLocation));
 }
 
 async function handleSubmitBooking(component, payload) {
@@ -150,26 +121,14 @@ function bindComponent(component) {
     component.onMessage(async (event) => {
       const origin = String(event?.origin || '').trim();
       if (origin && !isTrustedBridgeOrigin(origin, wixLocation.url)) return;
-      const data = normalizeMessage(event && event.data);
+      const data = normalizeBridgeMessage(event && event.data);
       if (!data) return;
-      if (data.type === "request-member-prefill") {
-        await sendPrefill(component);
-        return;
-      }
-      if (data.type === "request-booking-context") {
-        sendContext(component);
-        return;
-      }
-      if (data.type === "request-vehicle-category-data") {
-        await sendCategoryItem(component);
-        return;
-      }
-      if (data.type === "submit-booking") {
-        await handleSubmitBooking(component, data.payload || data.data || {});
-        return;
-      }
-      if (data.type === "wix-booking-nav" && data.path) {
-        try { wixLocation.to(data.path); } catch (navErr) { console.warn("Failed wix navigation", navErr); }
+      if (data.type === "request-member-prefill") { await sendPrefill(component); return; }
+      if (data.type === BRIDGE_TYPES.REQUEST_CONTEXT) { sendContext(component); return; }
+      if (data.type === "request-vehicle-category-data") { await sendCategoryItem(component); return; }
+      if (data.type === "submit-booking") { await handleSubmitBooking(component, data.payload || data.data || {}); return; }
+      if (data.type === BRIDGE_TYPES.WIX_NAV && data.path) {
+        try { wixLocation.to(data.path); } catch (navErr) { console.warn("Booking navigation failed", navErr); }
       }
     });
   } catch (_err) {
@@ -201,10 +160,10 @@ $w.onReady(async function () {
   if (typeof window !== "undefined") {
     window.addEventListener("message", (event) => {
       if (!isTrustedBridgeOrigin(event?.origin, wixLocation.url)) return;
-      const data = normalizeMessage(event && event.data);
+      const data = normalizeBridgeMessage(event && event.data);
       if (!data) return;
-      if (data.type === "wix-booking-nav" && data.path) {
-        try { wixLocation.to(data.path); } catch (navErr) { console.warn("Failed wix navigation", navErr); }
+      if (data.type === BRIDGE_TYPES.WIX_NAV && data.path) {
+        try { wixLocation.to(data.path); } catch (navErr) { console.warn("Booking navigation failed", navErr); }
       }
     });
   }
