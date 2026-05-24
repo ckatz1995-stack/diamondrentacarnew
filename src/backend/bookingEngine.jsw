@@ -15,7 +15,7 @@ async function generateBookingNumber() {
         .startsWith("bookingNumber", `RNT-${year}-`)
         .descending("_createdDate")
         .limit(1)
-        .find();
+        .find({ suppressAuth: true });
 
     let nextNumber = 1;
 
@@ -35,7 +35,7 @@ async function hasOverlap(vehicleId, start, end, excludeBookingId) {
         .lt("pickupDateTime", end)      // pickup < newEnd
         .gt("dropoffDateTime", start)   // dropoff > newStart
         .limit(1000)
-        .find();
+        .find({ suppressAuth: true });
 
     const items = res.items || [];
     return items.some(b => b._id !== excludeBookingId);
@@ -48,7 +48,7 @@ async function getActiveFleetCountByCategoryKeys(categoryKeys = []) {
       .eq("active", true)
       .eq("category", key)
       .limit(1000)
-      .find();
+      .find({ suppressAuth: true });
     if ((res.items || []).length) return res.items.length;
   }
   return 0;
@@ -69,7 +69,7 @@ async function countOverlappingBookingsByCategoryKeys(categoryKeys, start, end, 
 
     if (excludeBookingId) q = q.ne("_id", excludeBookingId);
 
-    const res = await q.find();
+    const res = await q.find({ suppressAuth: true });
     for (const item of (res.items || [])) {
       if (seen.has(item._id)) continue;
       seen.add(item._id);
@@ -335,7 +335,7 @@ export async function getVehicleCategoriesCatalog() {
   const res = await wixData.query('VehiclesNew')
     .ascending('price')
     .limit(1000)
-    .find();
+    .find({ suppressAuth: true });
 
   return (res.items || [])
     .filter((item) => (item?.active ?? item?.Active ?? true) !== false)
@@ -353,13 +353,13 @@ async function findVehicleCategoryRecord({ vehicleId, categoryCode } = {}) {
 
   if (id) {
     try {
-      const item = await wixData.get('VehiclesNew', id);
+      const item = await wixData.get('VehiclesNew', id, { suppressAuth: true });
       if (item && isVehicleCategoryActive(item)) return item;
     } catch (err) {}
   }
 
   if (code) {
-    const res = await wixData.query('VehiclesNew').limit(1000).find();
+    const res = await wixData.query('VehiclesNew').limit(1000).find({ suppressAuth: true });
     const match = (res.items || []).find((item) => {
       if (!isVehicleCategoryActive(item)) return false;
       const itemCode = cleanText(item.category || item.Category || '');
@@ -401,7 +401,7 @@ export async function getFleetModelsPreview({ vehicleId, categoryCode } = {}) {
     }
   }
 
-  const vehiclesRes = await wixData.query('VehiclesNew').limit(1000).find().catch(() => ({ items: [] }));
+  const vehiclesRes = await wixData.query('VehiclesNew').limit(1000).find({ suppressAuth: true }).catch(() => ({ items: [] }));
   const activeVehicleRows = (vehiclesRes.items || []).filter((item) => isVehicleCategoryActive(item));
   const vehicleByCode = new Map();
   for (const row of activeVehicleRows) {
@@ -412,7 +412,7 @@ export async function getFleetModelsPreview({ vehicleId, categoryCode } = {}) {
 
   let query = wixData.query('FleetNew').limit(1000);
   try { query = query.include('Category'); } catch (err) {}
-  const res = await query.find();
+  const res = await query.find({ suppressAuth: true });
   const categoryFallbackImage = uniqueImageList(toImageArray(vehicleItem?.image || vehicleItem?.Image || ''));
   const categoryLabel = buildVehicleCategoryDisplayName(resolvedCategoryCode, vehicleItem?.title || vehicleItem?.Title || '');
 
@@ -538,7 +538,7 @@ export async function createBooking(data) {
             return { success: false, message: "Δεν υπάρχει διαθεσιμότητα για τις συγκεκριμένες ημερομηνίες/ώρες." };
         }
 
-        const vehicle = await wixData.get("VehiclesNew", vehicleId);
+        const vehicle = await wixData.get("VehiclesNew", vehicleId, { suppressAuth: true });
         if (!vehicle || !isVehicleCategoryActive(vehicle)) {
             return { success: false, message: "Η κατηγορία οχήματος δεν είναι διαθέσιμη." };
         }
@@ -748,7 +748,7 @@ vehicleCategorySpecs: mapVehicleCategoryCatalogItem(vehicle).specs,
             source: 'createBooking'
         });
 
-        const inserted = await wixData.insert("BookingsNew", booking);
+        const inserted = await wixData.insert("BookingsNew", booking, { suppressAuth: true });
         return { success: true, bookingNumber: inserted.bookingNumber, _id: inserted._id };
 
     } catch (err) {
@@ -764,7 +764,7 @@ export async function applyCalendarChange(change) {
         const { bookingId, resourceId, start, end } = change || {};
         if (!bookingId) return { success: false, message: "Missing bookingId" };
 
-        const booking = await wixData.get("BookingsNew", bookingId);
+        const booking = await wixData.get("BookingsNew", bookingId, { suppressAuth: true });
         if (!booking) return { success: false, message: "Booking not found" };
 
         if (booking.status === "Canceled") {
@@ -803,7 +803,7 @@ export async function applyCalendarChange(change) {
             booking.assignedVehicleChangedBy = userId;
         }
 
-        const saved = await wixData.update("BookingsNew", booking);
+        const saved = await wixData.update("BookingsNew", booking, { suppressAuth: true });
 
         const event = {
             id: saved._id,
