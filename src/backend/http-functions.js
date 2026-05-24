@@ -365,3 +365,7 @@ export function options_pricing_catalog(request){
   return ok({ headers: {"Access-Control-Allow-Origin":"*","Access-Control-Allow-Methods":"GET, OPTIONS","Access-Control-Allow-Headers":"Content-Type"} });
 }
 
+export function get_ping(request){
+  return ok({ headers: {"Content-Type":"application/json","Access-Control-Allow-Origin":"*"}, body: JSON.stringify({ ok: true, ts: Date.now() }) });
+}
+
