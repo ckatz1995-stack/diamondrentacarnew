@@ -4,8 +4,6 @@ import { VAT_RATE } from 'backend/bookingConfig';
 import { getPricingCatalog, getFallbackCatalogSnapshot, computeAutomaticFees, resolveDynamicPricingRate } from 'backend/pricingCatalog.jsw';
 import { buildPricingSnapshot } from 'backend/pricingSnapshot.js';
 import { computeBillableDaysDetailed } from 'backend/billableDays';
-import { sendTelegramNotification } from 'backend/telegramService.jsw';
-
 
 // ==========================
 // Helpers
@@ -751,7 +749,6 @@ vehicleCategorySpecs: mapVehicleCategoryCatalogItem(vehicle).specs,
         });
 
         const inserted = await wixData.insert("BookingsNew", booking, { suppressAuth: true });
-        sendTelegramNotification(inserted).catch((err) => console.error('[booking] Telegram failed', err));
         return { success: true, bookingNumber: inserted.bookingNumber, _id: inserted._id };
 
     } catch (err) {
