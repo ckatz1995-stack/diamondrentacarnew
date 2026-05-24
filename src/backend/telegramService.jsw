@@ -55,8 +55,8 @@ export async function sendTelegramNotification(booking) {
     if (booking.extras) lines.push(`➕ Extras: ${booking.extras}`);
     const originCity = String(booking.city || booking.originCity || '').trim();
     if (originCity) lines.push(`🏙️ Πόλη: ${originCity}`);
-    lines.push('', `💶 Σύνολο: <b>${Number(booking.totalPrice || 0).toFixed(2)} €</b>`);
     if (booking.flightNumber) lines.push(`✈️ Πτήση: ${booking.flightNumber}`);
+    lines.push('', `💶 Σύνολο: <b>${Number(booking.totalPrice || 0).toFixed(2)} €</b>`);
     const comments = String(booking.internalMemo || '').trim();
     if (comments) lines.push(`💬 Σχόλια: ${comments}`);
     const res = await fetch(`https://api.telegram.org/bot${String(token).trim()}/sendMessage`, {
