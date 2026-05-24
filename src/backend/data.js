@@ -1,6 +1,10 @@
 import { sendTelegramNotification } from 'backend/telegramService.jsw';
 
-export function BookingsNew_afterInsert(item, context) {
-  sendTelegramNotification(item).catch(() => {});
+export async function BookingsNew_afterInsert(item, context) {
+  try {
+    await sendTelegramNotification(item);
+  } catch (err) {
+    console.error('[data hook] Telegram notification failed', err);
+  }
   return item;
 }
