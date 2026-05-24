@@ -1075,3 +1075,37 @@ export async function getBootstrapHelp() {
 function hasSpecialPermission(state = {}, key = '') {
   return Array.isArray(state?.specialPermissions) && state.specialPermissions.includes(String(key || ''));
 }
+
+async function doPurgeExpiredSessions() {
+  const now = new Date();
+  const [inactiveRes, expiredRes] = await Promise.all([
+    wixData.query(COLLECTIONS.sessions).eq('active', false).limit(1000).find({ suppressAuth: true }).catch(() => ({ items: [] })),
+    wixData.query(COLLECTIONS.sessions).lt('expiresAt', now).eq('active', true).limit(1000).find({ suppressAuth: true }).catch(() => ({ items: [] }))
+  ]);
+  const ids = [...new Set([
+    ...(inactiveRes.items || []).map((i) => i._id),
+    ...(expiredRes.items || []).map((i) => i._id)
+  ])].filter(Boolean);
+  if (!ids.length) return { deleted: 0 };
+  let deleted = 0;
+  for (let i = 0; i < ids.length; i += 100) {
+    try {
+      const res = await wixData.bulkRemove(COLLECTIONS.sessions, ids.slice(i, i + 100), { suppressAuth: true });
+      deleted += (res?.removed ?? ids.slice(i, i + 100).length);
+    } catch (_) {}
+  }
+  return { deleted };
+}
+
+export async function cleanupSessions({ sessionToken } = {}) {
+  const ctx = await requireStaffAccess({ sessionToken, area: '', action: 'View', specialPermission: 'manageStaff' });
+  const result = await doPurgeExpiredSessions();
+  await logAudit({ entityType: 'session', entityId: 'StaffSessions', action: 'session.cleanup', summary: `Εκκαθαρίστηκαν ${result.deleted} expired/inactive sessions`, actorEmail: ctx.email, actorName: ctx.fullName });
+  return { success: true, ...result };
+}
+
+export async function scheduledSessionCleanup() {
+  const result = await doPurgeExpiredSessions();
+  await logAudit({ entityType: 'session', entityId: 'StaffSessions', action: 'session.scheduledCleanup', summary: `[Scheduled] Εκκαθαρίστηκαν ${result.deleted} expired/inactive sessions`, actorEmail: 'system', actorName: 'Scheduler' });
+  return result;
+}

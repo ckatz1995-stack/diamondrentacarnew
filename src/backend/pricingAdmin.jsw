@@ -58,7 +58,7 @@ async function requirePricingEdit(authToken){ return requireStaffAccess({ sessio
 async function writePricingAudit(actor = {}, action = '', entityType = 'pricing', entityId = '', oldValue = null, newValue = null, summary = '') {
   try {
     await wixData.insert(AUDIT_COLLECTION, {
-      entityType: text(entityType, 'pricing'),
+      entityType: text(entityType, 'pricing', { suppressAuth: true }),
       entityId: text(entityId),
       action: text(action),
       summary: text(summary),
@@ -95,7 +95,7 @@ async function queryRowsByNormalizedKey(collectionName, key){
 
 async function seedCollectionIfEmpty(collectionName, rows){
   try {
-    const existing = await wixData.query(collectionName).limit(1).find();
+    const existing = await wixData.query(collectionName).limit(1).find({ suppressAuth: true });
     if (Array.isArray(existing?.items) && existing.items.length) return 0;
   } catch (_) {}
   let inserted = 0;
@@ -103,7 +103,7 @@ async function seedCollectionIfEmpty(collectionName, rows){
     try {
       const safe = { ...row };
       delete safe._id;
-      await wixData.insert(collectionName, safe);
+      await wixData.insert(collectionName, safe, { suppressAuth: true });
       inserted += 1;
     } catch (_) {}
   }
@@ -346,7 +346,7 @@ export async function getPricingAdminSnapshot({ authToken } = {}){
 export async function saveBusinessSettings({ authToken, payload = {} } = {}){
   const actor = await requirePricingEdit(authToken);
   await ensurePricingSeeded();
-  const existing = await wixData.query(PRICING_COLLECTIONS.businessSettings).ascending('_createdDate').limit(1).find().catch(() => ({ items: [] }));
+  const existing = await wixData.query(PRICING_COLLECTIONS.businessSettings).ascending('_createdDate').limit(1).find({ suppressAuth: true }).catch(() => ({ items: [] }));
   const base = existing.items?.[0] || {};
   const before = { ...base };
   const item = {
@@ -388,7 +388,7 @@ export async function saveBusinessSettings({ authToken, payload = {} } = {}){
     stationSettings: normalizeStationSettingsMap(payload.stationSettings),
     active: readBool(payload.active, true)
   };
-  const saved = item._id ? await wixData.update(PRICING_COLLECTIONS.businessSettings, item) : await wixData.insert(PRICING_COLLECTIONS.businessSettings, item);
+  const saved = item._id ? await wixData.update(PRICING_COLLECTIONS.businessSettings, item, { suppressAuth: true }) : await wixData.insert(PRICING_COLLECTIONS.businessSettings, item, { suppressAuth: true });
   clearPricingCatalogCache();
   await writePricingAudit(actor, 'pricing.saveBusinessSettings', 'pricing.businessSettings', String(saved._id || 'singleton'), before, saved, 'Ενημέρωση business settings');
   return saved;
@@ -429,13 +429,13 @@ async function upsertByKey(collectionName, item){
 
   const previous = safeItem._id ? (await queryFirstByField(collectionName, '_id', safeItem._id) || null) : null;
   const saved = safeItem._id
-    ? await wixData.update(collectionName, { ...(previous || {}), ...safeItem })
-    : await wixData.insert(collectionName, safeItem);
+    ? await wixData.update(collectionName, { ...(previous || {}, { suppressAuth: true }), ...safeItem })
+    : await wixData.insert(collectionName, safeItem, { suppressAuth: true });
 
   const keepId = saved?._id;
   for (const row of duplicates) {
     if (row?._id && row._id !== keepId) {
-      try { await wixData.remove(collectionName, row._id); } catch (_) {}
+      try { await wixData.remove(collectionName, row._id, { suppressAuth: true }); } catch (_) {}
     }
   }
 
@@ -477,13 +477,13 @@ export async function deletePricingItem({ authToken, collectionName, itemId, ite
   const keyToClean = slugKey(itemKey || previous?.key || previous?.label || previous?.title);
   let removed = 0;
   if (itemId) {
-    try { await wixData.remove(collectionName, itemId); removed += 1; } catch (_) {}
+    try { await wixData.remove(collectionName, itemId, { suppressAuth: true }); removed += 1; } catch (_) {}
   }
   if (keyToClean) {
     const dupes = await queryRowsByNormalizedKey(collectionName, keyToClean);
     for (const row of dupes) {
       if (!row?._id || row._id === itemId) continue;
-      try { await wixData.remove(collectionName, row._id); removed += 1; } catch (_) {}
+      try { await wixData.remove(collectionName, row._id, { suppressAuth: true }); removed += 1; } catch (_) {}
     }
   }
   clearPricingCatalogCache();
@@ -521,10 +521,10 @@ export async function seedPricingDefaults({ authToken, target = 'all' } = {}) {
   }
 
   async function seedBusiness() {
-    const existing = await wixData.query(PRICING_COLLECTIONS.businessSettings).ascending('_createdDate').limit(1).find().catch(() => ({ items: [] }));
+    const existing = await wixData.query(PRICING_COLLECTIONS.businessSettings).ascending('_createdDate').limit(1).find({ suppressAuth: true }).catch(() => ({ items: [] }));
     const prev = existing.items?.[0] || null;
     if (!prev) {
-      const saved = await wixData.insert(PRICING_COLLECTIONS.businessSettings, { ...fallback.businessSettings });
+      const saved = await wixData.insert(PRICING_COLLECTIONS.businessSettings, { ...fallback.businessSettings }, { suppressAuth: true });
       result.business = { inserted: 1, updated: 0, total: 1, saved };
       await writePricingAudit(actor, 'pricing.seedDefaults', 'pricing.businessSettings', String(saved._id || 'singleton'), null, saved, 'Seed business settings defaults');
       return;
@@ -532,7 +532,7 @@ export async function seedPricingDefaults({ authToken, target = 'all' } = {}) {
     const { changed, merged } = applyMissing(prev, fallback.businessSettings);
     result.business.total = 1;
     if (!changed) return;
-    const saved = await wixData.update(PRICING_COLLECTIONS.businessSettings, { ...prev, ...merged, _id: prev._id });
+    const saved = await wixData.update(PRICING_COLLECTIONS.businessSettings, { ...prev, ...merged, _id: prev._id }, { suppressAuth: true });
     result.business.updated = 1;
     result.business.saved = saved;
     await writePricingAudit(actor, 'pricing.seedDefaults', 'pricing.businessSettings', String(saved._id || 'singleton'), prev, saved, 'Seed missing business settings defaults');
@@ -543,7 +543,7 @@ export async function seedPricingDefaults({ authToken, target = 'all' } = {}) {
       const normalized = normalizer(row);
       const existing = await queryFirstByField(collectionName, 'key', normalized.key);
       if (!existing) {
-        const saved = await wixData.insert(collectionName, normalized);
+        const saved = await wixData.insert(collectionName, normalized, { suppressAuth: true });
         result[bucket].inserted += 1;
         result[bucket].total += 1;
         await writePricingAudit(actor, 'pricing.seedDefaults', `pricing.${kind}`, String(saved?.key || saved?._id || ''), null, saved, `Seed missing ${kind} default ${text(saved?.label)}`);
@@ -552,7 +552,7 @@ export async function seedPricingDefaults({ authToken, target = 'all' } = {}) {
       const { changed, merged } = applyMissing(existing, normalized);
       result[bucket].total += 1;
       if (!changed) continue;
-      const saved = await wixData.update(collectionName, { ...existing, ...merged, _id: existing._id });
+      const saved = await wixData.update(collectionName, { ...existing, ...merged, _id: existing._id }, { suppressAuth: true });
       result[bucket].updated += 1;
       await writePricingAudit(actor, 'pricing.seedDefaults', `pricing.${kind}`, String(saved?.key || saved?._id || ''), existing, saved, `Seed missing ${kind} fields για ${text(saved?.label)}`);
     }
@@ -573,10 +573,10 @@ export async function resetPricingDefaults({ authToken, target = 'all' } = {}) {
   const result = { business: { inserted: 0, updated: 0, total: 0 }, insurance: { inserted: 0, updated: 0, total: 0 }, extras: { inserted: 0, updated: 0, total: 0 }, fees: { inserted: 0, updated: 0, total: 0 } };
 
   async function resetBusiness() {
-    const existing = await wixData.query(PRICING_COLLECTIONS.businessSettings).ascending('_createdDate').limit(1).find().catch(() => ({ items: [] }));
+    const existing = await wixData.query(PRICING_COLLECTIONS.businessSettings).ascending('_createdDate').limit(1).find({ suppressAuth: true }).catch(() => ({ items: [] }));
     const prev = existing.items?.[0] || null;
     const row = { ...(prev || {}), ...fallback.businessSettings };
-    const saved = row._id ? await wixData.update(PRICING_COLLECTIONS.businessSettings, row) : await wixData.insert(PRICING_COLLECTIONS.businessSettings, row);
+    const saved = row._id ? await wixData.update(PRICING_COLLECTIONS.businessSettings, row, { suppressAuth: true }) : await wixData.insert(PRICING_COLLECTIONS.businessSettings, row, { suppressAuth: true });
     result.business = { inserted: prev ? 0 : 1, updated: prev ? 1 : 0, total: 1, saved };
     await writePricingAudit(actor, 'pricing.resetDefaults', 'pricing.businessSettings', String(saved._id || 'singleton'), prev, saved, 'Reset business settings στα defaults');
   }
@@ -586,7 +586,7 @@ export async function resetPricingDefaults({ authToken, target = 'all' } = {}) {
       const normalized = normalizer(row);
       const existing = await queryFirstByField(collectionName, 'key', normalized.key);
       const saveRow = existing ? { ...existing, ...normalized, _id: existing._id } : normalized;
-      const saved = existing ? await wixData.update(collectionName, saveRow) : await wixData.insert(collectionName, saveRow);
+      const saved = existing ? await wixData.update(collectionName, saveRow, { suppressAuth: true }) : await wixData.insert(collectionName, saveRow, { suppressAuth: true });
       result[bucket].inserted += existing ? 0 : 1;
       result[bucket].updated += existing ? 1 : 0;
       result[bucket].total += 1;
@@ -614,8 +614,8 @@ export async function upsertVehicleCategory({ authToken, payload = {} } = {}){
 
   const saveRow = previous ? { ...previous, ...normalized, _id: previous._id } : normalized;
   const saved = previous
-    ? await wixData.update(VEHICLE_CATEGORIES_COLLECTION, saveRow)
-    : await wixData.insert(VEHICLE_CATEGORIES_COLLECTION, saveRow);
+    ? await wixData.update(VEHICLE_CATEGORIES_COLLECTION, saveRow, { suppressAuth: true })
+    : await wixData.insert(VEHICLE_CATEGORIES_COLLECTION, saveRow, { suppressAuth: true });
 
   await writePricingAudit(actor, previous ? 'pricing.updateVehicleCategory' : 'pricing.insertVehicleCategory', 'pricing.vehicleCategory', String(saved?._id || saved?.category || ''), previous, saved, `${previous ? 'Ενημέρωση' : 'Νέα'} κατηγορία οχήματος ${buildVehicleCategoryDisplayTitle(saved)}`);
   return mapVehicleCategoryAdminRow(saved);
@@ -627,7 +627,7 @@ export async function deleteVehicleCategory({ authToken, itemId, categoryCode } 
     ? await queryFirstByField(VEHICLE_CATEGORIES_COLLECTION, '_id', itemId)
     : await findVehicleCategoryByCategoryCode(categoryCode);
   if (!previous?._id) throw new Error('Vehicle category not found');
-  await wixData.remove(VEHICLE_CATEGORIES_COLLECTION, previous._id);
+  await wixData.remove(VEHICLE_CATEGORIES_COLLECTION, previous._id, { suppressAuth: true });
   await writePricingAudit(actor, 'pricing.deleteVehicleCategory', 'pricing.vehicleCategory', String(previous._id || previous.category || ''), previous, null, `Διαγραφή κατηγορίας οχήματος ${buildVehicleCategoryDisplayTitle(previous)}`);
   return { success: true, removed: 1 };
 }
@@ -645,8 +645,8 @@ export async function upsertFleetVehicle({ authToken, payload = {} } = {}){
 
   const saveRow = previous ? { ...previous, ...normalized, _id: previous._id } : normalized;
   const saved = previous
-    ? await wixData.update(FLEET_COLLECTION, saveRow)
-    : await wixData.insert(FLEET_COLLECTION, saveRow);
+    ? await wixData.update(FLEET_COLLECTION, saveRow, { suppressAuth: true })
+    : await wixData.insert(FLEET_COLLECTION, saveRow, { suppressAuth: true });
 
   await writePricingAudit(actor, previous ? 'pricing.updateFleetVehicle' : 'pricing.insertFleetVehicle', 'pricing.fleetVehicle', String(saved?._id || saved?.plate || ''), previous, saved, `${previous ? 'Ενημέρωση' : 'Νέο'} όχημα στόλου ${buildFleetVehicleDisplayTitle(saved)}`);
   return mapFleetVehicleAdminRow(saved);
@@ -658,7 +658,7 @@ export async function deleteFleetVehicle({ authToken, itemId, plate } = {}){
     ? await queryFirstByField(FLEET_COLLECTION, '_id', itemId)
     : await findFleetVehicleByPlate(plate);
   if (!previous?._id) throw new Error('Fleet vehicle not found');
-  await wixData.remove(FLEET_COLLECTION, previous._id);
+  await wixData.remove(FLEET_COLLECTION, previous._id, { suppressAuth: true });
   await writePricingAudit(actor, 'pricing.deleteFleetVehicle', 'pricing.fleetVehicle', String(previous._id || previous.plate || ''), previous, null, `Διαγραφή οχήματος στόλου ${buildFleetVehicleDisplayTitle(previous)}`);
   return { success: true, removed: 1 };
 }
