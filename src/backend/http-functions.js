@@ -1,5 +1,6 @@
 import wixData from "wix-data";
-import { ok, badRequest, serverError } from "wix-http-functions";
+import { ok, badRequest, serverError, forbidden } from "wix-http-functions";
+import { auditCollections } from "backend/cmsAudit.jsw";
 import { createBooking } from "backend/bookingEngine";
 import { INSURANCE_OPTIONS } from "backend/bookingConfig";
 import { getPublicPricingCatalog } from "backend/pricingCatalog.jsw";
@@ -13,8 +14,8 @@ function jsonCorsHeadersForMutation(request){ const origin = normalizeOrigin(rea
 function respondRestricted(request, body, fn = ok){ const origin = normalizeOrigin(readOrigin(request)); const headers = {"Content-Type":"application/json","Cache-Control":"no-store","Access-Control-Allow-Methods":"POST, OPTIONS","Access-Control-Allow-Headers":"Content-Type","Vary":"Origin"}; if (origin && isAllowedMutationOrigin(request)) headers["Access-Control-Allow-Origin"] = origin; return fn({ headers, body }); }
 function toImageUrl(value){ const src = value?.src || value; if (!src) return ""; const s = String(src); if (s.startsWith("http://") || s.startsWith("https://")) return s; const m = s.match(/^wix:image:\/\/v1\/([^\/]+)\//); if (m) return `https://static.wixstatic.com/media/${m[1]}`; return s; }
 function mapVehicle(v){ const label=String(v.category||"").trim(); const title=String(v.title||"").trim(); const shortName=title.includes(" - ") ? title.split(" - ").slice(1).join(" - ") : (title || label || "Όχημα"); return { id:v._id, name:shortName, title:title, label, price:Number(v.price)||0, image:toImageUrl(v.image), specs:{ gearbox:v.transmission||"-", fuel:v.fuelType||"-", seats:v.seats||"-", doors:v.doors||"-", bags:v.luggage1||"-", luggage:v.luggage||"-", ac:v.airCondition ? "Ναι" : "Όχι", engineCc:v.engineCc||"-" } }; }
-export async function get_vehicles(request){ try{ const category=String(request.query?.category||"all").trim(); let q=wixData.query("VehiclesNew").eq("active", true).ascending("price").limit(1000); if(category && category!=="all" && category!=="default") q=q.eq("category", category); const res=await q.find(); return respond({success:true, items:(res.items||[]).map(mapVehicle)}); }catch(err){ return respond({success:false,message:err.message||String(err)}, serverError); } }
-export async function get_vehicle(request){ try{ const id=String(request.query?.id||"").trim(); if(!id) return respond({success:false,message:"Missing id"}, badRequest); const item=await wixData.get("VehiclesNew", id); if(!item || item.active!==true) return respond({success:false,message:"Vehicle not found"}, badRequest); return respond({success:true,item:mapVehicle(item)}); }catch(err){ return respond({success:false,message:err.message||String(err)}, serverError); } }
+export async function get_vehicles(request){ try{ const category=String(request.query?.category||"all").trim(); let q=wixData.query("VehiclesNew").eq("active", true).ascending("price").limit(1000); if(category && category!=="all" && category!=="default") q=q.eq("category", category); const res=await q.find({ suppressAuth: true }); return respond({success:true, items:(res.items||[]).map(mapVehicle)}); }catch(err){ return respond({success:false,message:err.message||String(err)}, serverError); } }
+export async function get_vehicle(request){ try{ const id=String(request.query?.id||"").trim(); if(!id) return respond({success:false,message:"Missing id"}, badRequest); const item=await wixData.get("VehiclesNew", id, { suppressAuth: true }); if(!item || item.active!==true) return respond({success:false,message:"Vehicle not found"}, badRequest); return respond({success:true,item:mapVehicle(item)}); }catch(err){ return respond({success:false,message:err.message||String(err)}, serverError); } }
 
 export async function get_pricing_catalog(request){
   try{
@@ -45,13 +46,13 @@ export async function get_bookingSummary(request){
     const bookingNumber = String(request.query?.booking || '').trim();
     if(!bookingNumber) return respond({success:false,message:'Missing booking'}, badRequest);
 
-    const res = await wixData.query('BookingsNew').eq('bookingNumber', bookingNumber).limit(1).find();
+    const res = await wixData.query('BookingsNew').eq('bookingNumber', bookingNumber).limit(1).find({ suppressAuth: true });
     const booking = (res.items || [])[0];
     if(!booking) return respond({success:false,message:'Booking not found'}, badRequest);
 
     let vehicle = null;
     try {
-      if (booking.vehicleId) vehicle = await wixData.get('VehiclesNew', String(booking.vehicleId));
+      if (booking.vehicleId) vehicle = await wixData.get('VehiclesNew', String(booking.vehicleId), { suppressAuth: true });
     } catch (e) {}
     const mappedVehicle = vehicle ? mapVehicle(vehicle) : null;
     const billableDays = Number(booking.billableDays || 0) || (() => {
@@ -157,7 +158,7 @@ export async function get_fleet_models(request){
     let vehicleCategory = "";
     if (vehicleId) {
       try {
-        const vehicle = await wixData.get("VehiclesNew", vehicleId);
+        const vehicle = await wixData.get("VehiclesNew", vehicleId, { suppressAuth: true });
         vehicleCategory = String(vehicle?.category || vehicle?.Category || "").trim().toUpperCase();
       } catch (err) {}
     }
@@ -165,7 +166,7 @@ export async function get_fleet_models(request){
 
     let query = wixData.query("FleetNew").limit(1000);
     try { query = query.include("Category"); } catch (err) {}
-    const res = await query.find();
+    const res = await query.find({ suppressAuth: true });
     const rawItems = res.items || [];
 
     const grouped = new Map();
@@ -363,4 +364,17 @@ export function options_vehicles(request){
 
 export function options_pricing_catalog(request){
   return ok({ headers: {"Access-Control-Allow-Origin":"*","Access-Control-Allow-Methods":"GET, OPTIONS","Access-Control-Allow-Headers":"Content-Type"} });
+}
+
+// TEMPORARY — delete after CMS audit is done
+const CMS_AUDIT_SECRET = "diamond-audit-2026";
+export async function get_cms_audit(request){
+  const key = String(request.query?.key || '').trim();
+  if (key !== CMS_AUDIT_SECRET) return respond({success:false,message:'Unauthorized'}, forbidden);
+  try {
+    const data = await auditCollections();
+    return respond({ success: true, collections: data });
+  } catch (err) {
+    return respond({ success: false, message: err.message || String(err) }, serverError);
+  }
 }
