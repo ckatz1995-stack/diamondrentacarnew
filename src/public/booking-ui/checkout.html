@@ -339,6 +339,7 @@ button:hover,.btn:hover,.header-phone:hover{transform:translateY(-1px)}
             <div class="field"><label>Τ.Κ.</label><input name="billingZip" type="text"></div>
             <div class="field" id="flightNumberField"><label id="flightNumberLabel">Αριθμός πτήσης</label><input name="flightNumber" type="text"></div>
             <div class="field" id="originCityField"><label id="originCityLabel">Πόλη άφιξης</label><input name="originCity" type="text" placeholder="π.χ. Αθήνα"></div>
+            <div class="field" id="dropoffInfoField" style="display:none"><label id="dropoffInfoLabel">Πτήση Επιστροφής</label><input name="dropoffInfo" type="text"></div>
             <div class="field full"><label>Σχόλια</label><textarea name="comments" placeholder="Αν έχεις σχόλια για παραλαβή, πτήση ή κάτι σχετικό, γράψε τα εδώ."></textarea></div>
           </div>
         </div>
@@ -674,6 +675,11 @@ const LOCATION_FIELD_CONFIGS = {
   hotel:   { flightLabel:'Όνομα Ξενοδοχείου', flightPlaceholder:'π.χ. Makedonia Palace', showOrigin:false },
   port:    { flightLabel:'Αρ. πλοίου / Δρομολόγιο', flightPlaceholder:'π.χ. F/B Aqua Blue', showOrigin:true, originLabel:'Λιμάνι άφιξης', originPlaceholder:'π.χ. Πειραιάς' }
 };
+const DROPOFF_FIELD_CONFIGS = {
+  airport: { label:'Πτήση Αναχώρησης', placeholder:'π.χ. A3 225' },
+  hotel:   { label:'Ξενοδοχείο Επιστροφής', placeholder:'π.χ. Makedonia Palace' },
+  port:    { label:'Αρ. πλοίου Αναχώρησης', placeholder:'π.χ. F/B Aqua Blue' }
+};
 function stripAccents(v){ try { return String(v||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim(); } catch(e){ return String(v||'').toLowerCase().trim(); } }
 function locationTypeFor(label){
   const s = stripAccents(label);
@@ -704,24 +710,37 @@ function updateLocationFields(){
   const pickupType = locationTypeFor(state.pickupLocation);
   const dropoffType = locationTypeFor(state.dropoffLocation);
   console.log('[location-fields] pickup:', JSON.stringify(state.pickupLocation), '->', pickupType, '| dropoff:', JSON.stringify(state.dropoffLocation), '->', dropoffType);
-  const effectiveType = (pickupType !== 'both' ? pickupType : null) || (dropoffType !== 'both' ? dropoffType : null) || 'both';
-  const cfg = LOCATION_FIELD_CONFIGS[effectiveType];
+  const pickupCfg = LOCATION_FIELD_CONFIGS[pickupType];
   const flightField = document.getElementById('flightNumberField');
   const originField = document.getElementById('originCityField');
-  if(!flightField) return;
-  if(!cfg){ setFieldVisible(flightField, false); setFieldVisible(originField, false); return; }
-  setFieldVisible(flightField, true);
-  const flightLbl = document.getElementById('flightNumberLabel');
-  if(flightLbl) flightLbl.textContent = cfg.flightLabel;
-  const flightInput = flightField.querySelector('input');
-  if(flightInput) flightInput.placeholder = cfg.flightPlaceholder || '';
-  if(originField){
-    setFieldVisible(originField, cfg.showOrigin);
-    if(cfg.showOrigin){
-      const originLbl = document.getElementById('originCityLabel');
-      if(originLbl) originLbl.textContent = cfg.originLabel || '';
-      const originInput = originField.querySelector('input');
-      if(originInput) originInput.placeholder = cfg.originPlaceholder || '';
+  if(flightField){
+    if(!pickupCfg){ setFieldVisible(flightField, false); setFieldVisible(originField, false); }
+    else{
+      setFieldVisible(flightField, true);
+      const flightLbl = document.getElementById('flightNumberLabel');
+      if(flightLbl) flightLbl.textContent = pickupCfg.flightLabel;
+      const flightInput = flightField.querySelector('input');
+      if(flightInput) flightInput.placeholder = pickupCfg.flightPlaceholder || '';
+      if(originField){
+        setFieldVisible(originField, pickupCfg.showOrigin);
+        if(pickupCfg.showOrigin){
+          const originLbl = document.getElementById('originCityLabel');
+          if(originLbl) originLbl.textContent = pickupCfg.originLabel || '';
+          const originInput = originField.querySelector('input');
+          if(originInput) originInput.placeholder = pickupCfg.originPlaceholder || '';
+        }
+      }
+    }
+  }
+  const dropoffCfg = DROPOFF_FIELD_CONFIGS[dropoffType];
+  const dropoffInfoField = document.getElementById('dropoffInfoField');
+  if(dropoffInfoField){
+    setFieldVisible(dropoffInfoField, !!dropoffCfg);
+    if(dropoffCfg){
+      const lbl = document.getElementById('dropoffInfoLabel');
+      if(lbl) lbl.textContent = dropoffCfg.label;
+      const inp = dropoffInfoField.querySelector('input');
+      if(inp) inp.placeholder = dropoffCfg.placeholder || '';
     }
   }
 }
@@ -984,6 +1003,7 @@ document.getElementById('checkoutForm').addEventListener('submit', async (e) => 
       pickuppoint: state.pickupLocation,
       dropoffpoint: state.dropoffLocation,
       flightNumber: (fd.get('flightNumber') || '').toString().trim(),
+      dropoffInfo: (fd.get('dropoffInfo') || '').toString().trim(),
       originCity,
       customerComments: [comments, uiSurchargeNote].filter(Boolean).join(' | '),
       customerData: {
