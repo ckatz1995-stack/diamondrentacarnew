@@ -674,20 +674,26 @@ const LOCATION_FIELD_CONFIGS = {
   hotel:   { flightLabel:'Όνομα Ξενοδοχείου', flightPlaceholder:'π.χ. Makedonia Palace', showOrigin:false },
   port:    { flightLabel:'Αρ. πλοίου / Δρομολόγιο', flightPlaceholder:'π.χ. F/B Aqua Blue', showOrigin:true, originLabel:'Λιμάνι άφιξης', originPlaceholder:'π.χ. Πειραιάς' }
 };
+function stripAccents(v){ try { return String(v||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim(); } catch(e){ return String(v||'').toLowerCase().trim(); } }
 function locationTypeFor(label){
+  const s = stripAccents(label);
+  if(!s) return 'both';
   const rows = Array.isArray(pricingCatalog?.pickupLocations) ? pricingCatalog.pickupLocations : [];
-  const target = normalizeKey(label);
-  if(!target) return 'both';
-  const hit = rows.find(row => normalizeKey(row?.label) === target || normalizeKey(row?.key) === target);
-  const catalogType = String(hit?.locationType || 'both').toLowerCase();
-  if(catalogType !== 'both') return catalogType;
-  const rowKey = normalizeKey(hit?.key || '');
-  if(/airport|aerodrom/.test(rowKey)) return 'airport';
-  if(/hotel/.test(rowKey)) return 'hotel';
-  if(/port|liman/.test(rowKey)) return 'port';
-  if(/αεροδρόμ|airport/i.test(label)) return 'airport';
-  if(/ξενοδοχ|hotel/i.test(label)) return 'hotel';
-  if(/λιμάν|λιμαν|port/i.test(label)) return 'port';
+  for(const row of rows){
+    const rl = stripAccents(row?.label);
+    const rk = String(row?.key || '').toLowerCase().trim();
+    if(rl === s || rk === s){
+      const t = String(row?.locationType || '').toLowerCase();
+      if(t === 'airport' || t === 'hotel' || t === 'port') return t;
+      if(rk.includes('hotel')) return 'hotel';
+      if(rk.includes('airport') || rk.includes('aerodrom')) return 'airport';
+      if(rk.includes('port') || rk.includes('liman')) return 'port';
+    }
+  }
+  if(s.includes('airport') || s.includes('aerodrom') || s.includes('αεροδρ')) return 'airport';
+  if(s.includes('hotel') || s.includes('ξενοδοχ')) return 'hotel';
+  if(s.includes('port') || s.includes('liman') || s.includes('λιμαν')) return 'port';
+  console.log('[location-fields] unknown type for:', JSON.stringify(label), '→ stripped:', JSON.stringify(s));
   return 'both';
 }
 function setFieldVisible(el, visible){
@@ -697,6 +703,7 @@ function setFieldVisible(el, visible){
 function updateLocationFields(){
   const pickupType = locationTypeFor(state.pickupLocation);
   const dropoffType = locationTypeFor(state.dropoffLocation);
+  console.log('[location-fields] pickup:', JSON.stringify(state.pickupLocation), '->', pickupType, '| dropoff:', JSON.stringify(state.dropoffLocation), '->', dropoffType);
   const effectiveType = (pickupType !== 'both' ? pickupType : null) || (dropoffType !== 'both' ? dropoffType : null) || 'both';
   const cfg = LOCATION_FIELD_CONFIGS[effectiveType];
   const flightField = document.getElementById('flightNumberField');
