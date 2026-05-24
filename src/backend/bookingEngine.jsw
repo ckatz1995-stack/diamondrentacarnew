@@ -1,7 +1,6 @@
 import wixData from 'wix-data';
 import wixUsersBackend from 'wix-users-backend';
 import { VAT_RATE } from 'backend/bookingConfig';
-import { sendTelegramNotification } from 'backend/telegramService.jsw';
 import { getPricingCatalog, getFallbackCatalogSnapshot, computeAutomaticFees, resolveDynamicPricingRate } from 'backend/pricingCatalog.jsw';
 import { buildPricingSnapshot } from 'backend/pricingSnapshot.js';
 import { computeBillableDaysDetailed } from 'backend/billableDays';
@@ -751,7 +750,6 @@ vehicleCategorySpecs: mapVehicleCategoryCatalogItem(vehicle).specs,
         });
 
         const inserted = await wixData.insert("BookingsNew", booking, { suppressAuth: true });
-        sendTelegramNotification(inserted).catch(() => {});
         return { success: true, bookingNumber: inserted.bookingNumber, _id: inserted._id };
 
     } catch (err) {
