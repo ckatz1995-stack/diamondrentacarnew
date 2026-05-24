@@ -670,16 +670,53 @@ function locationFeeFor(value, kind){
   return Number(hit?.extraFee || 0);
 }
 
-const LOCATION_FIELD_CONFIGS = {
+const LOCATION_FIELD_DEFAULTS = {
   airport: { flightLabel:'Αριθμός Πτήσης', flightPlaceholder:'π.χ. A3 224', showOrigin:true, originLabel:'Πόλη άφιξης', originPlaceholder:'π.χ. Αθήνα' },
   hotel:   { flightLabel:'Όνομα Ξενοδοχείου', flightPlaceholder:'π.χ. Makedonia Palace', showOrigin:false },
   port:    { flightLabel:'Αρ. πλοίου / Δρομολόγιο', flightPlaceholder:'π.χ. F/B Aqua Blue', showOrigin:true, originLabel:'Λιμάνι άφιξης', originPlaceholder:'π.χ. Πειραιάς' }
 };
-const DROPOFF_FIELD_CONFIGS = {
+const DROPOFF_FIELD_DEFAULTS = {
   airport: { label:'Πτήση Αναχώρησης', placeholder:'π.χ. A3 225' },
   hotel:   { label:'Ξενοδοχείο Επιστροφής', placeholder:'π.χ. Makedonia Palace' },
   port:    { label:'Αρ. πλοίου Αναχώρησης', placeholder:'π.χ. F/B Aqua Blue' }
 };
+function getCatalogRow(locationLabel){
+  const rows = Array.isArray(pricingCatalog?.pickupLocations) ? pricingCatalog.pickupLocations : [];
+  const s = stripAccents(locationLabel);
+  return rows.find(r => stripAccents(r?.label) === s || String(r?.key||'').toLowerCase().trim() === s) || null;
+}
+function getPickupFieldConfig(locationLabel){
+  const row = getCatalogRow(locationLabel);
+  const locType = locationTypeFor(locationLabel);
+  const def = LOCATION_FIELD_DEFAULTS[locType] || null;
+  const cmsLabel = String(row?.pickupInfoLabel || '').trim();
+  const cmsPlaceholder = String(row?.pickupInfoPlaceholder || '').trim();
+  const cmsOriginLabel = String(row?.originFieldLabel || '').trim();
+  const cmsOriginPlaceholder = String(row?.originFieldPlaceholder || '').trim();
+  const hasAnyCmsConfig = !!(cmsLabel || row?.pickupInfoLabel !== undefined);
+  if(!cmsLabel && !def) return null;
+  const showOrigin = row?.showOriginField !== null && row?.showOriginField !== undefined
+    ? !!row.showOriginField : (def?.showOrigin ?? false);
+  return {
+    flightLabel: cmsLabel || def?.flightLabel || '',
+    flightPlaceholder: cmsPlaceholder || def?.flightPlaceholder || '',
+    showOrigin,
+    originLabel: cmsOriginLabel || def?.originLabel || '',
+    originPlaceholder: cmsOriginPlaceholder || def?.originPlaceholder || ''
+  };
+}
+function getDropoffFieldConfig(locationLabel){
+  const row = getCatalogRow(locationLabel);
+  const locType = locationTypeFor(locationLabel);
+  const def = DROPOFF_FIELD_DEFAULTS[locType] || null;
+  const cmsLabel = String(row?.dropoffInfoLabel || '').trim();
+  const cmsPlaceholder = String(row?.dropoffInfoPlaceholder || '').trim();
+  if(!cmsLabel && !def) return null;
+  return {
+    label: cmsLabel || def?.label || '',
+    placeholder: cmsPlaceholder || def?.placeholder || ''
+  };
+}
 function stripAccents(v){ try { return String(v||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().trim(); } catch(e){ return String(v||'').toLowerCase().trim(); } }
 function locationTypeFor(label){
   const s = stripAccents(label);
@@ -699,7 +736,6 @@ function locationTypeFor(label){
   if(s.includes('airport') || s.includes('aerodrom') || s.includes('αεροδρ')) return 'airport';
   if(s.includes('hotel') || s.includes('ξενοδοχ')) return 'hotel';
   if(s.includes('port') || s.includes('liman') || s.includes('λιμαν')) return 'port';
-  console.log('[location-fields] unknown type for:', JSON.stringify(label), '→ stripped:', JSON.stringify(s));
   return 'both';
 }
 function setFieldVisible(el, visible){
@@ -707,10 +743,7 @@ function setFieldVisible(el, visible){
   el.style.display = visible ? '' : 'none';
 }
 function updateLocationFields(){
-  const pickupType = locationTypeFor(state.pickupLocation);
-  const dropoffType = locationTypeFor(state.dropoffLocation);
-  console.log('[location-fields] pickup:', JSON.stringify(state.pickupLocation), '->', pickupType, '| dropoff:', JSON.stringify(state.dropoffLocation), '->', dropoffType);
-  const pickupCfg = LOCATION_FIELD_CONFIGS[pickupType];
+  const pickupCfg = getPickupFieldConfig(state.pickupLocation);
   const flightField = document.getElementById('flightNumberField');
   const originField = document.getElementById('originCityField');
   if(flightField){
@@ -732,7 +765,7 @@ function updateLocationFields(){
       }
     }
   }
-  const dropoffCfg = DROPOFF_FIELD_CONFIGS[dropoffType];
+  const dropoffCfg = getDropoffFieldConfig(state.dropoffLocation);
   const dropoffInfoField = document.getElementById('dropoffInfoField');
   if(dropoffInfoField){
     setFieldVisible(dropoffInfoField, !!dropoffCfg);

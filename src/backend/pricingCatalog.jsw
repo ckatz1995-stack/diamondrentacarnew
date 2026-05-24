@@ -210,7 +210,14 @@ function normalizePickupLocation(item, fallbackSort = 9999){
     extraFee: toNumber(item?.extraFee ?? item?.fee ?? item?.price, 0),
     active: readBool(item?.active, true),
     publicVisible: readBool(item?.publicVisible, true),
-    sortOrder: toNumber(item?.sortOrder, fallbackSort)
+    sortOrder: toNumber(item?.sortOrder, fallbackSort),
+    pickupInfoLabel: text(item?.pickupInfoLabel, ''),
+    pickupInfoPlaceholder: text(item?.pickupInfoPlaceholder, ''),
+    showOriginField: (item?.showOriginField !== undefined && item?.showOriginField !== null) ? readBool(item.showOriginField, true) : null,
+    originFieldLabel: text(item?.originFieldLabel, ''),
+    originFieldPlaceholder: text(item?.originFieldPlaceholder, ''),
+    dropoffInfoLabel: text(item?.dropoffInfoLabel, ''),
+    dropoffInfoPlaceholder: text(item?.dropoffInfoPlaceholder, '')
   };
 }
 
