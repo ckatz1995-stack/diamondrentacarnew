@@ -3382,7 +3382,7 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
       if(kind === 'pickupLocation') {
         const scopeKey = String(state.locationStationScope || 'all');
         const activeStation = effectiveStationProfiles().find((row) => row.key === scopeKey) || effectiveStationProfiles()[0] || { key:'default', label:'Κεντρικός σταθμός' };
-        return { _id:'', key:'', label:'', description:'', locationType:'both', stationKey: activeStation.key || 'default', stationLabel: activeStation.label || 'Κεντρικός σταθμός', address:'', mapUrl:'', extraFee:0, sortOrder:9999, active:true, publicVisible:true };
+        return { _id:'', key:'', label:'', description:'', locationType:'both', stationKey: activeStation.key || 'default', stationLabel: activeStation.label || 'Κεντρικός σταθμός', address:'', mapUrl:'', extraFee:0, sortOrder:9999, active:true, publicVisible:true, pickupInfoLabel:'', pickupInfoPlaceholder:'', showOriginField:true, originFieldLabel:'', originFieldPlaceholder:'', dropoffInfoLabel:'', dropoffInfoPlaceholder:'' };
       }
       if(kind === 'pricingSeason') return { _id:'', key:'', label:'', description:'', startDate:'', endDate:'', priority:0, sortOrder:9999, repeatYearly:false, active:true, publicVisible:true };
       if(kind === 'categoryRateRule') return { _id:'', key:'', label:'', description:'', categoryCode:(vehicleCategoryRows()[0]?.category || ''), vehicleCategoryId:(vehicleCategoryRows()[0]?._id || ''), seasonKey:'', minDays:1, maxDays:3, pricePerDay:0, sortOrder:9999, active:true, publicVisible:true, rangePreset:'1_3' };
@@ -3555,6 +3555,13 @@ const WORKSPACE_HISTORY_KEY = 'diamond.backroom.history.v1';
           <div class="field col-4"><label>Map URL</label><input data-field="mapUrl" value="${esc(item.mapUrl || '')}" placeholder="https://maps.google.com/..." /></div>
           <div class="field col-12"><label>Address</label><input data-field="address" value="${esc(item.address || '')}" placeholder="Address / σημείο συνάντησης" /></div>
           <div class="field col-12"><label>Description</label><textarea data-field="description">${esc(item.description || '')}</textarea></div>
+          <div class="field col-6"><label>Label πεδίου παραλαβής (πτήση/πλοίο/ξενοδοχείο)</label><input data-field="pickupInfoLabel" value="${esc(item.pickupInfoLabel || '')}" placeholder="π.χ. Αριθμός Πτήσης" /></div>
+          <div class="field col-6"><label>Placeholder παραλαβής</label><input data-field="pickupInfoPlaceholder" value="${esc(item.pickupInfoPlaceholder || '')}" placeholder="π.χ. A3 224" /></div>
+          <div class="field col-4 switch"><input data-field="showOriginField" type="checkbox" ${item.showOriginField !== false ? 'checked' : ''} /><label>Εμφάνιση πεδίου πόλης προέλευσης</label></div>
+          <div class="field col-4"><label>Label πεδίου πόλης</label><input data-field="originFieldLabel" value="${esc(item.originFieldLabel || '')}" placeholder="π.χ. Πόλη άφιξης" /></div>
+          <div class="field col-4"><label>Placeholder πόλης</label><input data-field="originFieldPlaceholder" value="${esc(item.originFieldPlaceholder || '')}" placeholder="π.χ. Αθήνα" /></div>
+          <div class="field col-6"><label>Label πεδίου επιστροφής</label><input data-field="dropoffInfoLabel" value="${esc(item.dropoffInfoLabel || '')}" placeholder="π.χ. Πτήση Αναχώρησης" /></div>
+          <div class="field col-6"><label>Placeholder επιστροφής</label><input data-field="dropoffInfoPlaceholder" value="${esc(item.dropoffInfoPlaceholder || '')}" placeholder="π.χ. A3 225" /></div>
           <div class="field col-3 switch"><input data-field="active" type="checkbox" ${item.active !== false ? 'checked' : ''} /><label>Active</label></div>
           <div class="field col-3 switch"><input data-field="publicVisible" type="checkbox" ${item.publicVisible !== false ? 'checked' : ''} /><label>Public visible</label></div>
           <div class="field col-6"><label>Hint</label><input value="Σταθμός = group οργάνωσης (π.χ. airport / center). Location = συγκεκριμένο σημείο εξυπηρέτησης του σταθμού." readonly /></div>`;
