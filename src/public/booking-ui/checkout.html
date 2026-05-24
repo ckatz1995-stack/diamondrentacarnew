@@ -679,7 +679,16 @@ function locationTypeFor(label){
   const target = normalizeKey(label);
   if(!target) return 'both';
   const hit = rows.find(row => normalizeKey(row?.label) === target || normalizeKey(row?.key) === target);
-  return String(hit?.locationType || 'both').toLowerCase();
+  const catalogType = String(hit?.locationType || 'both').toLowerCase();
+  if(catalogType !== 'both') return catalogType;
+  if(/αεροδρόμ|airport|aerodrom/.test(target)) return 'airport';
+  if(/ξενοδοχε|hotel/.test(target)) return 'hotel';
+  if(/λιμαν|port|λιμένα/.test(target)) return 'port';
+  return 'both';
+}
+function setFieldVisible(el, visible){
+  if(!el) return;
+  el.style.display = visible ? '' : 'none';
 }
 function updateLocationFields(){
   const pickupType = locationTypeFor(state.pickupLocation);
@@ -689,14 +698,14 @@ function updateLocationFields(){
   const flightField = document.getElementById('flightNumberField');
   const originField = document.getElementById('originCityField');
   if(!flightField) return;
-  if(!cfg){ flightField.hidden = true; if(originField) originField.hidden = true; return; }
-  flightField.hidden = false;
+  if(!cfg){ setFieldVisible(flightField, false); setFieldVisible(originField, false); return; }
+  setFieldVisible(flightField, true);
   const flightLbl = document.getElementById('flightNumberLabel');
   if(flightLbl) flightLbl.textContent = cfg.flightLabel;
   const flightInput = flightField.querySelector('input');
   if(flightInput) flightInput.placeholder = cfg.flightPlaceholder || '';
   if(originField){
-    originField.hidden = !cfg.showOrigin;
+    setFieldVisible(originField, cfg.showOrigin);
     if(cfg.showOrigin){
       const originLbl = document.getElementById('originCityLabel');
       if(originLbl) originLbl.textContent = cfg.originLabel || '';
