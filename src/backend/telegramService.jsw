@@ -50,8 +50,10 @@ export async function sendTelegramNotification(booking) {
       `   ${formatDT(booking.dropoffDateTime)}`,
       `📅 ${booking.billableDays || 1} ημέρ${(booking.billableDays || 1) === 1 ? 'α' : 'ες'}`,
       '',
-      `💶 Σύνολο: <b>${Number(booking.totalPrice || 0).toFixed(2)} €</b>`,
+      `🛡️ Ασφάλιση: ${String(booking.selectedPackage || '—').toUpperCase()}`,
     ];
+    if (booking.extras) lines.push(`➕ Extras: ${booking.extras}`);
+    lines.push('', `💶 Σύνολο: <b>${Number(booking.totalPrice || 0).toFixed(2)} €</b>`);
     if (booking.flightNumber) lines.push(`✈️ Πτήση: ${booking.flightNumber}`);
     const res = await fetch(`https://api.telegram.org/bot${String(token).trim()}/sendMessage`, {
       method: 'POST',
