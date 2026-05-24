@@ -1,6 +1,5 @@
 import wixData from 'wix-data';
 import * as bookingConfig from 'backend/bookingConfig.js';
-import { requireStaffAccess } from 'backend/staffAccess.jsw';
 
 export const PRICING_COLLECTIONS = {
   businessSettings: 'BusinessSettings',
@@ -366,7 +365,3 @@ export function resolveDynamicPricingRate({ categoryCode = '', vehicleCategoryId
   };
 }
 
-export async function getStaffPricingCatalog({ authToken } = {}) {
-  await requireStaffAccess({ sessionToken: authToken, area: 'pricing', action: 'View' });
-  return getPricingCatalog({ scope: 'all' });
-}

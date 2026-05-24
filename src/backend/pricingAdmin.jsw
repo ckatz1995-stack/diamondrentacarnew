@@ -748,3 +748,8 @@ export async function exportPricingCatalogSnapshot({ authToken } = {}) {
   await ensurePricingSeeded();
   return getPricingCatalog({ scope: 'all', force: true });
 }
+
+export async function getStaffPricingCatalog({ authToken } = {}) {
+  await requireStaffAccess({ sessionToken: authToken, area: 'pricing', action: 'View' });
+  return getPricingCatalog({ scope: 'all' });
+}
