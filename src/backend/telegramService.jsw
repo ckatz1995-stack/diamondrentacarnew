@@ -53,10 +53,18 @@ export async function sendTelegramNotification(booking) {
       `💶 Σύνολο: <b>${Number(booking.totalPrice || 0).toFixed(2)} €</b>`,
     ];
     if (booking.flightNumber) lines.push(`✈️ Πτήση: ${booking.flightNumber}`);
-    await fetch(`https://api.telegram.org/bot${String(token).trim()}/sendMessage`, {
+    const res = await fetch(`https://api.telegram.org/bot${String(token).trim()}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: lines.join('\n'), parse_mode: 'HTML' })
     });
-  } catch (_) {}
+    const json = await res.json();
+    if (!json.ok) {
+      console.error('[telegram] sendMessage failed', JSON.stringify(json));
+    } else {
+      console.log('[telegram] sendMessage ok, message_id:', json.result?.message_id);
+    }
+  } catch (err) {
+    console.error('[telegram] sendTelegramNotification error', err?.message || String(err));
+  }
 }
