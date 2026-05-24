@@ -1,0 +1,62 @@
+import { fetch } from 'wix-fetch';
+import { getSecret } from 'wix-secrets-backend';
+
+const TELEGRAM_CHAT_ID = '1578329343';
+
+function formatDT(value) {
+  if (!value) return '—';
+  try {
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return String(value);
+    return d.toLocaleString('el-GR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Athens' });
+  } catch (_) { return String(value); }
+}
+
+export async function testTelegramNotification() {
+  const result = { secretFound: false, tokenLength: 0, apiStatus: null, apiResponse: null, error: null };
+  try {
+    const token = await getSecret('TELEGRAM_BOT_TOKEN');
+    result.secretFound = !!token;
+    result.tokenLength = token ? String(token).trim().length : 0;
+    if (!token) return result;
+    const res = await fetch(`https://api.telegram.org/bot${String(token).trim()}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: '✅ Test από Diamond Rent A Car — σύνδεση Telegram επιβεβαιώθηκε!' })
+    });
+    result.apiStatus = res.status;
+    result.apiResponse = await res.json();
+  } catch (err) {
+    result.error = err.message || String(err);
+  }
+  return result;
+}
+
+export async function sendTelegramNotification(booking) {
+  try {
+    const token = await getSecret('TELEGRAM_BOT_TOKEN');
+    if (!token) return;
+    const lines = [
+      '🚗 <b>Νέα Κράτηση!</b>',
+      '',
+      `📋 <b>${booking.bookingNumber || '—'}</b>`,
+      `👤 ${booking.customerName || '—'}  📞 ${booking.phone || '—'}`,
+      `📧 ${booking.email || '—'}`,
+      '',
+      `🚙 ${booking.vehicleCategoryName || booking.category || '—'}`,
+      `📍 Παραλαβή: ${booking.pickuppoint || '—'}`,
+      `   ${formatDT(booking.pickupDateTime)}`,
+      `📍 Επιστροφή: ${booking.dropoffpoint || '—'}`,
+      `   ${formatDT(booking.dropoffDateTime)}`,
+      `📅 ${booking.billableDays || 1} ημέρ${(booking.billableDays || 1) === 1 ? 'α' : 'ες'}`,
+      '',
+      `💶 Σύνολο: <b>${Number(booking.totalPrice || 0).toFixed(2)} €</b>`,
+    ];
+    if (booking.flightNumber) lines.push(`✈️ Πτήση: ${booking.flightNumber}`);
+    await fetch(`https://api.telegram.org/bot${String(token).trim()}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: lines.join('\n'), parse_mode: 'HTML' })
+    });
+  } catch (_) {}
+}
