@@ -32,10 +32,29 @@ body{overflow-x:hidden}
 .footer-bottom{padding:0 22px 20px;color:rgba(255,255,255,.74);font-size:13px;font-weight:700}
 @media (max-width:760px){.footer{border-radius:22px}.footer-grid{grid-template-columns:1fr;padding:18px}.footer-bottom{padding:0 18px 18px}}
 
+/* ── HEADER: Dark teal ── */
+.site-header{background:linear-gradient(180deg,rgba(26,50,60,.97),rgba(20,40,48,.99))!important;border-bottom:1px solid rgba(231,191,105,.16)!important;box-shadow:0 4px 24px rgba(0,0,0,.28)!important}
+.brand-logo-mark{width:40px;height:40px;border-radius:12px;flex-shrink:0;background:linear-gradient(135deg,#e7bf69,#f6e19f);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:900;color:#3a2c16;box-shadow:0 4px 12px rgba(0,0,0,.22)}
+.header-nav a{background:rgba(255,255,255,.07)!important;border:1px solid rgba(255,255,255,.09)!important;transition:background .16s ease,border-color .16s ease,color .16s ease}
+.header-nav a:hover{background:rgba(231,191,105,.16)!important;border-color:rgba(231,191,105,.28)!important;color:#f6e19f!important}
+.header-phone{background:linear-gradient(135deg,#e7bf69,#f6e19f)!important;color:#2a1e0a!important;font-weight:900!important;box-shadow:0 6px 16px rgba(0,0,0,.22)!important}
+/* ── FOOTER: Deep dark ── */
+.footer{background:linear-gradient(160deg,rgba(20,40,48,.99) 0%,rgba(14,30,36,1) 100%)!important;border:1px solid rgba(231,191,105,.12)!important;border-top:3px solid rgba(231,191,105,.28)!important;box-shadow:0 -4px 40px rgba(0,0,0,.22)!important}
+.footer-logo-mark{width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,#e7bf69,#f6e19f);display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:900;color:#3a2c16;margin-bottom:10px;box-shadow:0 8px 20px rgba(0,0,0,.28)}
+.footer-brand{color:#fff!important}
+.footer-col h5{font-size:11px!important;letter-spacing:.18em!important;color:#e7bf69!important;margin-bottom:14px!important;padding-bottom:10px!important;border-bottom:1px solid rgba(231,191,105,.18)!important}
+.footer-col a,.footer-col p{color:rgba(255,255,255,.78)!important;font-size:14px!important}
+.footer-col a:hover{color:#f6e19f!important}
+.footer-divider{margin:0 26px;border:0;border-top:1px solid rgba(255,255,255,.08)}
+.footer-bottom{font-size:12.5px!important;color:rgba(255,255,255,.52)!important;display:flex!important;align-items:center!important;justify-content:space-between!important;flex-wrap:wrap!important;gap:8px!important;padding:16px 26px 22px!important}
+.footer-bottom-links{display:flex;gap:16px}
+.footer-bottom-links a{color:rgba(255,255,255,.52);font-size:12.5px;font-weight:700;text-decoration:none}
+.footer-bottom-links a:hover{color:#f6e19f}
+
 </style>
 </head>
 <body>
-<header class="site-header"><div class="header-inner"><a class="brand" href="/"><div class="brand-mark">D</div><div class="brand-text"><strong>DIAMOND Rent A Car</strong><span>Thessaloniki</span></div></a><nav class="header-nav"><a href="/">Αρχική</a><a href="/categories">Οχήματα</a><a href="/options">Extras</a><a href="/rental-terms">Όροι ενοικίασης</a><a href="/booking">Ολοκλήρωση</a></nav><a class="header-phone" href="tel:+302310000000">+30 2310 000 000</a></div></header>
+<header class="site-header"><div class="header-inner"><a class="brand" href="/"><div class="brand-logo-mark">◆</div><div class="brand-text"><strong>DIAMOND Rent A Car</strong><span>Thessaloniki</span></div></a><nav class="header-nav"><a href="/">Αρχική</a><a href="/categories">Οχήματα</a><a href="/options">Extras</a><a href="/rental-terms">Όροι ενοικίασης</a><a href="/booking">Ολοκλήρωση</a></nav><a class="header-phone" href="tel:+302310000000">+30 2310 000 000</a></div></header>
 <div class="page"><div class="wrap">
 <section class="hero"><div><span class="kicker">Η κράτηση στάλθηκε</span><h1>Το αίτημά σου καταχωρήθηκε επιτυχώς</h1><p>Η ομάδα της DIAMOND Rent A Car έλαβε το αίτημά σου και θα ακολουθήσει επιβεβαίωση διαθεσιμότητας και τελική επικοινωνία. Κράτησε τον αριθμό κράτησης για κάθε αναφορά.</p></div><div class="side-card"><div><h3>Αριθμός κράτησης</h3><div class="muted">Αποθήκευσε τον κωδικό σου. Θα τον χρειαστείς για επιβεβαίωση, αλλαγές ή οποιαδήποτε επικοινωνία με την ομάδα μας.</div></div><div class="big" id="sideBookingNo">—</div></div></section>
 <section class="summary"><div class="summary-grid"><div class="vehicle-card"><div class="vehicle-shot"><img id="vehicleImage" alt="Όχημα"/></div><div class="vehicle-title" id="vehicleName">Κατηγορία οχήματος</div><div class="vehicle-sub" id="vehicleLabel">ή παρόμοιο</div></div><div class="info-card"><div class="info-grid"><div class="mini"><span class="k">Παραλαβή</span><span class="v" id="pickupText">—</span></div><div class="mini"><span class="k">Επιστροφή</span><span class="v" id="dropoffText">—</span></div><div class="mini"><span class="k">Διάρκεια</span><span class="v" id="durationText">—</span></div><div class="mini"><span class="k">Ασφάλεια</span><span class="v" id="insuranceText">—</span></div><div class="mini"><span class="k">Extras</span><span class="v" id="extrasText">Χωρίς extras</span></div></div><div class="line"><span>Βασική χρέωση</span><strong id="baseCost">—</strong></div><div class="line" id="insuranceRow"><span>Ασφάλεια</span><strong id="insuranceCost">—</strong></div><div class="line" id="extrasRow"><span>Extras</span><strong id="extrasCost">—</strong></div><div class="line" id="locationFeeRow" hidden><span id="locationFeeLabel">Χρέωση τοποθεσιών</span><strong id="locationFeeCost">—</strong></div><div class="line" id="ageFeeRow" hidden><span id="ageFeeLabel">Επασφάλιστρο ηλικίας</span><strong id="ageFeeCost">—</strong></div><div class="line" id="nightFeeRow" hidden><span id="nightFeeLabel">Νυχτερινή χρέωση</span><strong id="nightFeeCost">—</strong></div><div class="total"><span>Τελικό σύνολο</span><strong id="grandTotal">—</strong></div></div></div></section>
@@ -45,6 +64,7 @@ body{overflow-x:hidden}
 <footer class="footer">
   <div class="footer-grid">
     <div class="footer-brand">
+      <div class="footer-logo-mark">◆</div>
       <strong>DIAMOND<br>Rent A Car</strong>
       <span>Thessaloniki</span>
       <p>Επαγγελματική εμπειρία ενοικίασης οχήματος με καθαρή ροή κράτησης, ξεκάθαρη τιμολόγηση και προσωπική επιβεβαίωση πριν την τελική ολοκλήρωση.</p>
@@ -52,7 +72,7 @@ body{overflow-x:hidden}
     <div class="footer-col">
       <h5>Υπηρεσίες</h5>
       <a href="/categories">Επιλογή οχήματος</a>
-      <a href="/options">Ασφάλειες & extras</a>
+      <a href="/options">Ασφάλειες &amp; extras</a>
       <a href="/booking">Ολοκλήρωση κράτησης</a>
     </div>
     <div class="footer-col">
@@ -62,7 +82,14 @@ body{overflow-x:hidden}
       <p>Θεσσαλονίκη, Ελλάδα</p>
     </div>
   </div>
-  <div class="footer-bottom">© DIAMOND Rent A Car · Thessaloniki · Όλα τα δικαιώματα διατηρούνται.</div>
+  <hr class="footer-divider">
+  <div class="footer-bottom">
+    <span>© DIAMOND Rent A Car · Thessaloniki · Όλα τα δικαιώματα διατηρούνται.</span>
+    <div class="footer-bottom-links">
+      <a href="/rental-terms">Όροι ενοικίασης</a>
+      <a href="/">Αρχική</a>
+    </div>
+  </div>
 </footer>
 
 <script>
@@ -153,8 +180,8 @@ function applyBusinessIdentity(){
   if (footerBrandSpan) footerBrandSpan.textContent = companyCity;
   const footerAddress = document.querySelector('.footer-col:last-child p');
   if (footerAddress) footerAddress.textContent = companyAddress;
-  const footerBottom = document.querySelector('.footer-bottom');
-  if (footerBottom) footerBottom.textContent = `© ${companyName} · ${companyCity} · ${footerNote}`;
+  const footerBottomSpan = document.querySelector('.footer-bottom > span');
+  if (footerBottomSpan) footerBottomSpan.textContent = `© ${companyName} · ${companyCity} · ${footerNote}`;
   const introTagline = document.querySelector('.intro-tagline');
   if (introTagline && companyTagline) introTagline.textContent = companyTagline;
 }
