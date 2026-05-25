@@ -1418,6 +1418,117 @@ html,body{background:radial-gradient(ellipse at 25% -5%,rgba(215,170,50,.28),tra
 /* Footer brand text */
 .footer-brand strong{font-size:22px!important}
 
+
+/* ══ HOMEPAGE DESIGN ══ */
+
+/* Card icons: single-letter filled circles */
+.card-icon{
+  width:46px!important;height:46px!important;border-radius:50%!important;
+  font-size:17px!important;font-weight:900!important;letter-spacing:0!important;
+  font-family:inherit!important;color:#fff!important;
+  background:rgba(26,50,60,.72)!important;border:none!important;padding:0!important;
+  display:flex!important;align-items:center!important;justify-content:center!important;
+  margin-bottom:16px!important;
+}
+.section-card:not(.section-dark) .card-icon{background:rgba(160,110,35,.65)!important;color:#fff!important}
+
+/* Company point numbers: large editorial ghost numerals */
+.point-num{
+  font-size:52px!important;font-weight:900!important;letter-spacing:-.06em!important;
+  color:rgba(231,191,105,.18)!important;display:block!important;
+  font-family:inherit!important;background:none!important;border:none!important;
+  padding:0!important;margin-bottom:0!important;line-height:.88!important;
+}
+.point{
+  border-left:none!important;border-top:1px solid rgba(255,255,255,.10)!important;
+  border-radius:16px!important;padding:18px 16px 16px!important;
+}
+.point strong{font-size:14px!important;margin-top:6px!important;display:block!important}
+
+/* Company section: larger heading */
+.section-dark .section-head h3{
+  font-size:clamp(30px,4vw,54px)!important;line-height:.95!important;
+  letter-spacing:-.055em!important;
+}
+
+/* Side notes in company: gold top accent */
+.side-note{
+  border-top:2px solid rgba(231,191,105,.22)!important;
+  border-radius:0 0 18px 18px!important;
+  padding-top:16px!important;
+}
+.section-dark .side-note{background:rgba(255,255,255,.04)!important;border-left:none!important}
+
+/* Process steps: numbered timeline style */
+.process-step{
+  border-top:2px solid rgba(231,191,105,.22)!important;
+  border-radius:0 0 18px 18px!important;
+  padding-top:20px!important;
+}
+.process-step .num{
+  width:42px!important;height:42px!important;border-radius:10px!important;
+  font-size:18px!important;font-weight:900!important;
+  background:linear-gradient(135deg,#c88a35,#e0a848)!important;
+  color:#1a0e04!important;
+}
+.process-step h4{font-size:15px!important;font-weight:800!important;margin-bottom:5px!important}
+.process-step p{font-size:13px!important;line-height:1.55!important;color:rgba(255,255,255,.65)!important}
+
+/* Fleet cards: top accent bar on hover */
+.fleet-cat{
+  position:relative!important;overflow:hidden!important;
+  transition:.25s!important;
+}
+.fleet-cat::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:3px;
+  background:linear-gradient(90deg,transparent,rgba(160,110,35,.6),transparent);
+  transform:scaleX(0);transition:.3s;transform-origin:center;
+}
+.fleet-cat:hover::before{transform:scaleX(1)!important}
+.fleet-cat:hover{transform:translateY(-5px)!important;box-shadow:0 16px 40px rgba(90,48,0,.22)!important}
+
+/* Booking form: visual separator between pickup and dropoff rows */
+.booking-card .grid+.grid{
+  padding-top:14px;
+  border-top:1px solid rgba(100,65,20,.12);
+  margin-top:2px;
+}
+
+/* Service card: remove padding squish, clean layout */
+.service-card{display:flex!important;flex-direction:column!important;padding:22px!important}
+
+/* Reviews: large quote mark */
+.review-card{position:relative!important;overflow:hidden!important}
+.review-card::before{
+  content:'"';
+  position:absolute;top:-8px;right:14px;
+  font-size:80px;font-weight:900;line-height:1;
+  color:rgba(160,110,35,.10);
+  font-family:Georgia,serif;
+  pointer-events:none;
+}
+
+/* Section kicker pill */
+.section-kicker{
+  display:inline-flex!important;align-items:center!important;
+  background:rgba(160,110,35,.12)!important;
+  border:1px solid rgba(160,110,35,.22)!important;
+  border-radius:99px!important;padding:4px 13px!important;
+  font-size:10.5px!important;font-weight:900!important;letter-spacing:.16em!important;
+  color:#a07828!important;
+}
+.section-dark .section-kicker{
+  background:rgba(231,191,105,.10)!important;
+  border-color:rgba(231,191,105,.20)!important;
+  color:rgba(231,191,105,.85)!important;
+}
+.section-dark .section-kicker::before{display:none!important}
+
+@media(max-width:860px){
+  .process-step .num{width:36px!important;height:36px!important;font-size:15px!important}
+  .point-num{font-size:36px!important}
+}
+
 </style>
 </head>
 <body>
@@ -1642,9 +1753,9 @@ html,body{background:radial-gradient(ellipse at 25% -5%,rgba(215,170,50,.28),tra
         <p>Υπηρεσίες σχεδιασμένες για ταξιδιώτες, επαγγελματικές μετακινήσεις και καθημερινή ευελιξία μέσα και γύρω από τη Θεσσαλονίκη.</p>
       </div>
       <div class="services-grid">
-        <div class="service-card"><div class="card-icon">AIR</div><h4>Παραλαβή από αεροδρόμιο</h4><p>Οργάνωση παραλαβής και επιστροφής για αφίξεις και αναχωρήσεις από το αεροδρόμιο Μακεδονία.</p></div>
-        <div class="service-card"><div class="card-icon">EXT</div><h4>Κάλυψη &amp; extras</h4><p>Επιλογές ασφαλιστικής κάλυψης, παιδικά καθίσματα, πρόσθετες υπηρεσίες και εξατομίκευση του αιτήματος.</p></div>
-        <div class="service-card"><div class="card-icon">B2B</div><h4>Ιδιωτικές &amp; εταιρικές κρατήσεις</h4><p>Ευέλικτη διαχείριση για προσωπικά ταξίδια, επαγγελματικές μετακινήσεις και επαναλαμβανόμενα αιτήματα.</p></div>
+        <div class="service-card"><div class="card-icon">A</div><h4>Παραλαβή από αεροδρόμιο</h4><p>Οργάνωση παραλαβής και επιστροφής για αφίξεις και αναχωρήσεις από το αεροδρόμιο Μακεδονία.</p></div>
+        <div class="service-card"><div class="card-icon">+</div><h4>Κάλυψη &amp; extras</h4><p>Επιλογές ασφαλιστικής κάλυψης, παιδικά καθίσματα, πρόσθετες υπηρεσίες και εξατομίκευση του αιτήματος.</p></div>
+        <div class="service-card"><div class="card-icon">B</div><h4>Ιδιωτικές &amp; εταιρικές κρατήσεις</h4><p>Ευέλικτη διαχείριση για προσωπικά ταξίδια, επαγγελματικές μετακινήσεις και επαναλαμβανόμενα αιτήματα.</p></div>
       </div>
     </section>
 
@@ -1671,12 +1782,12 @@ html,body{background:radial-gradient(ellipse at 25% -5%,rgba(215,170,50,.28),tra
         <p>Η παραλαβή και η επιστροφή μπορούν να οργανωθούν στα βασικά σημεία που έχεις ήδη στη φόρμα αναζήτησης, με συνεννόηση και επιβεβαίωση από την ομάδα μας.</p>
       </div>
       <div class="services-grid">
-        <div class="service-card"><div class="card-icon">AIR</div><h4>Αεροδρόμιο Μακεδονία</h4><p>Ιδανική επιλογή για αφίξεις και αναχωρήσεις με γρήγορη εξυπηρέτηση αμέσως μετά την πτήση σου.</p></div>
-        <div class="service-card"><div class="card-icon">CTR</div><h4>Κέντρο Θεσσαλονίκης</h4><p>Εξυπηρέτηση για πελάτες που μένουν ή κινούνται στο κέντρο και θέλουν πιο πρακτική παραλαβή ή επιστροφή.</p></div>
-        <div class="service-card"><div class="card-icon">PORT</div><h4>Λιμάνι Θεσσαλονίκης</h4><p>Κατάλληλο σημείο για ταξιδιώτες ή επαγγελματικές μετακινήσεις με πρόσβαση στην παραλιακή ζώνη της πόλης.</p></div>
-        <div class="service-card"><div class="card-icon">HTL</div><h4>Ξενοδοχείο</h4><p>Παραλαβή ή επιστροφή στο ξενοδοχείο σου, όπου αυτό είναι εφικτό και έχει προηγηθεί συνεννόηση για την κράτηση.</p></div>
-        <div class="service-card"><div class="card-icon">RAIL</div><h4>Σταθμός ΟΣΕ</h4><p>Χρήσιμη επιλογή για αφίξεις με τρένο ή για πελάτες που θέλουν συντονισμένη εξυπηρέτηση κοντά στον σταθμό.</p></div>
-        <div class="service-card"><div class="card-icon">TEL</div><h4>Κατόπιν συνεννόησης</h4><p>Για ειδικά αιτήματα παραλαβής ή επιστροφής, η ομάδα μας εξετάζει τη διαθεσιμότητα και σου επιβεβαιώνει την καλύτερη λύση.</p></div>
+        <div class="service-card"><div class="card-icon">A</div><h4>Αεροδρόμιο Μακεδονία</h4><p>Ιδανική επιλογή για αφίξεις και αναχωρήσεις με γρήγορη εξυπηρέτηση αμέσως μετά την πτήση σου.</p></div>
+        <div class="service-card"><div class="card-icon">C</div><h4>Κέντρο Θεσσαλονίκης</h4><p>Εξυπηρέτηση για πελάτες που μένουν ή κινούνται στο κέντρο και θέλουν πιο πρακτική παραλαβή ή επιστροφή.</p></div>
+        <div class="service-card"><div class="card-icon">P</div><h4>Λιμάνι Θεσσαλονίκης</h4><p>Κατάλληλο σημείο για ταξιδιώτες ή επαγγελματικές μετακινήσεις με πρόσβαση στην παραλιακή ζώνη της πόλης.</p></div>
+        <div class="service-card"><div class="card-icon">H</div><h4>Ξενοδοχείο</h4><p>Παραλαβή ή επιστροφή στο ξενοδοχείο σου, όπου αυτό είναι εφικτό και έχει προηγηθεί συνεννόηση για την κράτηση.</p></div>
+        <div class="service-card"><div class="card-icon">R</div><h4>Σταθμός ΟΣΕ</h4><p>Χρήσιμη επιλογή για αφίξεις με τρένο ή για πελάτες που θέλουν συντονισμένη εξυπηρέτηση κοντά στον σταθμό.</p></div>
+        <div class="service-card"><div class="card-icon">T</div><h4>Κατόπιν συνεννόησης</h4><p>Για ειδικά αιτήματα παραλαβής ή επιστροφής, η ομάδα μας εξετάζει τη διαθεσιμότητα και σου επιβεβαιώνει την καλύτερη λύση.</p></div>
       </div>
 
     <section class="section-card">
