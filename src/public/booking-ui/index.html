@@ -1260,6 +1260,82 @@ html,body{background:radial-gradient(ellipse at 25% -5%,rgba(215,170,50,.28),tra
   .fleet-grid{grid-template-columns:1fr 1fr}
 }
 
+
+/* ── LAYOUT & UI IMPROVEMENTS ── */
+
+/* Hero 2-col layout: intro left, booking form right */
+@media(min-width:861px){
+  .hero-inner{display:grid!important;grid-template-columns:1fr 1.22fr!important;grid-template-rows:auto 1fr!important;padding:56px 48px 44px!important;gap:0 52px!important;flex-direction:unset!important;align-items:unset!important}
+  .intro-wrap,.booking-wrap{width:auto!important}
+  .intro-wrap{grid-column:1!important;grid-row:1/3!important;margin-top:0!important;align-self:center!important}
+  .intro-copy{max-width:none!important}
+  .hero-gap{display:none!important}
+  .booking-title{grid-column:2!important;grid-row:1!important;margin:0 0 10px!important;text-align:left!important;background:transparent!important;border:none!important;backdrop-filter:none!important;box-shadow:none!important;padding:0!important;pointer-events:auto!important;width:auto!important}
+  .booking-title h2{font-size:clamp(18px,2vw,28px)!important;text-align:left!important}
+  .booking-wrap{grid-column:2!important;grid-row:2!important;margin-bottom:0!important}
+}
+.hero-gap{height:80px!important}
+
+/* Section headings — more impact */
+.section-head{padding:38px 38px 0!important}
+.section-head h3{font-size:clamp(26px,2.8vw,42px)!important;line-height:1!important;margin-bottom:14px!important;letter-spacing:-.05em!important}
+.section-head p{font-size:15.5px!important;line-height:1.65!important;max-width:680px}
+
+/* Service cards — bigger icon, better space */
+.services-grid{padding:28px 38px 38px!important;gap:18px!important}
+.service-card{padding:24px 22px!important;border-radius:22px!important;display:flex!important;flex-direction:column!important}
+.card-icon{width:56px!important;height:56px!important;border-radius:16px!important;display:flex!important;align-items:center!important;justify-content:center!important;font-size:26px!important;margin-bottom:14px!important;flex-shrink:0!important}
+.service-card h4{font-size:17px!important;font-weight:800!important;letter-spacing:-.025em!important;line-height:1.2!important;margin:0 0 8px!important}
+.service-card p{font-size:14px!important;line-height:1.6!important;margin:0!important}
+
+/* Process steps — vertical feature cards (num at top, title, text) */
+.process-list{padding:28px 38px 38px!important;gap:18px!important}
+.process-step{display:flex!important;flex-direction:column!important;gap:12px!important;padding:24px 22px!important;border-radius:22px!important;align-items:flex-start!important;grid-template-columns:unset!important}
+.process-step .num{width:46px!important;height:46px!important;border-radius:12px!important;font-size:19px!important;flex-shrink:0!important}
+.process-step h4{font-size:16px!important;font-weight:800!important;letter-spacing:-.02em!important;margin:0 0 6px!important}
+.process-step p{font-size:13.5px!important;line-height:1.58!important;margin:0!important}
+
+/* Company section — more breathing room */
+.company-grid{padding:28px 38px 38px!important;gap:28px!important}
+.company-points{gap:14px!important}
+.point{padding:18px 16px!important;border-radius:20px!important}
+.point strong{font-size:15px!important;letter-spacing:-.01em!important;margin-bottom:5px!important}
+.point span{font-size:13.5px!important}
+.side-note{padding:22px!important;border-radius:22px!important}
+.side-note h4{font-size:17px!important;letter-spacing:-.02em!important;margin-bottom:9px!important}
+.side-note p{font-size:14px!important}
+
+/* Search button → amber gold (matches the warm theme) */
+.btn{background:linear-gradient(135deg,#c88a35,#e0a848)!important;color:#1a0e04!important;font-weight:900!important;box-shadow:0 8px 24px rgba(160,90,0,.26)!important;height:58px!important}
+.btn:hover{filter:brightness(1.06)!important;transform:translateY(-2px)!important}
+
+/* Booking card tighter fields */
+.booking-card{padding:24px 22px 20px!important}
+.field input,.field select{height:50px!important;border-radius:14px!important;font-size:15.5px!important}
+.field label{font-size:11.5px!important;letter-spacing:.11em!important}
+
+/* Stats — bigger numbers */
+.stat-icon{font-size:22px!important}
+.stat-value{font-size:clamp(30px,3.5vw,44px)!important}
+.stat-label{font-size:12.5px!important}
+
+/* Fleet section alignment with updated padding */
+.fleet-section{padding:38px 38px 32px!important}
+.fleet-grid{gap:18px!important;margin-top:28px!important}
+.fleet-cat{padding:28px 20px 24px!important}
+.fleet-link-wrap{margin-top:28px!important}
+
+/* Reviews alignment */
+.reviews-grid{gap:22px!important;margin-top:28px!important}
+.review-card{padding:24px 22px!important}
+
+@media(max-width:860px){
+  .hero-inner{padding:28px 20px 20px!important}
+  .section-head{padding:26px 22px 0!important}
+  .services-grid,.process-list,.company-grid{padding:20px 22px 26px!important}
+  .fleet-section{padding:26px 22px 22px!important}
+}
+
 </style>
 </head>
 <body>
