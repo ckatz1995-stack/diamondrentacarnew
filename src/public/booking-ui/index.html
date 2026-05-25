@@ -1215,6 +1215,51 @@ html,body{background:radial-gradient(ellipse at 30% 0%,rgba(180,120,30,.13),tran
 /* ── WARM AMBER BODY ── */
 html,body{background:radial-gradient(ellipse at 25% -5%,rgba(215,170,50,.28),transparent 50%),linear-gradient(155deg,#c8a438 0%,#b88a28 55%,#a07820 100%)!important}
 .section-card:not(.section-dark){box-shadow:0 10px 36px rgba(90,48,0,.18),0 3px 10px rgba(65,30,0,.12),inset 0 1px 0 rgba(255,235,155,.22)!important}
+
+/* ── STRUCTURAL IMPROVEMENTS ── */
+
+/* Hero editorial serif subtitle */
+.hero-editorial{font-family:Georgia,'Times New Roman',serif;font-size:clamp(18px,1.8vw,26px);font-style:italic;color:rgba(255,255,255,.90);margin:14px 0 0;line-height:1.38;font-weight:400;letter-spacing:-.01em;text-shadow:0 4px 12px rgba(0,0,0,.22)}
+
+/* Fleet category preview */
+.fleet-section{padding:32px 32px 28px}
+.fleet-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:24px}
+.fleet-cat{border-radius:18px;padding:26px 18px 22px;text-align:center;cursor:pointer;transition:.22s;background:rgba(160,110,35,.08);border:1px solid rgba(160,110,35,.16)}
+.fleet-cat:hover{background:rgba(160,110,35,.16);transform:translateY(-4px);box-shadow:0 12px 32px rgba(90,48,0,.16)}
+.fleet-icon{font-size:38px;line-height:1;margin-bottom:12px;display:block}
+.fleet-cat h4{font-size:16px;font-weight:800;color:#1c1408;margin:0 0 5px;letter-spacing:-.02em}
+.fleet-cat p{font-size:13px;color:#7a5e38;margin:0 0 12px;line-height:1.4}
+.fleet-tag{display:inline-block;background:rgba(160,110,35,.14);color:#a07828;font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;padding:3px 11px;border-radius:99px;border:1px solid rgba(160,110,35,.22)}
+.fleet-link-wrap{text-align:center;margin-top:26px}
+.fleet-all-btn{display:inline-block;padding:13px 34px;background:linear-gradient(135deg,#c88a35,#e0a848);color:#1a0e04;font-weight:800;font-size:15px;border-radius:13px;text-decoration:none;border:none;cursor:pointer;transition:.2s}
+.fleet-all-btn:hover{filter:brightness(1.06);transform:translateY(-1px)}
+
+/* Reviews section */
+.reviews-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:24px}
+.review-card{border-radius:14px;padding:22px 20px 20px;background:rgba(160,110,35,.06);border:1px solid rgba(160,110,35,.14)}
+.review-stars{color:#c88a35;font-size:17px;letter-spacing:2px;margin-bottom:11px}
+.review-text{color:#4a3820;font-size:14px;line-height:1.65;margin:0 0 14px;font-style:italic}
+.reviewer-name{color:#a07828;font-size:11.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase}
+
+/* CTA strip before footer */
+.cta-strip{background:rgba(26,50,60,.97);border-radius:24px;padding:44px 48px;display:flex;align-items:center;justify-content:space-between;gap:32px;margin:0 0 24px;border:1px solid rgba(255,255,255,.10)}
+.cta-strip-copy h2{font-size:clamp(22px,2.4vw,32px);font-weight:900;color:#fff;margin:0 0 8px;letter-spacing:-.03em}
+.cta-strip-copy p{color:rgba(255,255,255,.68);margin:0;font-size:15px;line-height:1.5}
+.cta-strip-btn{flex-shrink:0;background:linear-gradient(135deg,#c88a35,#e0a848);color:#1a0e04;font-weight:900;font-size:17px;padding:18px 40px;border-radius:15px;text-decoration:none;white-space:nowrap;border:none;cursor:pointer;transition:.2s;display:inline-block}
+.cta-strip-btn:hover{filter:brightness(1.07);transform:translateY(-1px)}
+
+/* Stats bar icon */
+.stat-icon{font-size:22px;display:block;margin-bottom:4px}
+
+@media(max-width:900px){
+  .fleet-grid{grid-template-columns:repeat(2,1fr)}
+  .reviews-grid{grid-template-columns:1fr}
+  .cta-strip{flex-direction:column;text-align:center;padding:32px 24px}
+}
+@media(max-width:520px){
+  .fleet-grid{grid-template-columns:1fr 1fr}
+}
+
 </style>
 </head>
 <body>
@@ -1246,6 +1291,7 @@ html,body{background:radial-gradient(ellipse at 25% -5%,rgba(215,170,50,.28),tra
               <div class="wordmark-copy">
                 <h1>DIAMOND <span>Rent A Car</span></h1>
                 <span class="sub">CAR RENTAL COMPANY · THESSALONIKI</span>
+              <div class="hero-editorial">Οδήγησε τη Βόρεια Ελλάδα, <em>με τον τρόπο σου.</em></div>
               </div>
             </div>
             <div class="intro-tagline">Ενοικίαση οχήματος στη Θεσσαλονίκη με καθαρή διαδικασία και γρήγορη επιβεβαίωση από την ομάδα μας.</div>
@@ -1358,11 +1404,48 @@ html,body{background:radial-gradient(ellipse at 25% -5%,rgba(215,170,50,.28),tra
   </section>
 
   <div class="stats-bar">
-    <div class="stat-item"><span class="stat-value">5+</span><span class="stat-label">Χρόνια<br>στη Θεσσαλονίκη</span></div>
-    <div class="stat-item"><span class="stat-value">50+</span><span class="stat-label">Διαθέσιμα<br>Οχήματα</span></div>
-    <div class="stat-item"><span class="stat-value">6</span><span class="stat-label">Σημεία<br>Εξυπηρέτησης</span></div>
-    <div class="stat-item"><span class="stat-value">24/7</span><span class="stat-label">Υποστήριξη<br>Κρατήσεων</span></div>
+    <div class="stat-item"><span class="stat-icon">🏆</span><span class="stat-value">5+</span><span class="stat-label">Χρόνια<br>στη Θεσσαλονίκη</span></div>
+    <div class="stat-item"><span class="stat-icon">🚗</span><span class="stat-value">50+</span><span class="stat-label">Διαθέσιμα<br>Οχήματα</span></div>
+    <div class="stat-item"><span class="stat-icon">📍</span><span class="stat-value">6</span><span class="stat-label">Σημεία<br>Εξυπηρέτησης</span></div>
+    <div class="stat-item"><span class="stat-icon">⚡</span><span class="stat-value">24/7</span><span class="stat-label">Υποστήριξη<br>Κρατήσεων</span></div>
   </div>
+
+  <section class="section-card fleet-section">
+    <div class="section-head">
+      <div class="section-kicker">Ο στόλος μας</div>
+      <h3>Οχήματα για κάθε ανάγκη</h3>
+      <p>Από οικονομικά αυτοκίνητα για την πόλη μέχρι premium και SUV για κάθε περιπέτεια στη Βόρεια Ελλάδα.</p>
+    </div>
+    <div class="fleet-grid">
+      <div class="fleet-cat">
+        <span class="fleet-icon">🚗</span>
+        <h4>Οικονομικά</h4>
+        <p>Ιδανικά για την πόλη και σύντομες μετακινήσεις</p>
+        <span class="fleet-tag">Economy</span>
+      </div>
+      <div class="fleet-cat">
+        <span class="fleet-icon">🚙</span>
+        <h4>Μεσαία & Comfort</h4>
+        <p>Άνεση και χώρος για οικογένειες</p>
+        <span class="fleet-tag">Standard</span>
+      </div>
+      <div class="fleet-cat">
+        <span class="fleet-icon">🛻</span>
+        <h4>SUV & 4x4</h4>
+        <p>Για βουνό, εκτός δρόμου και μεγάλες αποστάσεις</p>
+        <span class="fleet-tag">SUV</span>
+      </div>
+      <div class="fleet-cat">
+        <span class="fleet-icon">⭐</span>
+        <h4>Premium & Van</h4>
+        <p>Επαγγελματική εμφάνιση και μεγάλες ομάδες</p>
+        <span class="fleet-tag">Premium</span>
+      </div>
+    </div>
+    <div class="fleet-link-wrap">
+      <a href="#" data-nav-key="vehicles" class="fleet-all-btn">Δες όλα τα οχήματα →</a>
+    </div>
+  </section>
 
   <div class="stack">
     <section class="section-card section-dark">
@@ -1437,7 +1520,39 @@ html,body{background:radial-gradient(ellipse at 25% -5%,rgba(215,170,50,.28),tra
         <div class="service-card"><div class="card-icon">🚆</div><h4>Σταθμός ΟΣΕ</h4><p>Χρήσιμη επιλογή για αφίξεις με τρένο ή για πελάτες που θέλουν συντονισμένη εξυπηρέτηση κοντά στον σταθμό.</p></div>
         <div class="service-card"><div class="card-icon">📞</div><h4>Κατόπιν συνεννόησης</h4><p>Για ειδικά αιτήματα παραλαβής ή επιστροφής, η ομάδα μας εξετάζει τη διαθεσιμότητα και σου επιβεβαιώνει την καλύτερη λύση.</p></div>
       </div>
+
+    <section class="section-card">
+      <div class="section-head">
+        <div class="section-kicker">Κριτικές</div>
+        <h3>Τι λένε οι πελάτες μας</h3>
+        <p>Πραγματικές εμπειρίες από ταξιδιώτες που εμπιστεύτηκαν τη DIAMOND Rent A Car.</p>
+      </div>
+      <div class="reviews-grid">
+        <div class="review-card">
+          <div class="review-stars">★★★★★</div>
+          <p class="review-text">"Εξαιρετική εξυπηρέτηση, γρήγορη επιβεβαίωση και πολύ φιλικό προσωπικό. Η διαδικασία ήταν απλή και χωρίς εκπλήξεις. Θα ξαναχρησιμοποιήσω σίγουρα!"</p>
+          <div class="reviewer-name">Μαρία Κ. · Αθήνα</div>
+        </div>
+        <div class="review-card">
+          <div class="review-stars">★★★★★</div>
+          <p class="review-text">"Very professional process. The online booking was simple and the car was exactly as expected. The airport pickup was smooth — I highly recommend it."</p>
+          <div class="reviewer-name">Andreas M. · Germany</div>
+        </div>
+        <div class="review-card">
+          <div class="review-stars">★★★★★</div>
+          <p class="review-text">"La récupération à l'aéroport était parfaite. Le véhicule était propre et en excellent état. Service rapide et très sympathique. Merci!"</p>
+          <div class="reviewer-name">Sophie L. · France</div>
+        </div>
+      </div>
     </section>
+  </div>
+
+  <div class="cta-strip">
+    <div class="cta-strip-copy">
+      <h2>Έτοιμος για την επόμενη περιπέτειά σου;</h2>
+      <p>Η Θεσσαλονίκη και η Βόρεια Ελλάδα σε περιμένουν. Ξεκίνα την κράτησή σου τώρα — γρήγορα, ξεκάθαρα, χωρίς κατάθεση.</p>
+    </div>
+    <a href="#" data-nav-key="booking" class="cta-strip-btn">Κράτηση τώρα →</a>
   </div>
 
   <footer class="footer">
