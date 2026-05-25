@@ -766,7 +766,133 @@ button:hover,.cta:hover,.header-phone:hover{
   .calendar-jump-menu.month-menu{min-width:240px}
 }
 
+/* ── DESIGN v2: Visual enhancements ─────────────────── */
 
+/* Section kicker label with accent bar */
+.section-kicker{
+  display:inline-flex;
+  align-items:center;
+  gap:9px;
+  margin-bottom:14px;
+  font-size:11px;
+  font-weight:900;
+  text-transform:uppercase;
+  letter-spacing:.13em;
+  color:var(--accent2)
+}
+.section-kicker::before{
+  content:'';
+  display:block;
+  width:28px;
+  height:3px;
+  border-radius:999px;
+  background:linear-gradient(90deg,var(--accent),var(--gold));
+  flex-shrink:0
+}
+
+/* Richer section cards */
+.section-card{
+  background:linear-gradient(160deg,rgba(252,240,210,.99) 0%,rgba(234,208,152,.99) 100%) !important;
+  box-shadow:0 18px 42px rgba(0,0,0,.09),inset 0 1px 0 rgba(255,255,255,.72) !important;
+}
+
+/* Card icon block */
+.card-icon{
+  width:52px;
+  height:52px;
+  border-radius:15px;
+  background:linear-gradient(135deg,rgba(63,116,138,.14),rgba(231,191,105,.10));
+  border:1px solid rgba(63,116,138,.14);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:24px;
+  margin-bottom:14px;
+  flex-shrink:0
+}
+
+/* Enhanced point cards */
+.point{
+  background:rgba(255,255,255,.70) !important;
+  border:1px solid rgba(255,255,255,.86) !important;
+  box-shadow:0 2px 10px rgba(0,0,0,.04);
+  transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease
+}
+.point:hover{
+  transform:translateY(-2px);
+  box-shadow:0 10px 22px rgba(31,74,89,.09);
+  border-color:rgba(63,116,138,.18) !important
+}
+.point-icon{
+  font-size:22px;
+  margin-bottom:8px;
+  display:block
+}
+
+/* Enhanced service / location cards */
+.service-card{
+  background:rgba(255,255,255,.70) !important;
+  border:1px solid rgba(255,255,255,.86) !important;
+  box-shadow:0 2px 10px rgba(0,0,0,.04);
+  transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease;
+  padding:22px !important
+}
+.service-card:hover{
+  transform:translateY(-2px);
+  box-shadow:0 12px 28px rgba(31,74,89,.10);
+  border-color:rgba(63,116,138,.20) !important
+}
+.service-card h4{margin:0 0 8px;font-size:18px}
+
+/* Enhanced side-note cards */
+.side-note{
+  background:rgba(255,255,255,.70) !important;
+  border:1px solid rgba(255,255,255,.86) !important;
+  box-shadow:0 2px 10px rgba(0,0,0,.04);
+  transition:transform .16s ease,box-shadow .16s ease
+}
+.side-note:hover{
+  transform:translateY(-1px);
+  box-shadow:0 8px 20px rgba(0,0,0,.07)
+}
+
+/* Enhanced process steps */
+.process-step{
+  background:rgba(255,255,255,.70) !important;
+  border:1px solid rgba(255,255,255,.86) !important;
+  box-shadow:0 2px 10px rgba(0,0,0,.04);
+  transition:transform .16s ease,box-shadow .16s ease
+}
+.process-step:hover{
+  transform:translateY(-2px);
+  box-shadow:0 10px 24px rgba(31,74,89,.09)
+}
+
+/* Numbered step badge upgrade */
+.process-step .num{
+  background:linear-gradient(135deg,var(--accent),var(--accent2)) !important;
+  color:#fff !important;
+  font-size:20px !important;
+  border:2px solid rgba(255,255,255,.30) !important;
+  box-shadow:0 6px 18px rgba(45,96,114,.28) !important
+}
+
+/* Footer logo mark */
+.footer-logo-mark{
+  width:46px;
+  height:46px;
+  border-radius:13px;
+  background:linear-gradient(135deg,var(--gold),rgba(246,225,159,.85));
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:20px;
+  font-weight:900;
+  color:#3a2c16;
+  margin-bottom:14px;
+  box-shadow:0 6px 16px rgba(0,0,0,.14);
+  flex-shrink:0
+}
 </style>
 </head>
 <body>
@@ -899,6 +1025,7 @@ button:hover,.cta:hover,.header-phone:hover{
   <div class="stack">
     <section class="section-card">
       <div class="section-head">
+        <div class="section-kicker">Η εταιρεία μας</div>
         <h3>Γιατί να επιλέξετε τη DIAMOND Rent A Car</h3>
         <p>Σαφής διαδικασία, επαγγελματική εξυπηρέτηση και καθαρή εικόνα της κράτησης από την πρώτη στιγμή.</p>
       </div>
@@ -906,19 +1033,19 @@ button:hover,.cta:hover,.header-phone:hover{
         <div class="company-copy">
           <p>Στη DIAMOND Rent A Car δίνουμε έμφαση στην ξεκάθαρη εμπειρία κράτησης και στη σωστή υποστήριξη πριν και μετά την αποστολή του αιτήματος.</p>
           <div class="company-points">
-            <div class="point"><strong>Καθαρή διαδικασία</strong><span>Ο πελάτης βλέπει εύκολα τα βήματα, τις επιλογές και την οικονομική εικόνα.</span></div>
-            <div class="point"><strong>Γρήγορη ανταπόκριση</strong><span>Η ομάδα μας επανέρχεται άμεσα για έλεγχο και τελική επιβεβαίωση της κράτησης.</span></div>
-            <div class="point"><strong>Επαγγελματική εξυπηρέτηση</strong><span>Ιδιωτικές και εταιρικές κρατήσεις με οργανωμένο συντονισμό παραλαβής και επιστροφής.</span></div>
-            <div class="point"><strong>Σωστή παρουσίαση</strong><span>Κατηγορίες, κάλυψη και extras ներկայացζονται με σαφήνεια και χωρίς περιττή πληροφορία.</span></div>
+            <div class="point"><span class="point-icon">✅</span><strong>Καθαρή διαδικασία</strong><span>Ο πελάτης βλέπει εύκολα τα βήματα, τις επιλογές και την οικονομική εικόνα.</span></div>
+            <div class="point"><span class="point-icon">⚡</span><strong>Γρήγορη ανταπόκριση</strong><span>Η ομάδα μας επανέρχεται άμεσα για έλεγχο και τελική επιβεβαίωση της κράτησης.</span></div>
+            <div class="point"><span class="point-icon">🤝</span><strong>Επαγγελματική εξυπηρέτηση</strong><span>Ιδιωτικές και εταιρικές κρατήσεις με οργανωμένο συντονισμό παραλαβής και επιστροφής.</span></div>
+            <div class="point"><span class="point-icon">📋</span><strong>Σωστή παρουσίαση</strong><span>Κατηγορίες, κάλυψη και extras παρουσιάζονται με σαφήνεια και χωρίς περιττή πληροφορία.</span></div>
           </div>
         </div>
         <div class="company-side">
           <div class="side-note">
-            <h4>Εμπειρία που εμπνέει εμπιστοσύνη</h4>
+            <h4>🏆 Εμπειρία που εμπνέει εμπιστοσύνη</h4>
             <p>Στόχος μας είναι μια εμπειρία ενοικίασης που να δείχνει επαγγελματική, οργανωμένη και εύκολη σε κάθε βήμα.</p>
           </div>
           <div class="side-note">
-            <h4>Προσωπική επιβεβαίωση</h4>
+            <h4>✔️ Προσωπική επιβεβαίωση</h4>
             <p>Κάθε αίτημα ελέγχεται από την ομάδα μας πριν σταλεί η τελική επιβεβαίωση κράτησης και οι σχετικές οδηγίες.</p>
           </div>
         </div>
@@ -927,18 +1054,20 @@ button:hover,.cta:hover,.header-phone:hover{
 
     <section class="section-card">
       <div class="section-head">
-        <h3>Παροχές & υπηρεσίες</h3>
+        <div class="section-kicker">Υπηρεσίες</div>
+        <h3>Παροχές &amp; υπηρεσίες</h3>
         <p>Υπηρεσίες σχεδιασμένες για ταξιδιώτες, επαγγελματικές μετακινήσεις και καθημερινή ευελιξία μέσα και γύρω από τη Θεσσαλονίκη.</p>
       </div>
       <div class="services-grid">
-        <div class="service-card"><h4>Παραλαβή από αεροδρόμιο</h4><p>Οργάνωση παραλαβής και επιστροφής για αφίξεις και αναχωρήσεις από το αεροδρόμιο Μακεδονία.</p></div>
-        <div class="service-card"><h4>Κάλυψη & extras</h4><p>Επιλογές ασφαλιστικής κάλυψης, παιδικά καθίσματα, πρόσθετες υπηρεσίες και εξατομίκευση του αιτήματος.</p></div>
-        <div class="service-card"><h4>Ιδιωτικές & εταιρικές κρατήσεις</h4><p>Ευέλικτη διαχείριση για προσωπικά ταξίδια, επαγγελματικές μετακινήσεις και επαναλαμβανόμενα αιτήματα.</p></div>
+        <div class="service-card"><div class="card-icon">✈️</div><h4>Παραλαβή από αεροδρόμιο</h4><p>Οργάνωση παραλαβής και επιστροφής για αφίξεις και αναχωρήσεις από το αεροδρόμιο Μακεδονία.</p></div>
+        <div class="service-card"><div class="card-icon">🛡️</div><h4>Κάλυψη &amp; extras</h4><p>Επιλογές ασφαλιστικής κάλυψης, παιδικά καθίσματα, πρόσθετες υπηρεσίες και εξατομίκευση του αιτήματος.</p></div>
+        <div class="service-card"><div class="card-icon">🏢</div><h4>Ιδιωτικές &amp; εταιρικές κρατήσεις</h4><p>Ευέλικτη διαχείριση για προσωπικά ταξίδια, επαγγελματικές μετακινήσεις και επαναλαμβανόμενα αιτήματα.</p></div>
       </div>
     </section>
 
     <section class="section-card">
       <div class="section-head">
+        <div class="section-kicker">Βήμα προς βήμα</div>
         <h3>Διαδικασία κράτησης</h3>
         <p>Από την επιλογή ημερομηνιών μέχρι την τελική επιβεβαίωση, η ροή παραμένει σταθερή και κατανοητή.</p>
       </div>
@@ -954,16 +1083,17 @@ button:hover,.cta:hover,.header-phone:hover{
 
     <section class="section-card">
       <div class="section-head">
+        <div class="section-kicker">Θεσσαλονίκη &amp; γύρω</div>
         <h3>Σημεία εξυπηρέτησης</h3>
         <p>Η παραλαβή και η επιστροφή μπορούν να οργανωθούν στα βασικά σημεία που έχεις ήδη στη φόρμα αναζήτησης, με συνεννόηση και επιβεβαίωση από την ομάδα μας.</p>
       </div>
       <div class="services-grid">
-        <div class="service-card"><h4>Αεροδρόμιο Μακεδονία</h4><p>Ιδανική επιλογή για αφίξεις και αναχωρήσεις με γρήγορη εξυπηρέτηση αμέσως μετά την πτήση σου.</p></div>
-        <div class="service-card"><h4>Κέντρο Θεσσαλονίκης</h4><p>Εξυπηρέτηση για πελάτες που μένουν ή κινούνται στο κέντρο και θέλουν πιο πρακτική παραλαβή ή επιστροφή.</p></div>
-        <div class="service-card"><h4>Λιμάνι Θεσσαλονίκης</h4><p>Κατάλληλο σημείο για ταξιδιώτες ή επαγγελματικές μετακινήσεις με πρόσβαση στην παραλιακή ζώνη της πόλης.</p></div>
-        <div class="service-card"><h4>Ξενοδοχείο</h4><p>Παραλαβή ή επιστροφή στο ξενοδοχείο σου, όπου αυτό είναι εφικτό και έχει προηγηθεί συνεννόηση για την κράτηση.</p></div>
-        <div class="service-card"><h4>Σταθμός ΟΣΕ</h4><p>Χρήσιμη επιλογή για αφίξεις με τρένο ή για πελάτες που θέλουν συντονισμένη εξυπηρέτηση κοντά στον σταθμό.</p></div>
-        <div class="service-card"><h4>Κατόπιν συνεννόησης</h4><p>Για ειδικά αιτήματα παραλαβής ή επιστροφής, η ομάδα μας εξετάζει τη διαθεσιμότητα και σου επιβεβαιώνει την καλύτερη λύση.</p></div>
+        <div class="service-card"><div class="card-icon">✈️</div><h4>Αεροδρόμιο Μακεδονία</h4><p>Ιδανική επιλογή για αφίξεις και αναχωρήσεις με γρήγορη εξυπηρέτηση αμέσως μετά την πτήση σου.</p></div>
+        <div class="service-card"><div class="card-icon">🏙️</div><h4>Κέντρο Θεσσαλονίκης</h4><p>Εξυπηρέτηση για πελάτες που μένουν ή κινούνται στο κέντρο και θέλουν πιο πρακτική παραλαβή ή επιστροφή.</p></div>
+        <div class="service-card"><div class="card-icon">⚓</div><h4>Λιμάνι Θεσσαλονίκης</h4><p>Κατάλληλο σημείο για ταξιδιώτες ή επαγγελματικές μετακινήσεις με πρόσβαση στην παραλιακή ζώνη της πόλης.</p></div>
+        <div class="service-card"><div class="card-icon">🏨</div><h4>Ξενοδοχείο</h4><p>Παραλαβή ή επιστροφή στο ξενοδοχείο σου, όπου αυτό είναι εφικτό και έχει προηγηθεί συνεννόηση για την κράτηση.</p></div>
+        <div class="service-card"><div class="card-icon">🚆</div><h4>Σταθμός ΟΣΕ</h4><p>Χρήσιμη επιλογή για αφίξεις με τρένο ή για πελάτες που θέλουν συντονισμένη εξυπηρέτηση κοντά στον σταθμό.</p></div>
+        <div class="service-card"><div class="card-icon">📞</div><h4>Κατόπιν συνεννόησης</h4><p>Για ειδικά αιτήματα παραλαβής ή επιστροφής, η ομάδα μας εξετάζει τη διαθεσιμότητα και σου επιβεβαιώνει την καλύτερη λύση.</p></div>
       </div>
     </section>
   </div>
@@ -972,6 +1102,7 @@ button:hover,.cta:hover,.header-phone:hover{
     <div class="footer-grid">
       <div class="footer-brand">
         <div>
+          <div class="footer-logo-mark">◆</div>
           <strong>DIAMOND <span style="font-style:italic;font-weight:700;color:rgba(248,224,171,.98)">Rent A Car</span></strong>
           <span>THESSALONIKI</span>
           <p style="margin:12px 0 0;color:rgba(255,255,255,.88);line-height:1.62;font-weight:700">Επαγγελματική εμπειρία ενοικίασης οχήματος με έμφαση στη σωστή επικοινωνία, στην καθαρή παρουσίαση και στην προσωπική επιβεβαίωση κάθε κράτησης.</p>
