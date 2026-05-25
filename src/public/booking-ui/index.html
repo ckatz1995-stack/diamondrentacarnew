@@ -1116,6 +1116,67 @@ button:hover,.cta:hover,.header-phone:hover{
 }
 .footer-bottom-links a:hover{color:var(--gold2)}
 
+/* ── STATS BAR, SCROLL ARROW, FADE-IN v5 ──────────── */
+
+/* Stats trust bar */
+.stats-bar{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:12px;
+  margin-top:22px;
+  padding:22px 24px;
+  border-radius:26px;
+  background:linear-gradient(160deg,rgba(28,52,62,.98),rgba(20,40,48,.99));
+  border:1px solid rgba(231,191,105,.16);
+  box-shadow:0 16px 38px rgba(0,0,0,.20),inset 0 1px 0 rgba(255,255,255,.06)
+}
+.stat-item{
+  display:flex;flex-direction:column;align-items:center;text-align:center;gap:5px;
+  padding:14px 8px;border-radius:18px;
+  background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07);
+  transition:transform .16s ease,background .16s ease
+}
+.stat-item:hover{transform:translateY(-2px);background:rgba(231,191,105,.08)}
+.stat-value{
+  font-size:clamp(28px,3.4vw,42px);font-weight:900;
+  color:var(--gold);letter-spacing:-.04em;line-height:1
+}
+.stat-label{
+  font-size:13px;font-weight:800;
+  color:rgba(255,255,255,.68);line-height:1.35
+}
+@media(max-width:720px){.stats-bar{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:400px){.stats-bar{padding:14px 12px;gap:8px}}
+
+/* Scroll arrow */
+.scroll-arrow{
+  display:flex;flex-direction:column;align-items:center;gap:7px;
+  margin-top:28px;cursor:pointer;
+  color:rgba(255,255,255,.56);font-size:10.5px;font-weight:900;
+  text-transform:uppercase;letter-spacing:.16em;
+  animation:scrollBounce 2.2s ease-in-out infinite;
+  user-select:none;background:none;border:0;padding:0;width:100%
+}
+.scroll-arrow:hover{color:rgba(255,255,255,.80)}
+.scroll-arrow-ring{
+  width:38px;height:38px;border-radius:999px;
+  background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.18);
+  display:flex;align-items:center;justify-content:center;
+  font-size:17px;backdrop-filter:blur(4px)
+}
+@keyframes scrollBounce{
+  0%,100%{transform:translateY(0)}
+  50%{transform:translateY(7px)}
+}
+@media(max-width:620px){.scroll-arrow{margin-top:18px}}
+
+/* Fade-in on scroll */
+.fade-in{opacity:0;transform:translateY(22px);transition:opacity .55s ease,transform .55s ease}
+.fade-in.visible{opacity:1;transform:translateY(0)}
+.fade-in-delay-1{transition-delay:.08s}
+.fade-in-delay-2{transition-delay:.16s}
+.fade-in-delay-3{transition-delay:.24s}
+
 </style>
 </head>
 <body>
@@ -1255,7 +1316,15 @@ button:hover,.cta:hover,.header-phone:hover{
         </div>
       </div>
     </div>
+    <button class="scroll-arrow" id="scrollArrow" aria-label="Κύλισε κάτω"><span class="scroll-arrow-ring">↓</span><span>Δες περισσότερα</span></button>
   </section>
+
+  <div class="stats-bar">
+    <div class="stat-item"><span class="stat-value">5+</span><span class="stat-label">Χρόνια<br>στη Θεσσαλονίκη</span></div>
+    <div class="stat-item"><span class="stat-value">50+</span><span class="stat-label">Διαθέσιμα<br>Οχήματα</span></div>
+    <div class="stat-item"><span class="stat-value">6</span><span class="stat-label">Σημεία<br>Εξυπηρέτησης</span></div>
+    <div class="stat-item"><span class="stat-value">24/7</span><span class="stat-label">Υποστήριξη<br>Κρατήσεων</span></div>
+  </div>
 
   <div class="stack">
     <section class="section-card section-dark">
@@ -2103,6 +2172,31 @@ requestEmbeddedCatalogData();
 [120, 450, 1200].forEach((delay)=>setTimeout(requestEmbeddedCatalogData, delay));
 safeStoreSearch(collectSearchState());
 if (typeof window.refreshCustomControls === 'function') window.refreshCustomControls();
+
+// Fade-in on scroll
+(function(){
+  const targets = document.querySelectorAll('.section-card, .stats-bar');
+  targets.forEach(function(el){ el.classList.add('fade-in'); });
+  if(!('IntersectionObserver' in window)) {
+    targets.forEach(function(el){ el.classList.add('visible'); });
+    return;
+  }
+  const obs = new IntersectionObserver(function(entries){
+    entries.forEach(function(entry){
+      if(entry.isIntersecting){ entry.target.classList.add('visible'); obs.unobserve(entry.target); }
+    });
+  }, { threshold: 0.07 });
+  targets.forEach(function(el){ obs.observe(el); });
+})();
+// Scroll arrow
+(function(){
+  const btn = document.getElementById('scrollArrow');
+  if(btn) btn.addEventListener('click', function(){
+    const target = document.querySelector('.stats-bar') || document.querySelector('.stack');
+    if(target) target.scrollIntoView({ behavior:'smooth', block:'start' });
+  });
+})();
+
 </script>
 </body>
 </html>
