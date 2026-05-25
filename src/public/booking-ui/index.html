@@ -1347,6 +1347,77 @@ html,body{background:radial-gradient(ellipse at 25% -5%,rgba(215,170,50,.28),tra
 .booking-title h2{font-size:clamp(22px,2.5vw,34px)!important;text-align:center!important}
 .booking-wrap{grid-column:unset!important;grid-row:unset!important;margin-bottom:18px!important}
 
+
+/* ── POLISH & REFINEMENT ── */
+
+/* Point numbered codes — clean gold monospace */
+.point-num{
+  display:inline-block;font-size:10px;font-weight:900;letter-spacing:.12em;
+  color:#a07828;font-family:'Courier New',Courier,monospace;
+  background:rgba(160,110,35,.10);border:1px solid rgba(160,110,35,.20);
+  border-radius:5px;padding:2px 7px;margin-bottom:10px;
+}
+
+/* Point cards — left gold accent instead of floating icon */
+.point{border-left:3px solid rgba(160,110,35,.40)!important;border-radius:0 16px 16px 0!important;padding-left:16px!important}
+.point strong{font-size:14px!important;letter-spacing:-.01em!important;margin-bottom:4px!important}
+.point span{font-size:13px!important;line-height:1.55!important}
+
+/* Side-note headings — clean typography, no emoji */
+.side-note h4{font-size:16px!important;font-weight:800!important;letter-spacing:-.02em!important;border-bottom:1px solid rgba(160,110,35,.18)!important;padding-bottom:8px!important;margin-bottom:10px!important}
+.section-dark .side-note h4{border-bottom-color:rgba(255,255,255,.12)!important}
+
+/* Card-icon text codes — styled as compact transport labels */
+.card-icon{
+  width:auto!important;height:auto!important;border-radius:6px!important;
+  font-size:9.5px!important;font-weight:900!important;letter-spacing:.14em!important;
+  font-family:'Courier New',Courier,monospace!important;
+  color:#1a3a46!important;background:rgba(26,58,70,.09)!important;
+  border:1px solid rgba(26,58,70,.14)!important;
+  padding:4px 9px!important;margin-bottom:14px!important;
+  display:inline-block!important;
+}
+.section-card:not(.section-dark) .card-icon{color:#1c1408!important;background:rgba(160,110,35,.10)!important;border-color:rgba(160,110,35,.20)!important}
+
+/* Service & location card heading size */
+.service-card h4{font-size:16px!important;font-weight:800!important;letter-spacing:-.025em!important;line-height:1.18!important;margin:0 0 7px!important}
+.service-card p{font-size:13.5px!important;line-height:1.58!important}
+
+/* Company copy text */
+.company-copy p{font-size:15px!important;line-height:1.72!important}
+
+/* Section card gap between sections */
+.stack{gap:28px!important}
+
+/* Review card reviewer */
+.reviewer-name{font-size:11px!important;letter-spacing:.10em!important}
+.review-text{font-size:13.5px!important}
+.review-stars{font-size:15px!important}
+
+/* Fleet category cards — tighter, cleaner */
+.fleet-cat h4{font-size:15px!important;letter-spacing:-.02em!important;margin:0 0 4px!important}
+.fleet-cat p{font-size:12.5px!important;margin:0 0 10px!important}
+.fleet-icon{font-size:32px!important;margin-bottom:10px!important}
+
+/* Booking form search button — full width */
+.cta-row{margin-top:14px!important}
+.btn{width:100%!important;letter-spacing:.02em!important}
+
+/* Intro text on hero — tighter line-height */
+.intro-tagline{font-size:clamp(18px,1.8vw,24px)!important;line-height:1.25!important;font-weight:800!important}
+.intro-text{font-size:15px!important;line-height:1.62!important}
+
+/* Trust badges on hero */
+.hero-trust{display:flex;flex-wrap:wrap;gap:8px;margin-top:18px}
+.hero-trust-item{font-size:13px!important;font-weight:700!important}
+
+/* CTA strip tighter padding */
+.cta-strip{padding:36px 44px!important}
+.cta-strip-copy h2{font-size:clamp(20px,2.2vw,28px)!important}
+
+/* Footer brand text */
+.footer-brand strong{font-size:22px!important}
+
 </style>
 </head>
 <body>
@@ -1545,19 +1616,19 @@ html,body{background:radial-gradient(ellipse at 25% -5%,rgba(215,170,50,.28),tra
         <div class="company-copy">
           <p>Στη DIAMOND Rent A Car δίνουμε έμφαση στην ξεκάθαρη εμπειρία κράτησης και στη σωστή υποστήριξη πριν και μετά την αποστολή του αιτήματος.</p>
           <div class="company-points">
-            <div class="point"><span class="point-icon">✅</span><strong>Καθαρή διαδικασία</strong><span>Ο πελάτης βλέπει εύκολα τα βήματα, τις επιλογές και την οικονομική εικόνα.</span></div>
-            <div class="point"><span class="point-icon">⚡</span><strong>Γρήγορη ανταπόκριση</strong><span>Η ομάδα μας επανέρχεται άμεσα για έλεγχο και τελική επιβεβαίωση της κράτησης.</span></div>
-            <div class="point"><span class="point-icon">🤝</span><strong>Επαγγελματική εξυπηρέτηση</strong><span>Ιδιωτικές και εταιρικές κρατήσεις με οργανωμένο συντονισμό παραλαβής και επιστροφής.</span></div>
-            <div class="point"><span class="point-icon">📋</span><strong>Σωστή παρουσίαση</strong><span>Κατηγορίες, κάλυψη και extras παρουσιάζονται με σαφήνεια και χωρίς περιττή πληροφορία.</span></div>
+            <div class="point"><span class="point-num">01</span><strong>Καθαρή διαδικασία</strong><span>Ο πελάτης βλέπει εύκολα τα βήματα, τις επιλογές και την οικονομική εικόνα.</span></div>
+            <div class="point"><span class="point-num">02</span><strong>Γρήγορη ανταπόκριση</strong><span>Η ομάδα μας επανέρχεται άμεσα για έλεγχο και τελική επιβεβαίωση της κράτησης.</span></div>
+            <div class="point"><span class="point-num">03</span><strong>Επαγγελματική εξυπηρέτηση</strong><span>Ιδιωτικές και εταιρικές κρατήσεις με οργανωμένο συντονισμό παραλαβής και επιστροφής.</span></div>
+            <div class="point"><span class="point-num">04</span><strong>Σωστή παρουσίαση</strong><span>Κατηγορίες, κάλυψη και extras παρουσιάζονται με σαφήνεια και χωρίς περιττή πληροφορία.</span></div>
           </div>
         </div>
         <div class="company-side">
           <div class="side-note">
-            <h4>🏆 Εμπειρία που εμπνέει εμπιστοσύνη</h4>
+            <h4>Εμπειρία που εμπνέει εμπιστοσύνη</h4>
             <p>Στόχος μας είναι μια εμπειρία ενοικίασης που να δείχνει επαγγελματική, οργανωμένη και εύκολη σε κάθε βήμα.</p>
           </div>
           <div class="side-note">
-            <h4>✔️ Προσωπική επιβεβαίωση</h4>
+            <h4>Προσωπική επιβεβαίωση</h4>
             <p>Κάθε αίτημα ελέγχεται από την ομάδα μας πριν σταλεί η τελική επιβεβαίωση κράτησης και οι σχετικές οδηγίες.</p>
           </div>
         </div>
@@ -1571,9 +1642,9 @@ html,body{background:radial-gradient(ellipse at 25% -5%,rgba(215,170,50,.28),tra
         <p>Υπηρεσίες σχεδιασμένες για ταξιδιώτες, επαγγελματικές μετακινήσεις και καθημερινή ευελιξία μέσα και γύρω από τη Θεσσαλονίκη.</p>
       </div>
       <div class="services-grid">
-        <div class="service-card"><div class="card-icon">✈️</div><h4>Παραλαβή από αεροδρόμιο</h4><p>Οργάνωση παραλαβής και επιστροφής για αφίξεις και αναχωρήσεις από το αεροδρόμιο Μακεδονία.</p></div>
-        <div class="service-card"><div class="card-icon">🔒</div><h4>Κάλυψη &amp; extras</h4><p>Επιλογές ασφαλιστικής κάλυψης, παιδικά καθίσματα, πρόσθετες υπηρεσίες και εξατομίκευση του αιτήματος.</p></div>
-        <div class="service-card"><div class="card-icon">🏢</div><h4>Ιδιωτικές &amp; εταιρικές κρατήσεις</h4><p>Ευέλικτη διαχείριση για προσωπικά ταξίδια, επαγγελματικές μετακινήσεις και επαναλαμβανόμενα αιτήματα.</p></div>
+        <div class="service-card"><div class="card-icon">AIR</div><h4>Παραλαβή από αεροδρόμιο</h4><p>Οργάνωση παραλαβής και επιστροφής για αφίξεις και αναχωρήσεις από το αεροδρόμιο Μακεδονία.</p></div>
+        <div class="service-card"><div class="card-icon">EXT</div><h4>Κάλυψη &amp; extras</h4><p>Επιλογές ασφαλιστικής κάλυψης, παιδικά καθίσματα, πρόσθετες υπηρεσίες και εξατομίκευση του αιτήματος.</p></div>
+        <div class="service-card"><div class="card-icon">B2B</div><h4>Ιδιωτικές &amp; εταιρικές κρατήσεις</h4><p>Ευέλικτη διαχείριση για προσωπικά ταξίδια, επαγγελματικές μετακινήσεις και επαναλαμβανόμενα αιτήματα.</p></div>
       </div>
     </section>
 
@@ -1600,12 +1671,12 @@ html,body{background:radial-gradient(ellipse at 25% -5%,rgba(215,170,50,.28),tra
         <p>Η παραλαβή και η επιστροφή μπορούν να οργανωθούν στα βασικά σημεία που έχεις ήδη στη φόρμα αναζήτησης, με συνεννόηση και επιβεβαίωση από την ομάδα μας.</p>
       </div>
       <div class="services-grid">
-        <div class="service-card"><div class="card-icon">✈️</div><h4>Αεροδρόμιο Μακεδονία</h4><p>Ιδανική επιλογή για αφίξεις και αναχωρήσεις με γρήγορη εξυπηρέτηση αμέσως μετά την πτήση σου.</p></div>
-        <div class="service-card"><div class="card-icon">🏙️</div><h4>Κέντρο Θεσσαλονίκης</h4><p>Εξυπηρέτηση για πελάτες που μένουν ή κινούνται στο κέντρο και θέλουν πιο πρακτική παραλαβή ή επιστροφή.</p></div>
-        <div class="service-card"><div class="card-icon">⚓</div><h4>Λιμάνι Θεσσαλονίκης</h4><p>Κατάλληλο σημείο για ταξιδιώτες ή επαγγελματικές μετακινήσεις με πρόσβαση στην παραλιακή ζώνη της πόλης.</p></div>
-        <div class="service-card"><div class="card-icon">🏨</div><h4>Ξενοδοχείο</h4><p>Παραλαβή ή επιστροφή στο ξενοδοχείο σου, όπου αυτό είναι εφικτό και έχει προηγηθεί συνεννόηση για την κράτηση.</p></div>
-        <div class="service-card"><div class="card-icon">🚆</div><h4>Σταθμός ΟΣΕ</h4><p>Χρήσιμη επιλογή για αφίξεις με τρένο ή για πελάτες που θέλουν συντονισμένη εξυπηρέτηση κοντά στον σταθμό.</p></div>
-        <div class="service-card"><div class="card-icon">📞</div><h4>Κατόπιν συνεννόησης</h4><p>Για ειδικά αιτήματα παραλαβής ή επιστροφής, η ομάδα μας εξετάζει τη διαθεσιμότητα και σου επιβεβαιώνει την καλύτερη λύση.</p></div>
+        <div class="service-card"><div class="card-icon">AIR</div><h4>Αεροδρόμιο Μακεδονία</h4><p>Ιδανική επιλογή για αφίξεις και αναχωρήσεις με γρήγορη εξυπηρέτηση αμέσως μετά την πτήση σου.</p></div>
+        <div class="service-card"><div class="card-icon">CTR</div><h4>Κέντρο Θεσσαλονίκης</h4><p>Εξυπηρέτηση για πελάτες που μένουν ή κινούνται στο κέντρο και θέλουν πιο πρακτική παραλαβή ή επιστροφή.</p></div>
+        <div class="service-card"><div class="card-icon">PORT</div><h4>Λιμάνι Θεσσαλονίκης</h4><p>Κατάλληλο σημείο για ταξιδιώτες ή επαγγελματικές μετακινήσεις με πρόσβαση στην παραλιακή ζώνη της πόλης.</p></div>
+        <div class="service-card"><div class="card-icon">HTL</div><h4>Ξενοδοχείο</h4><p>Παραλαβή ή επιστροφή στο ξενοδοχείο σου, όπου αυτό είναι εφικτό και έχει προηγηθεί συνεννόηση για την κράτηση.</p></div>
+        <div class="service-card"><div class="card-icon">RAIL</div><h4>Σταθμός ΟΣΕ</h4><p>Χρήσιμη επιλογή για αφίξεις με τρένο ή για πελάτες που θέλουν συντονισμένη εξυπηρέτηση κοντά στον σταθμό.</p></div>
+        <div class="service-card"><div class="card-icon">TEL</div><h4>Κατόπιν συνεννόησης</h4><p>Για ειδικά αιτήματα παραλαβής ή επιστροφής, η ομάδα μας εξετάζει τη διαθεσιμότητα και σου επιβεβαιώνει την καλύτερη λύση.</p></div>
       </div>
 
     <section class="section-card">
