@@ -1336,6 +1336,17 @@ html,body{background:radial-gradient(ellipse at 25% -5%,rgba(215,170,50,.28),tra
   .fleet-section{padding:26px 22px 22px!important}
 }
 
+
+/* ── HERO REVERT: single-column, car stays visible ── */
+.hero-inner{display:flex!important;flex-direction:column!important;align-items:center!important;padding:34px 34px 28px!important;grid-template-columns:unset!important;gap:0!important}
+.intro-wrap,.booking-wrap{width:100%!important}
+.intro-wrap{grid-column:unset!important;grid-row:unset!important;align-self:auto!important;margin-top:8px!important}
+.intro-copy{max-width:480px!important}
+.hero-gap{display:block!important;height:190px!important}
+.booking-title{grid-column:unset!important;grid-row:unset!important;margin:0 auto -18px!important;text-align:center!important;background:rgba(255,255,255,.10)!important;border:1px solid rgba(255,255,255,.16)!important;backdrop-filter:blur(10px)!important;box-shadow:var(--soft)!important;padding:8px 14px!important;pointer-events:none!important;width:100%!important}
+.booking-title h2{font-size:clamp(22px,2.5vw,34px)!important;text-align:center!important}
+.booking-wrap{grid-column:unset!important;grid-row:unset!important;margin-bottom:18px!important}
+
 </style>
 </head>
 <body>
@@ -1561,7 +1572,7 @@ html,body{background:radial-gradient(ellipse at 25% -5%,rgba(215,170,50,.28),tra
       </div>
       <div class="services-grid">
         <div class="service-card"><div class="card-icon">✈️</div><h4>Παραλαβή από αεροδρόμιο</h4><p>Οργάνωση παραλαβής και επιστροφής για αφίξεις και αναχωρήσεις από το αεροδρόμιο Μακεδονία.</p></div>
-        <div class="service-card"><div class="card-icon">🛡️</div><h4>Κάλυψη &amp; extras</h4><p>Επιλογές ασφαλιστικής κάλυψης, παιδικά καθίσματα, πρόσθετες υπηρεσίες και εξατομίκευση του αιτήματος.</p></div>
+        <div class="service-card"><div class="card-icon">🔒</div><h4>Κάλυψη &amp; extras</h4><p>Επιλογές ασφαλιστικής κάλυψης, παιδικά καθίσματα, πρόσθετες υπηρεσίες και εξατομίκευση του αιτήματος.</p></div>
         <div class="service-card"><div class="card-icon">🏢</div><h4>Ιδιωτικές &amp; εταιρικές κρατήσεις</h4><p>Ευέλικτη διαχείριση για προσωπικά ταξίδια, επαγγελματικές μετακινήσεις και επαναλαμβανόμενα αιτήματα.</p></div>
       </div>
     </section>
