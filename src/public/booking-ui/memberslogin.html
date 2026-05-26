@@ -1,0 +1,949 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Diamond — Member Portal</title>
+  <style>
+    :root {
+      --bg:          #0f0d0c;
+      --surface:     #1b1813;
+      --card:        #242018;
+      --card-hover:  #2d2820;
+      --border:      #3a3228;
+      --border-soft: #272218;
+      --accent:      #c8963c;
+      --accent-glow: rgba(200,150,60,0.15);
+      --text:        #ede8e0;
+      --text-muted:  #9a8a76;
+      --text-faint:  #5c5248;
+      --radius:      8px;
+      --radius-lg:   12px;
+      --shadow-lg:   0 8px 32px rgba(0,0,0,0.6);
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      height: 100%; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg); color: var(--text); font-size: 14px; line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+    .hidden { display: none !important; }
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--surface); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    /* ── Sign In ──────────────────────────────────────────────────────────── */
+    #view-signin {
+      display: flex; align-items: center; justify-content: center;
+      min-height: 100vh; padding: 32px 20px;
+    }
+    .signin-box {
+      width: 100%; max-width: 400px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-lg); padding: 44px 36px;
+    }
+    .brand-block { text-align: center; margin-bottom: 36px; }
+    .brand-gem {
+      width: 32px; height: 32px; background: var(--accent);
+      clip-path: polygon(50% 0%,100% 50%,50% 100%,0% 50%);
+      margin: 0 auto 10px;
+    }
+    .brand-name    { font-size: 18px; font-weight: 700; letter-spacing: 2.5px; text-transform: uppercase; }
+    .brand-sub     { font-size: 10px; letter-spacing: 3px; color: var(--text-muted); text-transform: uppercase; margin-top: 3px; }
+    .signin-title  { font-size: 14px; font-weight: 600; color: var(--text-muted); text-align: center; margin-bottom: 28px; letter-spacing: 0.5px; text-transform: uppercase; }
+
+    .form-group  { margin-bottom: 14px; }
+    .form-label  { display: block; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px; }
+    .form-input  {
+      width: 100%; background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); color: var(--text); font-size: 14px;
+      padding: 10px 12px; outline: none; font-family: inherit;
+      transition: border-color 0.15s;
+    }
+    .form-input:focus { border-color: var(--accent); }
+    .form-input::placeholder { color: var(--text-faint); }
+    .form-hint { font-size: 11px; color: var(--text-faint); margin-top: 5px; }
+
+    .btn-signin {
+      width: 100%; background: var(--accent); color: #0f0d0c;
+      border: none; border-radius: var(--radius); font-family: inherit;
+      font-size: 14px; font-weight: 700; padding: 12px; cursor: pointer;
+      margin-top: 6px; letter-spacing: 0.5px;
+      transition: opacity 0.15s, transform 0.1s;
+    }
+    .btn-signin:hover:not(:disabled) { opacity: 0.88; }
+    .btn-signin:active:not(:disabled) { transform: scale(0.98); }
+    .btn-signin:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .signin-divider { border: none; border-top: 1px solid var(--border); margin: 22px 0; }
+    .signin-footer  { font-size: 12px; color: var(--text-muted); text-align: center; }
+    .signin-footer a { color: var(--accent); text-decoration: none; }
+    .signin-error {
+      background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.25);
+      color: #fca5a5; border-radius: var(--radius); padding: 10px 13px;
+      font-size: 13px; margin-top: 12px; line-height: 1.5;
+    }
+
+    /* ── Loading ──────────────────────────────────────────────────────────── */
+    #view-loading {
+      display: none; align-items: center; justify-content: center; min-height: 100vh;
+      flex-direction: column; gap: 14px;
+    }
+    #view-loading.show { display: flex; }
+    .spinner {
+      width: 30px; height: 30px; border: 3px solid var(--border);
+      border-top-color: var(--accent); border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .loading-text { font-size: 13px; color: var(--text-muted); }
+
+    /* ── App ──────────────────────────────────────────────────────────────── */
+    #view-app { display: flex; flex-direction: column; min-height: 100vh; }
+
+    /* ── Header ───────────────────────────────────────────────────────────── */
+    .app-header {
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; height: 52px; padding: 0 16px; gap: 12px;
+      position: sticky; top: 0; z-index: 20; flex-shrink: 0;
+    }
+    .hdr-logo  { display: flex; align-items: center; gap: 7px; flex: 1; min-width: 0; }
+    .hdr-gem   { width: 17px; height: 17px; background: var(--accent); clip-path: polygon(50% 0%,100% 50%,50% 100%,0% 50%); flex-shrink: 0; }
+    .hdr-brand { font-size: 12px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; }
+    .hdr-sep   { width: 1px; height: 20px; background: var(--border); flex-shrink: 0; }
+    .hdr-title { font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .hdr-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+    .btn-icon {
+      background: none; border: none; color: var(--text-muted); cursor: pointer;
+      padding: 6px 8px; border-radius: var(--radius); font-size: 12px; font-weight: 500;
+      display: flex; align-items: center; gap: 5px; transition: background 0.15s, color 0.15s;
+    }
+    .btn-icon:hover  { background: var(--card); color: var(--text); }
+    .btn-icon.active { color: var(--accent); }
+    .btn-icon svg    { width: 15px; height: 15px; }
+
+    /* ── Tabs ─────────────────────────────────────────────────────────────── */
+    .nav-tabs {
+      background: var(--surface); border-bottom: 1px solid var(--border);
+      display: flex; overflow-x: auto; scrollbar-width: none; padding: 0 12px; flex-shrink: 0;
+    }
+    .nav-tabs::-webkit-scrollbar { display: none; }
+    .nav-tab {
+      background: none; border: none; color: var(--text-muted); cursor: pointer;
+      padding: 11px 14px; font-size: 13px; font-weight: 500; white-space: nowrap;
+      border-bottom: 2px solid transparent; display: flex; align-items: center; gap: 6px;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .nav-tab:hover       { color: var(--text); }
+    .nav-tab.active      { color: var(--accent); border-bottom-color: var(--accent); }
+    .tab-count {
+      background: var(--card); color: var(--text-muted);
+      font-size: 10px; padding: 1px 5px; border-radius: 10px; min-width: 18px; text-align: center;
+    }
+    .nav-tab.active .tab-count { background: var(--accent-glow); color: var(--accent); }
+
+    /* ── Content ──────────────────────────────────────────────────────────── */
+    .app-content { flex: 1; padding: 16px; max-width: 760px; width: 100%; margin: 0 auto; }
+    @media (min-width: 640px) { .app-content { padding: 24px 20px; } }
+
+    /* ── Empty State ──────────────────────────────────────────────────────── */
+    .empty-state { text-align: center; padding: 56px 20px; }
+    .empty-icon  { font-size: 34px; margin-bottom: 12px; opacity: 0.25; }
+    .empty-title { font-size: 14px; color: var(--text-faint); margin-bottom: 5px; }
+    .empty-sub   { font-size: 12px; color: var(--text-faint); }
+
+    /* ── Booking Card ─────────────────────────────────────────────────────── */
+    .booking-card {
+      background: var(--card); border: 1px solid var(--border-soft);
+      border-radius: var(--radius-lg); padding: 14px 16px; margin-bottom: 10px;
+      cursor: pointer; transition: background 0.15s, border-color 0.15s, transform 0.1s;
+    }
+    .booking-card:hover  { background: var(--card-hover); border-color: var(--border); transform: translateY(-1px); }
+    .booking-card:active { transform: none; }
+    .card-top  { display: flex; align-items: center; justify-content: space-between; margin-bottom: 9px; }
+    .b-ref     { font-size: 10px; font-weight: 700; letter-spacing: 1px; color: var(--text-faint); text-transform: uppercase; }
+    .status-badge {
+      font-size: 10px; font-weight: 700; padding: 3px 9px;
+      border-radius: 20px; letter-spacing: 0.5px; text-transform: uppercase;
+    }
+    .s-pending   { background: rgba(245,158,11,0.12); color: #f59e0b; }
+    .s-confirmed { background: rgba(59,130,246,0.12);  color: #60a5fa; }
+    .s-active    { background: rgba(34,197,94,0.12);   color: #4ade80; }
+    .s-completed { background: rgba(107,114,128,0.12); color: #9ca3af; }
+    .s-cancelled { background: rgba(239,68,68,0.12);   color: #f87171; }
+    .card-vehicle { font-size: 15px; font-weight: 700; margin-bottom: 8px; }
+    .card-vehicle small { font-size: 11px; font-weight: 400; color: var(--text-muted); margin-left: 5px; }
+    .card-meta { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 6px; }
+    .c-info    { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--text-muted); }
+    .c-info svg { width: 12px; height: 12px; opacity: 0.55; flex-shrink: 0; }
+    .card-bottom {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-soft);
+    }
+    .card-price     { font-size: 16px; font-weight: 700; color: var(--accent); }
+    .card-price-sub { font-size: 10px; color: var(--text-faint); margin-top: 1px; }
+    .card-caret     { color: var(--text-faint); font-size: 18px; }
+
+    /* ── Modal ────────────────────────────────────────────────────────────── */
+    .modal-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.72); z-index: 100;
+      display: flex; align-items: flex-end; justify-content: center;
+      backdrop-filter: blur(2px);
+    }
+    @media (min-width: 600px) { .modal-overlay { align-items: center; padding: 20px; } }
+    .modal-panel {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+      width: 100%; max-width: 540px; max-height: 90vh; overflow-y: auto;
+      animation: slideUp 0.2s ease;
+    }
+    @media (min-width: 600px) {
+      .modal-panel { border-radius: var(--radius-lg); animation: popIn 0.15s ease; }
+    }
+    @keyframes slideUp { from { transform: translateY(32px); opacity: 0; } to { transform: none; opacity: 1; } }
+    @keyframes popIn   { from { opacity: 0; transform: scale(0.97); } to { opacity: 1; transform: none; } }
+    .modal-header {
+      display: flex; align-items: flex-start; justify-content: space-between;
+      padding: 18px 20px 14px; border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; background: var(--surface); z-index: 1;
+    }
+    .modal-title    { font-size: 15px; font-weight: 700; }
+    .modal-subtitle { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+    .modal-close {
+      background: var(--card); border: 1px solid var(--border); color: var(--text-muted);
+      width: 26px; height: 26px; border-radius: 50%; cursor: pointer; flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center; font-size: 16px;
+      margin-left: 12px; transition: background 0.15s;
+    }
+    .modal-close:hover { background: var(--border); color: var(--text); }
+    .modal-body   { padding: 18px 20px; }
+    .modal-footer { padding: 14px 20px; border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; }
+
+    /* ── Detail ───────────────────────────────────────────────────────────── */
+    .d-sep   { border: none; border-top: 1px solid var(--border-soft); margin: 14px 0; }
+    .d-label { font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--text-faint); margin-bottom: 10px; }
+    .d-grid  { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 16px; }
+    .d-item label { font-size: 11px; color: var(--text-muted); display: block; margin-bottom: 2px; }
+    .d-item .val  { font-size: 14px; color: var(--text); font-weight: 500; }
+    .extras-list  { display: flex; flex-direction: column; gap: 5px; }
+    .extra-row    { display: flex; justify-content: space-between; font-size: 13px; color: var(--text-muted); }
+    .extra-row .ep { color: var(--text); font-weight: 500; }
+    .price-box    { background: var(--card); border-radius: var(--radius); padding: 12px 14px; }
+    .p-row        { display: flex; justify-content: space-between; font-size: 13px; color: var(--text-muted); margin-bottom: 5px; }
+    .p-row:last-child { margin-top: 9px; padding-top: 9px; border-top: 1px solid var(--border); font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 0; }
+    .p-row:last-child .p-total { color: var(--accent); }
+    .d-notice { background: rgba(245,158,11,0.07); border: 1px solid rgba(245,158,11,0.2); border-radius: var(--radius); padding: 10px 12px; font-size: 12px; color: #fbbf24; margin-top: 10px; line-height: 1.6; }
+
+    /* ── Edit Form ────────────────────────────────────────────────────────── */
+    .f-group    { margin-bottom: 14px; }
+    .f-label    { display: block; font-size: 11px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 5px; }
+    .f-input, .f-select, .f-textarea {
+      width: 100%; background: var(--card); border: 1px solid var(--border);
+      border-radius: var(--radius); color: var(--text); font-size: 13px;
+      padding: 9px 11px; outline: none; font-family: inherit;
+      transition: border-color 0.15s;
+    }
+    .f-input:focus, .f-select:focus, .f-textarea:focus { border-color: var(--accent); }
+    .f-input[type="date"] { color-scheme: dark; }
+    .f-textarea { resize: vertical; min-height: 70px; }
+    .f-select option { background: var(--card); }
+    .f-row  { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .f-error { background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.25); color: #fca5a5; border-radius: var(--radius); padding: 9px 12px; font-size: 12px; margin-top: 10px; }
+    .price-preview {
+      background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 10px 14px; display: flex; justify-content: space-between; align-items: center;
+    }
+    .pp-total { font-size: 18px; font-weight: 700; color: var(--accent); }
+    .pp-sub   { font-size: 11px; color: var(--text-faint); margin-top: 2px; }
+
+    /* ── Cancel ───────────────────────────────────────────────────────────── */
+    .cancel-warn { background: rgba(239,68,68,0.07); border: 1px solid rgba(239,68,68,0.22); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 16px; }
+    .cancel-warn-title { font-size: 13px; font-weight: 700; color: #f87171; margin-bottom: 5px; }
+    .cancel-warn-body  { font-size: 12px; color: var(--text-muted); line-height: 1.6; }
+
+    /* ── Profile ──────────────────────────────────────────────────────────── */
+    #section-profile { flex: 1; padding: 16px; }
+    @media (min-width: 640px) { #section-profile { padding: 24px 20px; } }
+    .profile-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius-lg); max-width: 560px; margin: 0 auto; overflow: hidden; }
+    .profile-hdr { background: linear-gradient(135deg,#2d2318,#1b1813); padding: 28px 24px; display: flex; align-items: center; gap: 16px; }
+    .profile-avatar { width: 50px; height: 50px; border-radius: 50%; background: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 700; color: #0f0d0c; flex-shrink: 0; }
+    .profile-name  { font-size: 17px; font-weight: 700; margin-bottom: 3px; }
+    .profile-email { font-size: 12px; color: var(--text-muted); }
+    .profile-body  { padding: 20px 24px; }
+    .p-stitle { font-size: 10px; letter-spacing: 1px; text-transform: uppercase; color: var(--text-faint); font-weight: 700; margin-bottom: 12px; }
+    .p-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 20px; margin-bottom: 20px; }
+    .p-field label { font-size: 11px; color: var(--text-muted); display: block; margin-bottom: 2px; }
+    .p-field .pval { font-size: 13px; color: var(--text); }
+    .p-field .pval.empty { color: var(--text-faint); font-style: italic; }
+    .p-note { font-size: 12px; color: var(--text-faint); padding-top: 14px; border-top: 1px solid var(--border-soft); }
+
+    /* ── Buttons ──────────────────────────────────────────────────────────── */
+    .btn { border: none; border-radius: var(--radius); cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 600; padding: 9px 16px; display: inline-flex; align-items: center; gap: 5px; transition: opacity 0.15s, transform 0.1s; white-space: nowrap; }
+    .btn:active   { transform: scale(0.98); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; }
+    .btn-primary  { background: var(--accent); color: #0f0d0c; }
+    .btn-primary:hover:not(:disabled) { opacity: 0.88; }
+    .btn-ghost    { background: var(--card); color: var(--text-muted); border: 1px solid var(--border); }
+    .btn-ghost:hover:not(:disabled)   { color: var(--text); border-color: var(--text-faint); }
+    .btn-danger   { background: rgba(239,68,68,0.12); color: #f87171; border: 1px solid rgba(239,68,68,0.25); }
+    .btn-danger:hover:not(:disabled)  { background: rgba(239,68,68,0.2); }
+    .btn-danger-solid { background: #ef4444; color: #fff; }
+    .btn-danger-solid:hover:not(:disabled) { opacity: 0.88; }
+    .btn-sm { font-size: 12px; padding: 7px 12px; }
+
+    /* ── Toast ────────────────────────────────────────────────────────────── */
+    #toast {
+      position: fixed; bottom: 20px; left: 50%;
+      transform: translateX(-50%) translateY(60px);
+      background: #1e1c18; border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 10px 18px; font-size: 13px; color: var(--text); white-space: nowrap;
+      z-index: 999; box-shadow: var(--shadow-lg);
+      transition: transform 0.25s ease, opacity 0.25s; opacity: 0; pointer-events: none;
+    }
+    #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+    #toast.ok   { border-color: rgba(34,197,94,0.35);  color: #4ade80; }
+    #toast.err  { border-color: rgba(239,68,68,0.35);   color: #f87171; }
+  </style>
+</head>
+<body>
+
+<!-- ── Sign In ─────────────────────────────────────────────────────────────── -->
+<div id="view-signin">
+  <div class="signin-box">
+    <div class="brand-block">
+      <div class="brand-gem"></div>
+      <div class="brand-name">Diamond</div>
+      <div class="brand-sub">Rent a Car</div>
+    </div>
+
+    <div class="signin-title">My Account</div>
+
+    <div class="form-group">
+      <label class="form-label">Email Address</label>
+      <input type="email" id="si-email" class="form-input" placeholder="your@email.com" autocomplete="email" />
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Booking Reference</label>
+      <input type="text" id="si-ref" class="form-input" placeholder="e.g. BK-2024-001" autocomplete="off" autocapitalize="characters" />
+      <div class="form-hint">Find this on your booking confirmation.</div>
+    </div>
+
+    <button class="btn-signin" id="btn-signin">Access My Account →</button>
+
+    <div id="signin-error" class="signin-error hidden"></div>
+
+    <hr class="signin-divider">
+    <div class="signin-footer">
+      New customer? <a href="#" id="link-book">Make a reservation →</a><br>
+      <span style="margin-top:6px;display:inline-block;">Can't find your reference? <a href="#" id="link-contact">Contact us</a></span>
+    </div>
+  </div>
+</div>
+
+<!-- ── Loading ─────────────────────────────────────────────────────────────── -->
+<div id="view-loading">
+  <div class="spinner"></div>
+  <div class="loading-text">Loading your account…</div>
+</div>
+
+<!-- ── App ─────────────────────────────────────────────────────────────────── -->
+<div id="view-app" class="hidden">
+
+  <header class="app-header">
+    <div class="hdr-logo">
+      <div class="hdr-gem"></div>
+      <span class="hdr-brand">Diamond</span>
+      <div class="hdr-sep"></div>
+      <span class="hdr-title" id="hdr-name">My Account</span>
+    </div>
+    <div class="hdr-actions">
+      <button class="btn-icon" id="btn-profile" title="Profile">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+        </svg>
+        <span>Profile</span>
+      </button>
+      <button class="btn-icon" id="btn-signout" title="Sign Out">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/>
+          <polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <nav class="nav-tabs" id="nav-tabs">
+    <button class="nav-tab active" data-filter="all">All <span class="tab-count" id="cnt-all">0</span></button>
+    <button class="nav-tab" data-filter="upcoming">Upcoming <span class="tab-count" id="cnt-upcoming">0</span></button>
+    <button class="nav-tab" data-filter="active">Active <span class="tab-count" id="cnt-active">0</span></button>
+    <button class="nav-tab" data-filter="past">Past <span class="tab-count" id="cnt-past">0</span></button>
+  </nav>
+
+  <main class="app-content" id="bookings-content">
+    <div id="bookings-list"></div>
+    <div id="bookings-empty" class="empty-state hidden">
+      <div class="empty-icon">📋</div>
+      <div class="empty-title">No bookings found</div>
+      <div class="empty-sub">Your reservations will appear here.</div>
+    </div>
+  </main>
+
+  <section id="section-profile" class="hidden">
+    <div class="profile-card">
+      <div class="profile-hdr">
+        <div class="profile-avatar" id="pf-avatar">?</div>
+        <div>
+          <div class="profile-name"  id="pf-fullname">—</div>
+          <div class="profile-email" id="pf-email">—</div>
+        </div>
+      </div>
+      <div class="profile-body">
+        <div class="p-stitle">Personal Information</div>
+        <div class="p-fields">
+          <div class="p-field"><label>Phone</label><div class="pval" id="pf-phone">—</div></div>
+          <div class="p-field"><label>Date of Birth</label><div class="pval" id="pf-dob">—</div></div>
+          <div class="p-field"><label>License Number</label><div class="pval" id="pf-license">—</div></div>
+          <div class="p-field"><label>License Expiry</label><div class="pval" id="pf-lic-exp">—</div></div>
+          <div class="p-field"><label>City</label><div class="pval" id="pf-city">—</div></div>
+          <div class="p-field"><label>Country</label><div class="pval" id="pf-country">—</div></div>
+        </div>
+        <div class="p-stitle">Account</div>
+        <div class="p-fields">
+          <div class="p-field"><label>Member Since</label><div class="pval" id="pf-since">—</div></div>
+          <div class="p-field"><label>Total Bookings</label><div class="pval" id="pf-total">—</div></div>
+        </div>
+        <div class="p-note">To update your information, please contact our team.</div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<!-- ── Modal: Detail ───────────────────────────────────────────────────────── -->
+<div id="modal-detail" class="modal-overlay hidden">
+  <div class="modal-panel">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title"   id="det-title">Booking</div>
+        <div class="modal-subtitle" id="det-sub"></div>
+      </div>
+      <button class="modal-close" id="cls-detail">×</button>
+    </div>
+    <div class="modal-body"   id="det-body"></div>
+    <div class="modal-footer" id="det-footer"></div>
+  </div>
+</div>
+
+<!-- ── Modal: Edit ─────────────────────────────────────────────────────────── -->
+<div id="modal-edit" class="modal-overlay hidden">
+  <div class="modal-panel">
+    <div class="modal-header">
+      <div class="modal-title">Edit Booking</div>
+      <button class="modal-close" id="cls-edit">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="f-row">
+        <div class="f-group"><label class="f-label">Pickup Date</label><input type="date" id="e-start" class="f-input"/></div>
+        <div class="f-group"><label class="f-label">Return Date</label><input type="date" id="e-end"   class="f-input"/></div>
+      </div>
+      <div class="f-group"><label class="f-label">Pickup Location</label><select id="e-pickup"  class="f-select"></select></div>
+      <div class="f-group"><label class="f-label">Dropoff Location</label><select id="e-dropoff" class="f-select"></select></div>
+      <div class="f-group">
+        <label class="f-label">Notes / Special Requests</label>
+        <textarea id="e-notes" class="f-textarea" placeholder="Any special requests…"></textarea>
+      </div>
+      <div class="f-group">
+        <label class="f-label">Updated Total</label>
+        <div class="price-preview">
+          <div><div class="pp-total" id="e-total">—</div><div class="pp-sub" id="e-breakdown">—</div></div>
+        </div>
+      </div>
+      <div id="edit-err" class="f-error hidden"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost"   id="cls-edit-btn">Cancel</button>
+      <button class="btn btn-primary" id="save-edit">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: Cancel ───────────────────────────────────────────────────────── -->
+<div id="modal-cancel" class="modal-overlay hidden">
+  <div class="modal-panel">
+    <div class="modal-header">
+      <div class="modal-title">Cancel Booking</div>
+      <button class="modal-close" id="cls-cancel">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="cancel-warn">
+        <div class="cancel-warn-title">⚠ This action cannot be undone</div>
+        <div class="cancel-warn-body" id="cancel-info">Cancel this booking?</div>
+      </div>
+      <div class="f-group">
+        <label class="f-label">Reason (optional)</label>
+        <textarea id="cancel-reason" class="f-textarea" placeholder="Let us know why you're cancelling…"></textarea>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost"        id="cls-cancel-btn">Keep Booking</button>
+      <button class="btn btn-danger-solid" id="confirm-cancel">Cancel Booking</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+const S = {
+  locations: [], currency: 'USD', companyName: 'Diamond Rent a Car', bookingPageUrl: '/',
+  contactUrl: '/',
+  session: { customerId: null, token: null },
+  customer: null, profile: null,
+  bookings: [], currentBooking: null, editingBooking: null,
+  activeFilter: 'all', profileVisible: false,
+};
+let _tt = null;
+
+// ─── Bridge ────────────────────────────────────────────────────────────────────
+const send = (type, payload = {}) => window.parent.postMessage({ type, payload }, '*');
+
+window.addEventListener('message', ({ data }) => {
+  if (!data?.type) return;
+  const { type, payload = {} } = data;
+  switch (type) {
+    case 'INIT':          onInit(payload);               break;
+    case 'AUTH_RESULT':   onAuthResult(payload);         break;
+    case 'BOOKINGS_RESULT':   onBookingsResult(payload); break;
+    case 'UPDATE_RESULT':     onUpdateResult(payload);   break;
+    case 'CANCEL_RESULT':     onCancelResult(payload);   break;
+    case 'PROFILE_RESULT':    onProfileResult(payload);  break;
+    case 'SIGN_OUT_RESULT':   execSignOut();              break;
+  }
+});
+
+// ─── Init ──────────────────────────────────────────────────────────────────────
+function onInit(p = {}) {
+  S.locations      = p.locations      || [];
+  S.currency       = p.currency       || 'USD';
+  S.companyName    = p.companyName    || 'Diamond Rent a Car';
+  S.bookingPageUrl = p.bookingPageUrl || '/';
+  S.contactUrl     = p.contactUrl     || '/';
+
+  document.getElementById('link-book').href    = S.bookingPageUrl;
+  document.getElementById('link-contact').href = S.contactUrl;
+  populateLocations();
+
+  const stored = loadSession();
+  if (stored) {
+    S.session  = stored.session;
+    S.customer = stored.customer || null;
+    showView('loading');
+    send('GET_BOOKINGS', { customerId: S.session.customerId, sessionToken: S.session.token, filter: 'all' });
+  } else {
+    showView('signin');
+  }
+}
+
+// ─── Auth ──────────────────────────────────────────────────────────────────────
+function onAuthResult(p = {}) {
+  if (!p.ok) {
+    showView('signin'); setSigninBusy(false);
+    showSigninError(p.error || 'Sign-in failed. Please check your details and try again.');
+    return;
+  }
+  S.session  = { customerId: p.customerId, token: p.sessionToken };
+  S.customer = p.customer;
+  saveSession(S.session, S.customer);
+  showView('app'); updateHeader();
+  send('GET_BOOKINGS', { customerId: S.session.customerId, sessionToken: S.session.token, filter: 'all' });
+}
+
+// ─── Bookings ──────────────────────────────────────────────────────────────────
+function onBookingsResult(p = {}) {
+  if (!p.ok) {
+    if (p.error === 'Unauthorized') { execSignOut(); return; }
+    toast(p.error || 'Failed to load bookings', 'err'); return;
+  }
+  S.bookings = p.bookings || [];
+  if (document.getElementById('view-app').classList.contains('hidden')) {
+    showView('app'); updateHeader();
+  }
+  renderBookings(S.activeFilter); updateCounts();
+}
+
+function onUpdateResult(p = {}) {
+  setEditBusy(false);
+  if (!p.ok) { showEditErr(p.error || 'Update failed'); return; }
+  patchBooking(p.booking);
+  S.currentBooking = p.booking;
+  closeModal('modal-edit'); renderDetail(p.booking);
+  renderBookings(S.activeFilter); updateCounts();
+  toast('Booking updated', 'ok');
+}
+
+function onCancelResult(p = {}) {
+  setCancelBusy(false);
+  if (!p.ok) { toast(p.error || 'Cancellation failed', 'err'); return; }
+  patchBooking(p.booking);
+  closeModal('modal-cancel'); closeModal('modal-detail');
+  renderBookings(S.activeFilter); updateCounts();
+  toast('Booking cancelled', 'ok');
+}
+
+function onProfileResult(p = {}) {
+  if (!p.ok) { toast('Failed to load profile', 'err'); return; }
+  S.profile = p.profile; renderProfile(p.profile);
+}
+
+function patchBooking(b) {
+  const i = S.bookings.findIndex(x => x.id === b.id);
+  if (i >= 0) S.bookings[i] = b;
+}
+
+// ─── Render: List ──────────────────────────────────────────────────────────────
+function renderBookings(filter = 'all') {
+  S.activeFilter = filter;
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.toggle('active', t.dataset.filter === filter));
+
+  const now = new Date();
+  let items = [...S.bookings];
+  if (filter === 'upcoming') items = items.filter(b => new Date(b.startDate) > now && b.status !== 'cancelled');
+  else if (filter === 'active') items = items.filter(b => b.status === 'active');
+  else if (filter === 'past')   items = items.filter(b => new Date(b.endDate) < now || ['completed','cancelled'].includes(b.status));
+
+  const list  = document.getElementById('bookings-list');
+  const empty = document.getElementById('bookings-empty');
+  if (!items.length) { list.innerHTML = ''; empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
+  list.innerHTML = items.map(bookingCard).join('');
+  list.querySelectorAll('.booking-card').forEach(el => {
+    el.addEventListener('click', () => {
+      const b = S.bookings.find(x => x.id === el.dataset.id);
+      if (b) openDetail(b);
+    });
+  });
+}
+
+function bookingCard(b) {
+  const days = calcDays(b.startDate, b.endDate);
+  return `
+<div class="booking-card" data-id="${b.id}">
+  <div class="card-top">
+    <span class="b-ref">#${b.bookingNumber}</span>
+    <span class="status-badge s-${b.status}">${b.status}</span>
+  </div>
+  <div class="card-vehicle">${esc(b.vehicleName)}<small>${esc(b.vehicleCategory)}</small></div>
+  <div class="card-meta">
+    <div class="c-info">${iCal()}${fmtDate(b.startDate)} → ${fmtDate(b.endDate)} · ${days}d</div>
+    ${b.pickupLocation ? `<div class="c-info">${iPin()}${esc(b.pickupLocation)}</div>` : ''}
+  </div>
+  <div class="card-bottom">
+    <div><div class="card-price">${fmtMoney(b.totalPrice, b.currency)}</div><div class="card-price-sub">${days} days</div></div>
+    <span class="card-caret">›</span>
+  </div>
+</div>`;
+}
+
+// ─── Render: Detail ────────────────────────────────────────────────────────────
+function openDetail(b) { S.currentBooking = b; renderDetail(b); openModal('modal-detail'); }
+
+function renderDetail(b) {
+  const canEdit = ['pending','confirmed'].includes(b.status);
+  const days    = calcDays(b.startDate, b.endDate);
+  const ext     = (b.extras||[]).reduce((s,e) => s + Number(e.price||0), 0);
+  const ins     = Number(b.insurance?.dailyRate||0) * days;
+  const base    = Number(b.dailyRate||0) * days;
+
+  document.getElementById('det-title').textContent = `Booking #${b.bookingNumber}`;
+  document.getElementById('det-sub').innerHTML = `<span class="status-badge s-${b.status}">${b.status}</span>`;
+  document.getElementById('det-body').innerHTML = `
+    <div class="d-label" style="margin-top:0">Vehicle</div>
+    <div style="font-size:16px;font-weight:700;margin-bottom:3px">${esc(b.vehicleName)}</div>
+    ${b.vehiclePlate ? `<div style="font-size:11px;color:var(--text-muted)">Plate: ${esc(b.vehiclePlate)}</div>` : ''}
+    <hr class="d-sep">
+    <div class="d-label">Rental Details</div>
+    <div class="d-grid">
+      <div class="d-item"><label>Pickup Date</label><div class="val">${fmtDate(b.startDate)}</div></div>
+      <div class="d-item"><label>Return Date</label><div class="val">${fmtDate(b.endDate)}</div></div>
+      <div class="d-item"><label>Duration</label><div class="val">${days} day${days!==1?'s':''}</div></div>
+      <div class="d-item"><label>Daily Rate</label><div class="val">${fmtMoney(b.dailyRate,b.currency)}/day</div></div>
+      <div class="d-item"><label>Pickup</label><div class="val">${esc(b.pickupLocation)||'—'}</div></div>
+      <div class="d-item"><label>Dropoff</label><div class="val">${esc(b.dropoffLocation)||'—'}</div></div>
+    </div>
+    ${b.insurance ? `<hr class="d-sep"><div class="d-label">Insurance</div><div style="display:flex;justify-content:space-between;font-size:13px"><span style="color:var(--text-muted)">${esc(b.insurance.name||'Coverage')}</span><span style="font-weight:500">${fmtMoney(b.insurance.dailyRate,b.currency)}/day</span></div>` : ''}
+    ${b.extras?.length ? `<hr class="d-sep"><div class="d-label">Extras</div><div class="extras-list">${b.extras.map(e=>`<div class="extra-row"><span>${esc(e.name)}</span><span class="ep">${fmtMoney(e.price,b.currency)}</span></div>`).join('')}</div>` : ''}
+    <hr class="d-sep">
+    <div class="d-label">Summary</div>
+    <div class="price-box">
+      <div class="p-row"><span>${days}d × ${fmtMoney(b.dailyRate,b.currency)}</span><span>${fmtMoney(base,b.currency)}</span></div>
+      ${ins ? `<div class="p-row"><span>Insurance</span><span>${fmtMoney(ins,b.currency)}</span></div>` : ''}
+      ${ext ? `<div class="p-row"><span>Extras</span><span>${fmtMoney(ext,b.currency)}</span></div>` : ''}
+      <div class="p-row"><span>Total</span><span class="p-total">${fmtMoney(b.totalPrice,b.currency)}</span></div>
+    </div>
+    ${b.notes ? `<hr class="d-sep"><div class="d-label">Notes</div><div style="font-size:13px;color:var(--text-muted);line-height:1.6">${esc(b.notes)}</div>` : ''}
+    ${!canEdit ? `<div class="d-notice">This booking cannot be modified (status: <strong>${b.status}</strong>). Contact our team for assistance.</div>` : ''}
+  `;
+
+  const footer = document.getElementById('det-footer');
+  if (canEdit) {
+    footer.innerHTML = `
+      <button class="btn btn-danger btn-sm" id="btn-go-cancel">Cancel Booking</button>
+      <button class="btn btn-primary btn-sm" id="btn-go-edit">Edit Booking</button>`;
+    footer.querySelector('#btn-go-edit').onclick   = () => openEdit(b);
+    footer.querySelector('#btn-go-cancel').onclick = () => openCancel(b);
+  } else {
+    footer.innerHTML = `<button class="btn btn-ghost btn-sm" onclick="closeModal('modal-detail')">Close</button>`;
+  }
+}
+
+// ─── Render: Edit ──────────────────────────────────────────────────────────────
+function openEdit(b) {
+  S.editingBooking = b;
+  document.getElementById('e-start').value = toDateVal(b.startDate);
+  document.getElementById('e-end').value   = toDateVal(b.endDate);
+  document.getElementById('e-notes').value = b.notes || '';
+  document.getElementById('edit-err').classList.add('hidden');
+  setLocSel('e-pickup',  b.pickupLocation);
+  setLocSel('e-dropoff', b.dropoffLocation);
+  recalcEdit(); openModal('modal-edit');
+}
+
+function recalcEdit() {
+  const b = S.editingBooking;
+  const sv = document.getElementById('e-start').value;
+  const ev = document.getElementById('e-end').value;
+  if (!b || !sv || !ev) { document.getElementById('e-total').textContent = '—'; document.getElementById('e-breakdown').textContent = '—'; return; }
+  const s = new Date(sv), e = new Date(ev);
+  if (e <= s) { document.getElementById('e-breakdown').textContent = 'Invalid dates'; document.getElementById('e-total').textContent = '—'; return; }
+  const days  = Math.ceil((e - s) / 86400000);
+  const ext   = (b.extras||[]).reduce((s,e) => s + Number(e.price||0), 0);
+  const ins   = Number(b.insurance?.dailyRate||0) * days;
+  const total = (Number(b.dailyRate||0) * days) + ext + ins;
+  document.getElementById('e-total').textContent     = fmtMoney(total, b.currency);
+  document.getElementById('e-breakdown').textContent = `${days}d × ${fmtMoney(b.dailyRate,b.currency)}${ins?` + insurance`:''}${ext?` + extras`:''}`;
+}
+
+function setEditBusy(busy) { const b = document.getElementById('save-edit'); b.disabled = busy; b.textContent = busy ? 'Saving…' : 'Save Changes'; }
+function showEditErr(msg)   { const el = document.getElementById('edit-err'); el.textContent = msg; el.classList.remove('hidden'); }
+
+// ─── Render: Cancel ────────────────────────────────────────────────────────────
+function openCancel(b) {
+  S.currentBooking = b;
+  document.getElementById('cancel-reason').value = '';
+  document.getElementById('cancel-info').innerHTML = `Cancel booking <strong>#${b.bookingNumber}</strong> — <strong>${esc(b.vehicleName)}</strong> (${fmtDate(b.startDate)} → ${fmtDate(b.endDate)})?`;
+  openModal('modal-cancel');
+}
+function setCancelBusy(busy) { const b = document.getElementById('confirm-cancel'); b.disabled = busy; b.textContent = busy ? 'Cancelling…' : 'Cancel Booking'; }
+
+// ─── Render: Profile ───────────────────────────────────────────────────────────
+function renderProfile(p) {
+  const full = [p.firstName, p.lastName].filter(Boolean).join(' ') || p.email;
+  const init = ((p.firstName||'')[0]||'') + ((p.lastName||'')[0]||'') || '?';
+  document.getElementById('pf-avatar').textContent  = init.toUpperCase();
+  document.getElementById('pf-fullname').textContent = full;
+  document.getElementById('pf-email').textContent   = p.email || '—';
+  const set = (id, val) => {
+    const el = document.getElementById(id);
+    if (val) { el.textContent = val; el.classList.remove('empty'); }
+    else     { el.textContent = 'Not provided'; el.classList.add('empty'); }
+  };
+  set('pf-phone',   p.phone       || '');
+  set('pf-dob',     p.dateOfBirth  ? fmtDate(p.dateOfBirth)  : '');
+  set('pf-license', p.licenseNumber || '');
+  set('pf-lic-exp', p.licenseExpiry ? fmtDate(p.licenseExpiry) : '');
+  set('pf-city',    p.city    || '');
+  set('pf-country', p.country || '');
+  set('pf-since',   p.createdDate ? fmtDate(p.createdDate) : '');
+  set('pf-total',   String(S.bookings.length));
+}
+
+// ─── Counts ────────────────────────────────────────────────────────────────────
+function updateCounts() {
+  const now = new Date();
+  document.getElementById('cnt-all').textContent      = S.bookings.length;
+  document.getElementById('cnt-upcoming').textContent = S.bookings.filter(b => new Date(b.startDate) > now && b.status !== 'cancelled').length;
+  document.getElementById('cnt-active').textContent   = S.bookings.filter(b => b.status === 'active').length;
+  document.getElementById('cnt-past').textContent     = S.bookings.filter(b => new Date(b.endDate) < now || ['completed','cancelled'].includes(b.status)).length;
+}
+
+function updateHeader() {
+  const c = S.customer || S.profile;
+  if (!c) return;
+  const name = [c.firstName, c.lastName].filter(Boolean).join(' ') || c.email || '';
+  document.getElementById('hdr-name').textContent = name || 'My Account';
+}
+
+// ─── Event Bindings ────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  send('PORTAL_READY');
+
+  // Sign in
+  document.getElementById('btn-signin').addEventListener('click', doSignIn);
+  document.getElementById('si-ref').addEventListener('keydown', e => { if (e.key === 'Enter') doSignIn(); });
+  document.getElementById('si-email').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('si-ref').focus(); });
+
+  // Tabs
+  document.getElementById('nav-tabs').addEventListener('click', e => {
+    const tab = e.target.closest('.nav-tab'); if (!tab) return;
+    showBookings(); renderBookings(tab.dataset.filter);
+  });
+
+  // Profile
+  document.getElementById('btn-profile').addEventListener('click', () => {
+    S.profileVisible = !S.profileVisible;
+    if (S.profileVisible) {
+      document.querySelector('.nav-tabs').classList.add('hidden');
+      document.getElementById('bookings-content').classList.add('hidden');
+      document.getElementById('section-profile').classList.remove('hidden');
+      document.getElementById('btn-profile').classList.add('active');
+      if (!S.profile) send('GET_PROFILE', { customerId: S.session.customerId, sessionToken: S.session.token });
+    } else { showBookings(); }
+  });
+
+  // Sign out
+  document.getElementById('btn-signout').addEventListener('click', () =>
+    send('SIGN_OUT', { customerId: S.session.customerId, sessionToken: S.session.token }));
+
+  // Close modals
+  ['cls-detail','cls-edit','cls-edit-btn','cls-cancel','cls-cancel-btn'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.onclick = () => closeModal(el.closest('.modal-overlay').id);
+  });
+  document.querySelectorAll('.modal-overlay').forEach(o => {
+    o.addEventListener('click', e => { if (e.target === o) closeModal(o.id); });
+  });
+
+  // Edit date recalc
+  document.getElementById('e-start').addEventListener('change', recalcEdit);
+  document.getElementById('e-end').addEventListener('change',   recalcEdit);
+
+  // Save edit
+  document.getElementById('save-edit').addEventListener('click', () => {
+    const b = S.editingBooking; if (!b) return;
+    const sv = document.getElementById('e-start').value;
+    const ev = document.getElementById('e-end').value;
+    document.getElementById('edit-err').classList.add('hidden');
+    if (!sv || !ev) { showEditErr('Please select both dates.'); return; }
+    if (new Date(ev) <= new Date(sv)) { showEditErr('Return date must be after pickup date.'); return; }
+    setEditBusy(true);
+    send('UPDATE_BOOKING', {
+      bookingId: b.id, customerId: S.session.customerId, sessionToken: S.session.token,
+      changes: {
+        startDate: new Date(sv).toISOString(), endDate: new Date(ev).toISOString(),
+        pickupLocation: document.getElementById('e-pickup').value,
+        dropoffLocation: document.getElementById('e-dropoff').value,
+        notes: document.getElementById('e-notes').value,
+      },
+    });
+  });
+
+  // Confirm cancel
+  document.getElementById('confirm-cancel').addEventListener('click', () => {
+    const b = S.currentBooking; if (!b) return;
+    setCancelBusy(true);
+    send('CANCEL_BOOKING', {
+      bookingId: b.id, customerId: S.session.customerId, sessionToken: S.session.token,
+      reason: document.getElementById('cancel-reason').value,
+    });
+  });
+});
+
+function doSignIn() {
+  const email = document.getElementById('si-email').value.trim();
+  const ref   = document.getElementById('si-ref').value.trim();
+  clearSigninError();
+  if (!email) { showSigninError('Please enter your email address.'); return; }
+  if (!ref)   { showSigninError('Please enter your booking reference.'); return; }
+  setSigninBusy(true);
+  send('SIGN_IN', { email, bookingRef: ref });
+}
+
+// ─── View / Modal ──────────────────────────────────────────────────────────────
+function showView(name) {
+  document.getElementById('view-signin').classList.toggle('hidden', name !== 'signin');
+  const ld = document.getElementById('view-loading');
+  ld.classList.toggle('show', name === 'loading');
+  ld.classList.toggle('hidden', name !== 'loading');
+  document.getElementById('view-app').classList.toggle('hidden', name !== 'app');
+}
+function openModal(id)  { document.getElementById(id).classList.remove('hidden'); document.body.style.overflow = 'hidden'; }
+function closeModal(id) {
+  document.getElementById(id).classList.add('hidden');
+  if (!document.querySelectorAll('.modal-overlay:not(.hidden)').length) document.body.style.overflow = '';
+}
+function showBookings() {
+  S.profileVisible = false;
+  document.querySelector('.nav-tabs').classList.remove('hidden');
+  document.getElementById('bookings-content').classList.remove('hidden');
+  document.getElementById('section-profile').classList.add('hidden');
+  document.getElementById('btn-profile').classList.remove('active');
+}
+function setSigninBusy(busy) {
+  const btn = document.getElementById('btn-signin');
+  btn.disabled = busy; btn.textContent = busy ? 'Signing in…' : 'Access My Account →';
+}
+
+// ─── Session ───────────────────────────────────────────────────────────────────
+function saveSession(session, customer) {
+  try { sessionStorage.setItem('drc_portal', JSON.stringify({ session, customer })); } catch(e) {}
+}
+function loadSession() {
+  try {
+    const r = sessionStorage.getItem('drc_portal'); if (!r) return null;
+    const d = JSON.parse(r);
+    if (!d?.session?.customerId || !d?.session?.token) return null;
+    S.customer = d.customer || null; return d;
+  } catch(e) { return null; }
+}
+function execSignOut() {
+  try { sessionStorage.removeItem('drc_portal'); } catch(e) {}
+  Object.assign(S, { session: { customerId: null, token: null }, customer: null, profile: null, bookings: [] });
+  document.getElementById('si-email').value = '';
+  document.getElementById('si-ref').value   = '';
+  showView('signin'); clearSigninError();
+}
+
+// ─── Locations ─────────────────────────────────────────────────────────────────
+function populateLocations() {
+  const opts = S.locations.length
+    ? S.locations.map(l => `<option value="${esc(l.name||l)}">${esc(l.name||l)}</option>`).join('')
+    : '<option value="">—</option>';
+  document.getElementById('e-pickup').innerHTML  = opts;
+  document.getElementById('e-dropoff').innerHTML = opts;
+}
+function setLocSel(id, val) {
+  const sel = document.getElementById(id);
+  for (const o of sel.options) { if (o.value === val) { sel.value = val; return; } }
+  if (val) { const o = new Option(val,val); sel.insertBefore(o, sel.firstChild); sel.value = val; }
+}
+
+// ─── UI Helpers ────────────────────────────────────────────────────────────────
+function showSigninError(msg)   { const e = document.getElementById('signin-error'); e.textContent = msg; e.classList.remove('hidden'); }
+function clearSigninError()     { document.getElementById('signin-error').classList.add('hidden'); }
+function toast(msg, type = '') {
+  const el = document.getElementById('toast'); el.textContent = msg; el.className = `show ${type}`;
+  clearTimeout(_tt); _tt = setTimeout(() => { el.className = ''; }, 3200);
+}
+
+// ─── Formatters ────────────────────────────────────────────────────────────────
+function fmtDate(iso) {
+  if (!iso) return '—';
+  try { return new Date(iso).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }); }
+  catch(e) { return '—'; }
+}
+function toDateVal(iso) { try { return new Date(iso).toISOString().split('T')[0]; } catch(e) { return ''; } }
+function calcDays(s, e) { try { return Math.max(1, Math.ceil((new Date(e) - new Date(s)) / 86400000)); } catch(e) { return 1; } }
+function fmtMoney(amt, cur = 'USD') {
+  const sym = cur === 'EUR' ? '€' : cur === 'GBP' ? '£' : '$';
+  return `${sym}${Number(amt||0).toFixed(2)}`;
+}
+function esc(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function iCal() { return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>`; }
+function iPin() { return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>`; }
+</script>
+</body>
+</html>

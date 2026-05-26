@@ -1,5 +1,6 @@
 import wixLocation from "wix-location";
 import { authentication } from 'wix-members-frontend';
+import { clearSessionToken } from 'public/backroomAuth';
 
 const TRUSTED_DOMAIN_SUFFIXES = ['wix.com', 'wixsite.com', 'parastorage.com', 'wixstatic.com'];
 
@@ -14,6 +15,7 @@ $w.onReady(function () {
       return;
     }
     if (data.type === 'backroomLogout') {
+      clearSessionToken();
       try { await authentication.logout(); } catch (_) {}
       wixLocation.to('/myroom-home');
     }

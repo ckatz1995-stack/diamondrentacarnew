@@ -439,7 +439,8 @@ export async function confirmAndAutoAssign({ authToken, bookingId } = {}) {
 /**
  * Acknowledge unassigned bookings in a range (optional)
  */
-export async function acknowledgeUnassignedInRange({ from, to } = {}) {
+export async function acknowledgeUnassignedInRange({ authToken, from, to } = {}) {
+  await requireStaffAccess({ sessionToken: authToken, area: "fleet", action: "View" });
   await ensureFieldMapping();
 
   const now = new Date();
