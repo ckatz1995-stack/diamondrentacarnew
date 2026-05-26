@@ -41,5 +41,36 @@ The Wix CLI is a tool that allows you to work with your site locally from your c
 
 Learn more about [working with the Wix CLI](https://support.wix.com/en/article/velo-working-with-the-wix-cli-beta).
 
+## Member Portal
+
+Customers can view and manage their own bookings without creating a Wix account.
+
+### Authentication
+
+Sign-in requires **email address + booking reference number** (e.g. `RNT-2025-0001`). No OAuth, no passwords. A session token is issued on successful match and stored in `PortalSessions` with an 8-hour TTL. Every subsequent API call is verified against this token.
+
+### Files
+
+| File | Purpose |
+|---|---|
+| `src/public/member-portal/index.html` | Self-contained portal UI (login, dashboard, modals) |
+| `src/backend/memberPortal.jsw` | Backend functions: signIn, signOut, getCustomerProfile, getCustomerBookings, getBookingDetail, updateBooking, cancelBooking |
+| `src/pages/MemberPortal.js` | Wix page bridge — relays postMessage events between the HTML component and the backend |
+
+### PortalSessions collection schema
+
+| Field | Type | Notes |
+|---|---|---|
+| `customerId` | Text | Reference to the customer (_id) |
+| `sessionToken` | Text | 48-char random alphanumeric string |
+| `expiresAt` | Text | ISO 8601 — session expires after `PORTAL_SESSION_TTL_HOURS` |
+| `createdAt` | Text | ISO 8601 |
+
+### Bridge message contract
+
+HTML → Page: `PORTAL_READY`, `SIGN_IN {email, bookingRef}`, `GET_BOOKINGS {customerId, sessionToken, filter}`, `GET_PROFILE`, `UPDATE_BOOKING {bookingId, changes, customerId, sessionToken}`, `CANCEL_BOOKING {bookingId, reason, customerId, sessionToken}`, `SIGN_OUT`
+
+Page → HTML: `INIT {locations, currency, companyName, bookingPageUrl}`, `AUTH_RESULT`, `BOOKINGS_RESULT`, `PROFILE_RESULT`, `UPDATE_RESULT`, `CANCEL_RESULT`, `SIGN_OUT_RESULT`
+
 ## Invite contributors to work with you
 Git Integration & Wix CLI extends Editor X's [concurrent editing](https://support.wix.com/en/article/editor-x-about-concurrent-editing) capabilities. Invite other developers as collaborators on your [site](https://support.wix.com/en/article/inviting-people-to-contribute-to-your-site) and your [GitHub repo](https://docs.github.com/en/account-and-profile/setting-up-and-managing-your-personal-account-on-github/managing-access-to-your-personal-repositories/inviting-collaborators-to-a-personal-repository). Multiple developers can work on a site's code at once.

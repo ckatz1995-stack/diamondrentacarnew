@@ -7,3 +7,11 @@ jsconfig.json
 
 # data exports (may contain PII)
 *.csv
+
+# secrets / local environment
+.env
+.env.*
+secrets.js
+
+# macOS
+.DS_Store
