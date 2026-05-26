@@ -1,0 +1,318 @@
+// src/backend/memberPortal.jsw
+// ─────────────────────────────────────────────────────────────────────────────
+// Customer Member Portal — backend service
+// Auth: email + booking reference (no third-party OAuth)
+// Session: collection-backed (PortalSessions), 8-hour TTL
+//
+// FIELD ASSUMPTIONS — adjust to your actual Wix collection field names:
+//   Customers:  _id, email, firstName, lastName, phone,
+//               licenseNumber, licenseExpiry, dateOfBirth,
+//               address, city, country, _createdDate
+//   Bookings:   _id, customerId, bookingNumber,
+//               vehicleName, vehicleCategory, vehicleImage, vehiclePlate,
+//               startDate, endDate, rentalDays,
+//               pickupLocation, dropoffLocation,
+//               status ('pending'|'confirmed'|'active'|'completed'|'cancelled'),
+//               totalPrice, dailyRate, currency,
+//               extras ([{name,price}]), insurance ({name,dailyRate}),
+//               notes, _createdDate
+//   PortalSessions: customerId (Text), token (Text), expiresAt (Date)
+// ─────────────────────────────────────────────────────────────────────────────
+
+import wixData from 'wix-data';
+import { PORTAL_SESSION_TTL_HOURS } from 'backend/siteConfig';
+
+// ─── Config ──────────────────────────────────────────────────────────────────
+
+const C_CUSTOMERS = 'Customers';
+const C_BOOKINGS  = 'Bookings';
+const C_SESSIONS  = 'PortalSessions';
+const SESSION_TTL = ((PORTAL_SESSION_TTL_HOURS || 8) * 60 * 60 * 1000);
+const SA          = { suppressAuth: true };
+
+const EDITABLE_STATUSES = ['pending', 'confirmed'];
+
+// ─── Internal: Token ─────────────────────────────────────────────────────────
+
+function generateToken() {
+  const c = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let t = '';
+  for (let i = 0; i < 48; i++) t += c[Math.floor(Math.random() * c.length)];
+  return t;
+}
+
+// ─── Internal: Session ───────────────────────────────────────────────────────
+
+async function createSession(customerId) {
+  const token     = generateToken();
+  const expiresAt = new Date(Date.now() + SESSION_TTL);
+  await wixData.insert(C_SESSIONS, { customerId, token, expiresAt }, SA);
+  return token;
+}
+
+async function verifySession(customerId, token) {
+  if (!customerId || !token) return false;
+  try {
+    const { items } = await wixData.query(C_SESSIONS)
+      .eq('customerId', customerId)
+      .eq('token', token)
+      .find(SA);
+    if (!items.length) return false;
+    if (new Date(items[0].expiresAt) < new Date()) {
+      wixData.remove(C_SESSIONS, items[0]._id, SA).catch(() => {});
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.error('[memberPortal] verifySession:', e.message);
+    return false;
+  }
+}
+
+async function cleanOldSessions(customerId) {
+  try {
+    const { items } = await wixData.query(C_SESSIONS)
+      .eq('customerId', customerId)
+      .lt('expiresAt', new Date())
+      .find(SA);
+    await Promise.all(items.map(s => wixData.remove(C_SESSIONS, s._id, SA)));
+  } catch (e) { /* non-critical */ }
+}
+
+// ─── Exported: Auth ───────────────────────────────────────────────────────────
+
+/**
+ * Sign in with email + booking reference.
+ * Looks up customer by email, then confirms they have a booking
+ * matching the provided reference. Returns a session on success.
+ */
+export async function signIn(email, bookingRef) {
+  if (!email || !bookingRef) {
+    return { ok: false, error: 'Please enter your email and booking reference.' };
+  }
+
+  const normalizedEmail = email.toLowerCase().trim();
+  const normalizedRef   = bookingRef.toUpperCase().trim();
+
+  try {
+    // 1 — Find customer by email
+    const { items: customers } = await wixData.query(C_CUSTOMERS)
+      .eq('email', normalizedEmail)
+      .find(SA);
+
+    if (!customers.length) {
+      return { ok: false, error: 'No account found for this email address.' };
+    }
+
+    const customer = customers[0];
+
+    // 2 — Confirm booking reference belongs to this customer
+    const { items: bookings } = await wixData.query(C_BOOKINGS)
+      .eq('customerId', customer._id)
+      .eq('bookingNumber', normalizedRef)
+      .find(SA);
+
+    if (!bookings.length) {
+      return {
+        ok: false,
+        error: 'Booking reference not found for this account. Please check and try again.',
+      };
+    }
+
+    // 3 — Create session
+    cleanOldSessions(customer._id).catch(() => {});
+    const sessionToken = await createSession(customer._id);
+
+    return {
+      ok: true,
+      customerId:   customer._id,
+      sessionToken,
+      customer: {
+        id:        customer._id,
+        firstName: customer.firstName || '',
+        lastName:  customer.lastName  || '',
+        email:     customer.email     || normalizedEmail,
+        phone:     customer.phone     || '',
+      },
+    };
+
+  } catch (e) {
+    console.error('[memberPortal] signIn:', e.message);
+    return { ok: false, error: 'Server error. Please try again.' };
+  }
+}
+
+export async function signOut(customerId, sessionToken) {
+  if (!customerId || !sessionToken) return { ok: false };
+  try {
+    const { items } = await wixData.query(C_SESSIONS)
+      .eq('customerId', customerId)
+      .eq('token', sessionToken)
+      .find(SA);
+    if (items.length) {
+      await wixData.remove(C_SESSIONS, items[0]._id, SA);
+    }
+    return { ok: true };
+  } catch (e) {
+    return { ok: false };
+  }
+}
+
+// ─── Exported: Profile ────────────────────────────────────────────────────────
+
+export async function getCustomerProfile(customerId, sessionToken) {
+  if (!await verifySession(customerId, sessionToken)) return { ok: false, error: 'Unauthorized' };
+  try {
+    const c = await wixData.get(C_CUSTOMERS, customerId, SA);
+    if (!c) return { ok: false, error: 'Customer not found' };
+    return {
+      ok: true,
+      profile: {
+        id:            c._id,
+        firstName:     c.firstName     || '',
+        lastName:      c.lastName      || '',
+        email:         c.email         || '',
+        phone:         c.phone         || '',
+        licenseNumber: c.licenseNumber || '',
+        licenseExpiry: c.licenseExpiry ? new Date(c.licenseExpiry).toISOString() : null,
+        dateOfBirth:   c.dateOfBirth   ? new Date(c.dateOfBirth).toISOString()   : null,
+        address:       c.address       || '',
+        city:          c.city          || '',
+        country:       c.country       || '',
+        createdDate:   c._createdDate  ? new Date(c._createdDate).toISOString()  : null,
+      },
+    };
+  } catch (e) {
+    console.error('[memberPortal] getCustomerProfile:', e.message);
+    return { ok: false, error: 'Server error' };
+  }
+}
+
+// ─── Exported: Bookings ───────────────────────────────────────────────────────
+
+export async function getCustomerBookings(customerId, sessionToken, filter = 'all') {
+  if (!await verifySession(customerId, sessionToken)) return { ok: false, error: 'Unauthorized' };
+  try {
+    let q = wixData.query(C_BOOKINGS)
+      .eq('customerId', customerId)
+      .descending('startDate')
+      .limit(100);
+
+    const now = new Date();
+    if (filter === 'active')   q = q.eq('status', 'active');
+    if (filter === 'upcoming') q = q.gt('startDate', now).ne('status', 'cancelled');
+    if (filter === 'past')     q = q.lt('endDate', now);
+
+    const result = await q.find(SA);
+    return { ok: true, bookings: result.items.map(fmtBooking), total: result.totalCount };
+  } catch (e) {
+    console.error('[memberPortal] getCustomerBookings:', e.message);
+    return { ok: false, error: 'Server error' };
+  }
+}
+
+export async function getBookingDetail(bookingId, customerId, sessionToken) {
+  if (!await verifySession(customerId, sessionToken)) return { ok: false, error: 'Unauthorized' };
+  try {
+    const b = await wixData.get(C_BOOKINGS, bookingId, SA);
+    if (!b) return { ok: false, error: 'Booking not found' };
+    if (b.customerId !== customerId) return { ok: false, error: 'Unauthorized' };
+    return { ok: true, booking: fmtBooking(b) };
+  } catch (e) {
+    console.error('[memberPortal] getBookingDetail:', e.message);
+    return { ok: false, error: 'Server error' };
+  }
+}
+
+// ─── Exported: Mutations ──────────────────────────────────────────────────────
+
+export async function updateBooking(bookingId, changes, customerId, sessionToken) {
+  if (!await verifySession(customerId, sessionToken)) return { ok: false, error: 'Unauthorized' };
+  try {
+    const b = await wixData.get(C_BOOKINGS, bookingId, SA);
+    if (!b)                              return { ok: false, error: 'Booking not found' };
+    if (b.customerId !== customerId)     return { ok: false, error: 'Unauthorized' };
+    if (!EDITABLE_STATUSES.includes(b.status)) {
+      return { ok: false, error: `Booking cannot be edited (status: ${b.status})` };
+    }
+
+    const ALLOWED = ['startDate', 'endDate', 'pickupLocation', 'dropoffLocation', 'notes'];
+    const upd = { ...b };
+    for (const k of ALLOWED) { if (changes[k] !== undefined) upd[k] = changes[k]; }
+
+    const start = new Date(upd.startDate);
+    const end   = new Date(upd.endDate);
+    if (isNaN(start) || isNaN(end))   return { ok: false, error: 'Invalid dates' };
+    if (start >= end)                  return { ok: false, error: 'Return date must be after pickup date' };
+    if (start < new Date(new Date().toDateString())) {
+      return { ok: false, error: 'Pickup date cannot be in the past' };
+    }
+
+    if (changes.startDate !== undefined || changes.endDate !== undefined) {
+      const days     = Math.ceil((end - start) / 86400000);
+      const extras   = (b.extras || []).reduce((s,e) => s + Number(e.price||0), 0);
+      const ins      = Number(b.insurance?.dailyRate || 0) * days;
+      upd.rentalDays = days;
+      upd.totalPrice = (Number(b.dailyRate||0) * days) + extras + ins;
+    }
+
+    upd.lastEditedByCustomer = new Date();
+    const updated = await wixData.update(C_BOOKINGS, upd, SA);
+    return { ok: true, booking: fmtBooking(updated) };
+  } catch (e) {
+    console.error('[memberPortal] updateBooking:', e.message);
+    return { ok: false, error: 'Server error during update' };
+  }
+}
+
+export async function cancelBooking(bookingId, customerId, sessionToken, reason = '') {
+  if (!await verifySession(customerId, sessionToken)) return { ok: false, error: 'Unauthorized' };
+  try {
+    const b = await wixData.get(C_BOOKINGS, bookingId, SA);
+    if (!b)                              return { ok: false, error: 'Booking not found' };
+    if (b.customerId !== customerId)     return { ok: false, error: 'Unauthorized' };
+    if (!EDITABLE_STATUSES.includes(b.status)) {
+      return { ok: false, error: `Booking cannot be cancelled (status: ${b.status})` };
+    }
+
+    const updated = await wixData.update(C_BOOKINGS, {
+      ...b,
+      status:              'cancelled',
+      cancelledAt:         new Date(),
+      cancellationReason:  reason || 'Customer cancellation via portal',
+      cancelledByCustomer: true,
+    }, SA);
+    return { ok: true, booking: fmtBooking(updated) };
+  } catch (e) {
+    console.error('[memberPortal] cancelBooking:', e.message);
+    return { ok: false, error: 'Server error during cancellation' };
+  }
+}
+
+// ─── Internal: Serializer ─────────────────────────────────────────────────────
+
+function fmtBooking(b) {
+  return {
+    id:                 b._id,
+    bookingNumber:      b.bookingNumber || (b._id||'').slice(-6).toUpperCase(),
+    vehicleName:        b.vehicleName       || '',
+    vehicleCategory:    b.vehicleCategory   || '',
+    vehicleImage:       b.vehicleImage      || '',
+    vehiclePlate:       b.vehiclePlate      || '',
+    startDate:          b.startDate  ? new Date(b.startDate).toISOString()  : null,
+    endDate:            b.endDate    ? new Date(b.endDate).toISOString()    : null,
+    rentalDays:         b.rentalDays || null,
+    pickupLocation:     b.pickupLocation  || '',
+    dropoffLocation:    b.dropoffLocation || '',
+    status:             b.status     || 'pending',
+    totalPrice:         Number(b.totalPrice || 0),
+    dailyRate:          Number(b.dailyRate  || 0),
+    currency:           b.currency   || 'USD',
+    extras:             Array.isArray(b.extras) ? b.extras : [],
+    insurance:          b.insurance  || null,
+    notes:              b.notes      || '',
+    createdDate:        b._createdDate ? new Date(b._createdDate).toISOString() : null,
+    cancelledAt:        b.cancelledAt  ? new Date(b.cancelledAt).toISOString()  : null,
+    cancellationReason: b.cancellationReason || '',
+  };
+}
