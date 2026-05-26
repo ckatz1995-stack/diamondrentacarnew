@@ -1,0 +1,227 @@
+import wixData from 'wix-data';
+import { PORTAL_SESSION_TTL_HOURS } from 'backend/siteConfig';
+
+function generateToken() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let t = '';
+  for (let i = 0; i < 48; i++) t += chars.charAt(Math.floor(Math.random() * chars.length));
+  return t;
+}
+
+async function resolveSession(customerId, sessionToken) {
+  if (!customerId || !sessionToken) return null;
+  const res = await wixData.query('PortalSessions')
+    .eq('customerId', String(customerId))
+    .eq('sessionToken', String(sessionToken))
+    .limit(1)
+    .find({ suppressAuth: true });
+  const session = res.items && res.items[0];
+  if (!session) return null;
+  if (new Date(session.expiresAt) < new Date()) return null;
+  return session;
+}
+
+function sanitizeBooking(b) {
+  return {
+    _id: b._id,
+    bookingNumber: b.bookingNumber,
+    status: b.status,
+    pickupDateTime: b.pickupDateTime,
+    dropoffDateTime: b.dropoffDateTime,
+    pickupLocation: b.pickupLocation,
+    dropoffLocation: b.dropoffLocation,
+    vehicleName: b.vehicleName || b.categoryName || '',
+    categoryId: b.categoryId || '',
+    insurance: b.insurance || '',
+    extras: b.extras || [],
+    basePrice: b.basePrice || 0,
+    totalPrice: b.totalPrice || b.finalPrice || 0,
+    currency: 'EUR',
+    notes: b.notes || '',
+    driverName: b.customerName || b.firstName || '',
+    driverEmail: b.customerEmail || b.email || '',
+    driverPhone: b.customerPhone || b.phone || '',
+    driverAge: b.driverAge || null,
+    canceledAt: b.canceledAt || null,
+    cancelReason: b.cancelReason || ''
+  };
+}
+
+export async function signIn({ email, bookingRef }) {
+  if (!email || !bookingRef) return { ok: false, error: 'missing_fields' };
+
+  const normalizedEmail = String(email).trim().toLowerCase();
+  const normalizedRef = String(bookingRef).trim().toUpperCase();
+
+  const bookingRes = await wixData.query('BookingsNew')
+    .eq('bookingNumber', normalizedRef)
+    .limit(1)
+    .find({ suppressAuth: true });
+
+  const booking = bookingRes.items && bookingRes.items[0];
+  if (!booking) return { ok: false, error: 'not_found' };
+
+  const bookingEmail = String(booking.customerEmail || booking.email || '').trim().toLowerCase();
+  if (bookingEmail !== normalizedEmail) return { ok: false, error: 'not_found' };
+
+  const customerId = String(booking.customerId || booking._id);
+
+  let customer = null;
+  if (booking.customerId) {
+    const custRes = await wixData.query('Customers')
+      .eq('_id', String(booking.customerId))
+      .limit(1)
+      .find({ suppressAuth: true });
+    customer = custRes.items && custRes.items[0];
+  }
+
+  const token = generateToken();
+  const ttl = Number.isFinite(PORTAL_SESSION_TTL_HOURS) ? PORTAL_SESSION_TTL_HOURS : 8;
+  const expiresAt = new Date(Date.now() + ttl * 60 * 60 * 1000).toISOString();
+
+  await wixData.insert('PortalSessions', {
+    customerId,
+    sessionToken: token,
+    expiresAt,
+    createdAt: new Date().toISOString()
+  }, { suppressAuth: true });
+
+  return {
+    ok: true,
+    customerId,
+    sessionToken: token,
+    customer: {
+      _id: customer ? customer._id : customerId,
+      name: (customer ? (customer.name || customer.customerName) : null) || booking.customerName || booking.firstName || '',
+      email: (customer ? (customer.email || customer.customerEmail) : null) || normalizedEmail,
+      phone: (customer ? (customer.phone || customer.customerPhone) : null) || booking.customerPhone || booking.phone || ''
+    }
+  };
+}
+
+export async function signOut({ customerId, sessionToken }) {
+  if (!customerId || !sessionToken) return { ok: true };
+  try {
+    const res = await wixData.query('PortalSessions')
+      .eq('customerId', String(customerId))
+      .eq('sessionToken', String(sessionToken))
+      .limit(1)
+      .find({ suppressAuth: true });
+    if (res.items && res.items[0]) {
+      await wixData.remove('PortalSessions', res.items[0]._id, { suppressAuth: true });
+    }
+  } catch (_) {}
+  return { ok: true };
+}
+
+export async function getCustomerProfile({ customerId, sessionToken }) {
+  const session = await resolveSession(customerId, sessionToken);
+  if (!session) return { ok: false, error: 'unauthorized' };
+
+  const res = await wixData.query('Customers')
+    .eq('_id', String(customerId))
+    .limit(1)
+    .find({ suppressAuth: true });
+  const profile = res.items && res.items[0];
+  if (!profile) return { ok: false, error: 'not_found' };
+
+  return {
+    ok: true,
+    profile: {
+      _id: profile._id,
+      name: profile.name || profile.customerName || '',
+      email: profile.email || profile.customerEmail || '',
+      phone: profile.phone || profile.customerPhone || ''
+    }
+  };
+}
+
+export async function getCustomerBookings({ customerId, sessionToken, filter }) {
+  const session = await resolveSession(customerId, sessionToken);
+  if (!session) return { ok: false, error: 'unauthorized' };
+
+  const now = new Date().toISOString();
+  let q = wixData.query('BookingsNew')
+    .eq('customerId', String(customerId))
+    .descending('_createdDate')
+    .limit(100);
+
+  if (filter === 'upcoming') {
+    q = q.gt('pickupDateTime', now).ne('status', 'Canceled');
+  } else if (filter === 'active') {
+    q = q.le('pickupDateTime', now).ge('dropoffDateTime', now).ne('status', 'Canceled');
+  } else if (filter === 'past') {
+    q = q.lt('dropoffDateTime', now);
+  }
+
+  const res = await q.find({ suppressAuth: true });
+  return {
+    ok: true,
+    bookings: (res.items || []).map(sanitizeBooking),
+    total: res.totalCount || (res.items || []).length
+  };
+}
+
+export async function getBookingDetail({ bookingId, customerId, sessionToken }) {
+  const session = await resolveSession(customerId, sessionToken);
+  if (!session) return { ok: false, error: 'unauthorized' };
+
+  const res = await wixData.query('BookingsNew')
+    .eq('_id', String(bookingId))
+    .eq('customerId', String(customerId))
+    .limit(1)
+    .find({ suppressAuth: true });
+  const b = res.items && res.items[0];
+  if (!b) return { ok: false, error: 'not_found' };
+
+  return { ok: true, booking: sanitizeBooking(b) };
+}
+
+export async function updateBooking({ bookingId, changes, customerId, sessionToken }) {
+  const session = await resolveSession(customerId, sessionToken);
+  if (!session) return { ok: false, error: 'unauthorized' };
+
+  const res = await wixData.query('BookingsNew')
+    .eq('_id', String(bookingId))
+    .eq('customerId', String(customerId))
+    .limit(1)
+    .find({ suppressAuth: true });
+  const booking = res.items && res.items[0];
+  if (!booking) return { ok: false, error: 'not_found' };
+  if (booking.status === 'Canceled') return { ok: false, error: 'already_canceled' };
+  if (new Date(booking.pickupDateTime) <= new Date()) return { ok: false, error: 'pickup_passed' };
+
+  const allowed = ['pickupDateTime', 'dropoffDateTime', 'pickupLocation', 'dropoffLocation', 'notes'];
+  const patch = {};
+  for (const key of allowed) {
+    if (changes && changes[key] !== undefined) patch[key] = changes[key];
+  }
+  if (!Object.keys(patch).length) return { ok: false, error: 'no_changes' };
+
+  const updated = await wixData.update('BookingsNew', { ...booking, ...patch }, { suppressAuth: true });
+  return { ok: true, booking: sanitizeBooking(updated) };
+}
+
+export async function cancelBooking({ bookingId, reason, customerId, sessionToken }) {
+  const session = await resolveSession(customerId, sessionToken);
+  if (!session) return { ok: false, error: 'unauthorized' };
+
+  const res = await wixData.query('BookingsNew')
+    .eq('_id', String(bookingId))
+    .eq('customerId', String(customerId))
+    .limit(1)
+    .find({ suppressAuth: true });
+  const booking = res.items && res.items[0];
+  if (!booking) return { ok: false, error: 'not_found' };
+  if (booking.status === 'Canceled') return { ok: false, error: 'already_canceled' };
+  if (new Date(booking.pickupDateTime) <= new Date()) return { ok: false, error: 'pickup_passed' };
+
+  const updated = await wixData.update('BookingsNew', {
+    ...booking,
+    status: 'Canceled',
+    canceledAt: new Date().toISOString(),
+    cancelReason: String(reason || '').trim() || 'Customer request'
+  }, { suppressAuth: true });
+
+  return { ok: true, booking: sanitizeBooking(updated) };
+}
