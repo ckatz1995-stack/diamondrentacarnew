@@ -3,6 +3,7 @@ import {
   getFallbackCatalogSnapshot,
   resolveDynamicPricingRate,
   clearPricingCatalogCache,
+  isNightShift,
 } from '../pricingCatalog.jsw';
 
 // Default business settings (from pricingCatalog.jsw) use nightStartHour: 22,
@@ -130,6 +131,65 @@ describe('getFallbackCatalogSnapshot', () => {
     expect(snapshot.feeRules.length).toBeGreaterThan(0);
     expect(snapshot.pricingSeasons).toEqual([]);
     expect(snapshot.maps.insurance).toHaveProperty('cdw', 0);
+  });
+});
+
+describe('isNightShift', () => {
+  // Single source of truth for the night window: bookingEngine imports this one
+  // rather than keeping its own hardcoded 22:00-08:00 copy.
+  describe('default window (22:00-08:00 Athens)', () => {
+    test('treats 07:59 Athens as night', () => {
+      expect(isNightShift(new Date('2026-01-15T05:59:00Z'))).toBe(true);
+    });
+
+    test('treats 08:00 Athens as daytime', () => {
+      expect(isNightShift(new Date('2026-01-15T06:00:00Z'))).toBe(false);
+    });
+
+    test('treats 21:59 Athens as daytime', () => {
+      expect(isNightShift(new Date('2026-01-15T19:59:00Z'))).toBe(false);
+    });
+
+    test('treats 22:00 Athens as night', () => {
+      expect(isNightShift(new Date('2026-01-15T20:00:00Z'))).toBe(true);
+    });
+
+    test('applies the boundary in Athens time, not UTC, during summer', () => {
+      // 21:30 UTC is 00:30 Athens the next day — night, though the UTC hour is not.
+      expect(isNightShift(new Date('2026-07-15T21:30:00Z'))).toBe(true);
+      // 05:30 UTC is 08:30 Athens — daytime, though the UTC hour would read as night.
+      expect(isNightShift(new Date('2026-07-15T05:30:00Z'))).toBe(false);
+    });
+
+    test('returns false for invalid or non-Date input', () => {
+      expect(isNightShift(new Date('nope'))).toBe(false);
+      expect(isNightShift('2026-01-15T20:00:00Z')).toBe(false);
+      expect(isNightShift(null)).toBe(false);
+    });
+  });
+
+  describe('configured window', () => {
+    test('honours an overnight window that wraps midnight', () => {
+      const settings = { nightStartHour: 23, nightEndHour: 6 };
+      // 22:00 Athens is now daytime under a later start.
+      expect(isNightShift(new Date('2026-01-15T20:00:00Z'), settings)).toBe(false);
+      // 23:00 Athens is night.
+      expect(isNightShift(new Date('2026-01-15T21:00:00Z'), settings)).toBe(true);
+      // 05:00 Athens is night, 06:00 is not.
+      expect(isNightShift(new Date('2026-01-15T03:00:00Z'), settings)).toBe(true);
+      expect(isNightShift(new Date('2026-01-15T04:00:00Z'), settings)).toBe(false);
+    });
+
+    test('honours a same-day window that does not wrap midnight', () => {
+      // startHour < endHour takes the non-wrapping branch: night is 01:00-05:00.
+      const settings = { nightStartHour: 1, nightEndHour: 5 };
+      expect(isNightShift(new Date('2026-01-15T00:00:00Z'), settings)).toBe(true); // 02:00 Athens
+      expect(isNightShift(new Date('2026-01-15T20:00:00Z'), settings)).toBe(false); // 22:00 Athens
+    });
+
+    test('falls back to the default window when settings omit the hours', () => {
+      expect(isNightShift(new Date('2026-01-15T20:00:00Z'), {})).toBe(true);
+    });
   });
 });
 

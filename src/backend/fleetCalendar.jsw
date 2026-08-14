@@ -343,6 +343,7 @@ export async function moveBookingVehicleOnly({ authToken, bookingId, newVehicleI
       .eq(F.assignedFleetId, String(targetVehicleId))
       .ne(F.bookingId, bookingId)
       .ne(F.status, "Canceled")
+      // Same overlap rule as bookingsOverlap() in backend/availability.js, in DB form.
       .lt(F.pickupDT, iso(end))
       .gt(F.dropoffDT, iso(start))
       .limit(1000)
@@ -414,6 +415,7 @@ export async function confirmAndAutoAssign({ authToken, bookingId } = {}) {
     const check = await wixData.query(COLLECTIONS.Bookings)
       .eq(F.assignedFleetId, String(v[VF.id]))
       .ne(F.status, "Canceled")
+      // Same overlap rule as bookingsOverlap() in backend/availability.js, in DB form.
       .lt(F.pickupDT, iso(end))
       .gt(F.dropoffDT, iso(start))
       .limit(1)
@@ -504,6 +506,7 @@ async function fetchBookingsInRange(fromISO, toISO) {
   const toDate = new Date(toISO);
 
   const res = await wixData.query(COLLECTIONS.Bookings)
+    // Same overlap rule as bookingsOverlap() in backend/availability.js, in DB form.
     .lt(F.pickupDT, toDate)
     .gt(F.dropoffDT, fromDate)
     .limit(1000)
