@@ -1,9 +1,10 @@
 import wixData from 'wix-data';
 import wixUsersBackend from 'wix-users-backend';
 import { VAT_RATE } from 'backend/bookingConfig';
-import { getPricingCatalog, getFallbackCatalogSnapshot, computeAutomaticFees, resolveDynamicPricingRate } from 'backend/pricingCatalog.jsw';
+import { getPricingCatalog, getFallbackCatalogSnapshot, computeAutomaticFees, resolveDynamicPricingRate, isNightShift } from 'backend/pricingCatalog.jsw';
 import { buildPricingSnapshot } from 'backend/pricingSnapshot.js';
 import { computeBillableDaysDetailed } from 'backend/billableDays';
+import { computeBookingTotals } from 'backend/bookingTotals.js';
 
 // ==========================
 // Helpers
@@ -28,6 +29,8 @@ async function generateBookingNumber() {
     return `RNT-${year}-${String(nextNumber).padStart(4, "0")}`;
 }
 
+// Overlap rule below is the DB form of bookingsOverlap() in backend/availability.js —
+// keep the two in step if the semantics ever change.
 async function hasOverlap(vehicleId, start, end, excludeBookingId) {
     const res = await wixData.query("BookingsNew")
         .eq("assignedVehicle", vehicleId)
@@ -54,6 +57,7 @@ async function getActiveFleetCountByCategoryKeys(categoryKeys = []) {
   return 0;
 }
 
+// Same overlap rule as bookingsOverlap() in backend/availability.js, in DB form.
 async function countOverlappingBookingsByCategoryKeys(categoryKeys, start, end, excludeBookingId) {
   const uniqueKeys = [...new Set((categoryKeys || []).map(v => String(v || '').trim()).filter(Boolean))];
   const seen = new Set();
@@ -134,12 +138,6 @@ export function athensHour(date, timeZone = BUSINESS_TIMEZONE) {
   const dtf = new Intl.DateTimeFormat('en-GB', { timeZone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
   const parts = dtf.formatToParts(date);
   return { hour: readPart(parts, 'hour'), minute: readPart(parts, 'minute') };
-}
-
-export function isNightShift(date, timeZone = BUSINESS_TIMEZONE) {
-  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return false;
-  const { hour } = athensHour(date, timeZone);
-  return hour < 8 || hour >= 22;
 }
 
 function deriveAgeFee(driverAge) {
@@ -606,17 +604,29 @@ export async function createBooking(data) {
         });
         // Money fields are server-authoritative: ignore anything the client sends to prevent price tampering.
         const finalAgeFee = Number(toFiniteNumber(automaticFees?.ageFee, deriveAgeFee(driverAge)).toFixed(2));
-        const finalNightFee = Number(toFiniteNumber(automaticFees?.nightFee, ((isNightShift(pickup) ? 15 : 0) + (isNightShift(dropoff) ? 15 : 0))).toFixed(2));
-        const finalBaseCost = computedBaseCost;
-        const finalInsuranceCost = computedInsuranceCost;
-        const finalExtrasCost = Number(computedExtrasTotal.toFixed(2));
+        // Fallback is unreachable while computeAutomaticFees returns a finite nightFee, but it
+        // reads the night window from business settings so it cannot disagree with the primary path.
+        const finalNightFee = Number(toFiniteNumber(automaticFees?.nightFee, ((isNightShift(pickup, businessSettings) ? 15 : 0) + (isNightShift(dropoff, businessSettings) ? 15 : 0))).toFixed(2));
         const finalPickupLocationFee = Number(resolvePickupLocationFee(pricingCatalog, pickuppoint, 'pickup').toFixed(2));
         const finalDropoffLocationFee = Number(resolvePickupLocationFee(pricingCatalog, dropoffpoint, 'dropoff').toFixed(2));
-        const finalLocationFee = Number((finalPickupLocationFee + finalDropoffLocationFee).toFixed(2));
-        const totalPrice = Number((finalBaseCost + finalInsuranceCost + finalExtrasCost + finalAgeFee + finalNightFee + finalLocationFee).toFixed(2));
         const vatRateDecimal = toFiniteNumber(businessSettings?.vatRateDecimal, VAT_RATE);
-        const netAmount = Number((totalPrice / (1 + vatRateDecimal)).toFixed(2));
-        const vatAmount = Number((totalPrice - netAmount).toFixed(2));
+        const {
+            baseCost: finalBaseCost,
+            insuranceCost: finalInsuranceCost,
+            extrasCost: finalExtrasCost,
+            locationFee: finalLocationFee,
+            totalPrice,
+            netAmount,
+            vatAmount
+        } = computeBookingTotals({
+            baseCost: computedBaseCost,
+            insuranceCost: computedInsuranceCost,
+            extrasCost: computedExtrasTotal,
+            ageFee: finalAgeFee,
+            nightFee: finalNightFee,
+            locationFee: finalPickupLocationFee + finalDropoffLocationFee,
+            vatRateDecimal
+        });
 
         const bookingNumber = await generateBookingNumber();
         const userId = wixUsersBackend.currentUser?.id || null;

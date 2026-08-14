@@ -2,7 +2,6 @@ import {
   getTimeZoneOffsetMs,
   parseBusinessLocalDateTime,
   athensHour,
-  isNightShift,
 } from '../bookingEngine.jsw';
 
 const HOUR_MS = 60 * 60 * 1000;
@@ -149,34 +148,6 @@ describe('athensHour', () => {
   });
 });
 
-describe('isNightShift', () => {
-  // Night is hour < 8 || hour >= 22 in Athens local time.
-  test('treats 07:59 Athens as night', () => {
-    expect(isNightShift(new Date('2026-01-15T05:59:00Z'))).toBe(true);
-  });
-
-  test('treats 08:00 Athens as daytime', () => {
-    expect(isNightShift(new Date('2026-01-15T06:00:00Z'))).toBe(false);
-  });
-
-  test('treats 21:59 Athens as daytime', () => {
-    expect(isNightShift(new Date('2026-01-15T19:59:00Z'))).toBe(false);
-  });
-
-  test('treats 22:00 Athens as night', () => {
-    expect(isNightShift(new Date('2026-01-15T20:00:00Z'))).toBe(true);
-  });
-
-  test('applies the boundary in Athens time, not UTC, during summer', () => {
-    // 21:30 UTC is 00:30 Athens the next day — night, though the UTC hour is not.
-    expect(isNightShift(new Date('2026-07-15T21:30:00Z'))).toBe(true);
-    // 05:30 UTC is 08:30 Athens — daytime, though the UTC hour would read as night.
-    expect(isNightShift(new Date('2026-07-15T05:30:00Z'))).toBe(false);
-  });
-
-  test('returns false for invalid or non-Date input', () => {
-    expect(isNightShift(new Date('nope'))).toBe(false);
-    expect(isNightShift('2026-01-15T20:00:00Z')).toBe(false);
-    expect(isNightShift(null)).toBe(false);
-  });
-});
+// isNightShift lives in pricingCatalog.jsw (settings-aware) and is covered in
+// pricingCatalog.test.js — bookingEngine imports that one rather than keeping
+// a second hardcoded copy of the night window.
