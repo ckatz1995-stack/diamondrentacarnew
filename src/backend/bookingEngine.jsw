@@ -87,7 +87,7 @@ function readPart(parts, type) {
   return hit ? Number(hit.value) : 0;
 }
 
-function getTimeZoneOffsetMs(date, timeZone = BUSINESS_TIMEZONE) {
+export function getTimeZoneOffsetMs(date, timeZone = BUSINESS_TIMEZONE) {
   const dtf = new Intl.DateTimeFormat('en-GB', {
     timeZone,
     year: 'numeric',
@@ -110,7 +110,7 @@ function getTimeZoneOffsetMs(date, timeZone = BUSINESS_TIMEZONE) {
   return asUtc - date.getTime();
 }
 
-function parseBusinessLocalDateTime(value, timeZone = BUSINESS_TIMEZONE) {
+export function parseBusinessLocalDateTime(value, timeZone = BUSINESS_TIMEZONE) {
   if (!value && value !== 0) return null;
   if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
 
@@ -130,13 +130,13 @@ function parseBusinessLocalDateTime(value, timeZone = BUSINESS_TIMEZONE) {
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
-function athensHour(date, timeZone = BUSINESS_TIMEZONE) {
+export function athensHour(date, timeZone = BUSINESS_TIMEZONE) {
   const dtf = new Intl.DateTimeFormat('en-GB', { timeZone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
   const parts = dtf.formatToParts(date);
   return { hour: readPart(parts, 'hour'), minute: readPart(parts, 'minute') };
 }
 
-function isNightShift(date, timeZone = BUSINESS_TIMEZONE) {
+export function isNightShift(date, timeZone = BUSINESS_TIMEZONE) {
   if (!(date instanceof Date) || Number.isNaN(date.getTime())) return false;
   const { hour } = athensHour(date, timeZone);
   return hour < 8 || hour >= 22;
