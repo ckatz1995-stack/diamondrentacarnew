@@ -194,14 +194,14 @@ function toDate(v) {
   return isNaN(d.getTime()) ? null : d;
 }
 
-function asId(v) {
+export function asId(v) {
   if (!v) return "";
   if (typeof v === "string") return v;
   if (typeof v === "object") return String(v._id || v.id || v._ref || v.value || "");
   return String(v);
 }
 
-function refId(v) {
+export function refId(v) {
   const id = asId(v);
   if (!id) return "";
   const norm = String(id).trim().toLowerCase();
@@ -209,11 +209,11 @@ function refId(v) {
   return id;
 }
 
-function isOpaqueCategoryId(value) {
+export function isOpaqueCategoryId(value) {
   const s = String(value || '').trim();
   return /^[0-9a-f]{8}-[0-9a-f-]{12,}$/i.test(s) || (/^[0-9A-Za-z]{8,}$/i.test(s) && !/^[A-Z]{1,4}$/i.test(s));
 }
-function catCode(v) {
+export function catCode(v) {
   if (!v) return "";
   let s = v;
   if (Array.isArray(s)) s = s[0];
@@ -230,7 +230,7 @@ function catCode(v) {
 }
 
 // ✅ Fleet category code helper (used by buildGroups / assign logic)
-function fleetCatCode(vehicle) {
+export function fleetCatCode(vehicle) {
   return catCode(vehicle?.[VF.category]) || "Other";
 }
 
@@ -280,7 +280,7 @@ function renderVehicleRow(v, index, cat) {
 }
 
 
-function isNonRevenueBooking(b) {
+export function isNonRevenueBooking(b) {
   // You can tune this logic if you want “blocked”/“maintenance” style bookings.
   const bn = String(b?.[F.bookingNumber] || "").toLowerCase();
   const st = String(b?.[F.status] || "").toLowerCase();
@@ -709,7 +709,7 @@ function buildItems(bookings) {
 /**
  * Simple heatmap example (kept from your original logic style)
  */
-function buildHeatmap({ from, to, fleet, items }) {
+export function buildHeatmap({ from, to, fleet, items }) {
   const start = new Date(from);
   const end = new Date(to);
   const days = Math.max(1, Math.ceil((end - start) / 86400000));
