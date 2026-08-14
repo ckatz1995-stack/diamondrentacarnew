@@ -1,7 +1,26 @@
 import wixData from 'wix-data';
 import { PORTAL_SESSION_TTL_HOURS } from 'backend/siteConfig';
 
+let _cryptoApi;
+function getCrypto() {
+  if (_cryptoApi !== undefined) return _cryptoApi;
+  try {
+    // In Wix/Velo runtime, lazy require is more reliable than a top-level import.
+    _cryptoApi = typeof require === 'function' ? require('crypto') : null;
+  } catch (_) {
+    _cryptoApi = null;
+  }
+  return _cryptoApi;
+}
+
+// Session tokens must not be guessable. Math.random() is a non-cryptographic
+// PRNG whose internal state can be recovered from a handful of outputs, which
+// would let an attacker predict other customers' portal tokens. Same 48-character
+// length as before, now 192 bits of real entropy.
 function generateToken() {
+  const api = getCrypto();
+  if (api?.randomBytes) return api.randomBytes(24).toString('hex');
+  // Degraded fallback for a runtime without crypto — weak, but better than failing sign-in.
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   let t = '';
   for (let i = 0; i < 48; i++) t += chars.charAt(Math.floor(Math.random() * chars.length));
