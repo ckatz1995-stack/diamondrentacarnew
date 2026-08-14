@@ -1,6 +1,6 @@
 import { sendTelegramNotification } from 'backend/telegramService.jsw';
 
-export async function BookingsNew_afterInsert(item, context) {
+export async function BookingsNew_afterInsert(item, _) {
   try {
     await sendTelegramNotification(item);
   } catch (err) {

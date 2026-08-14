@@ -16,7 +16,6 @@ import {
   signIn,
   signOut,
   getCustomerBookings,
-  getBookingDetail,
   updateBooking,
   cancelBooking,
   getCustomerProfile,
