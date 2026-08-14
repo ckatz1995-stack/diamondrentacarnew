@@ -47,7 +47,7 @@ Customers can view and manage their own bookings without creating a Wix account.
 
 ### Authentication
 
-Sign-in requires **email address + booking reference number** (e.g. `RNT-2025-0001`). No OAuth, no passwords. A session token is issued on successful match and stored in `PortalSessions` with an 8-hour TTL. Every subsequent API call is verified against this token.
+Sign-in requires **email address + booking reference number** (e.g. `RNT-2025-0001`). No OAuth, no passwords. A session token is issued on successful match and its SHA-256 hash is stored in `PortalSessions` with an 8-hour TTL — the token itself is never persisted, so a leaked sessions table yields nothing that can be presented as a session. Every subsequent API call is verified by hashing the supplied token and matching it against the stored hash.
 
 ### Files
 
@@ -62,9 +62,13 @@ Sign-in requires **email address + booking reference number** (e.g. `RNT-2025-00
 | Field | Type | Notes |
 |---|---|---|
 | `customerId` | Text | Reference to the customer (_id) |
-| `sessionToken` | Text | 48-char random alphanumeric string |
+| `tokenHash` | Text | SHA-256 hex of the session token. The token itself is never stored |
 | `expiresAt` | Text | ISO 8601 — session expires after `PORTAL_SESSION_TTL_HOURS` |
 | `createdAt` | Text | ISO 8601 |
+
+> Rows written before the hashed-token change carry a plaintext `sessionToken`
+> field and no `tokenHash`, so they no longer resolve — those sessions are
+> effectively signed out and the rows age out within the 8-hour TTL.
 
 ### Bridge message contract
 

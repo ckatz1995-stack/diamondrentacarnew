@@ -1,3 +1,4 @@
+import { createHash } from 'crypto';
 import wixData from 'wix-data';
 import { createFakeWixData } from '../../../test/helpers/fakeWixData.js';
 import {
@@ -146,6 +147,28 @@ describe('signIn', () => {
     const ttlMs = new Date(session.expiresAt).getTime() - Date.now();
     expect(ttlMs).toBeGreaterThan(0);
     expect(ttlMs).toBeLessThanOrEqual(8 * 3600 * 1000 + 1000);
+  });
+
+  test('stores only a hash of the token, never the token itself', async () => {
+    // A leaked PortalSessions table must not yield anything presentable as a session.
+    install();
+    const { sessionToken } = await signIn({ email: EMAIL, bookingRef: REF });
+
+    const [session] = fake.rows('PortalSessions');
+    expect(session.tokenHash).toBe(createHash('sha256').update(sessionToken).digest('hex'));
+    expect(session).not.toHaveProperty('sessionToken');
+    expect(JSON.stringify(session)).not.toContain(sessionToken);
+  });
+
+  test('a token stolen from the stored hash cannot be replayed', async () => {
+    // Presenting the stored hash as if it were the token must not authenticate.
+    install();
+    const { customerId, sessionToken } = await signIn({ email: EMAIL, bookingRef: REF });
+    const [session] = fake.rows('PortalSessions');
+
+    expect(session.tokenHash).not.toBe(sessionToken);
+    await expect(getCustomerProfile({ customerId, sessionToken: session.tokenHash }))
+      .resolves.toMatchObject({ ok: false, error: 'unauthorized' });
   });
 });
 

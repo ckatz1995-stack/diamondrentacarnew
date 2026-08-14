@@ -27,14 +27,34 @@ function generateToken() {
   return t;
 }
 
-async function resolveSession(customerId, sessionToken) {
+// Only the hash of a session token is stored, so a leaked PortalSessions table
+// yields nothing an attacker can present as a session. Mirrors StaffSessions.
+function hashToken(token) {
+  const raw = String(token || '');
+  const api = getCrypto();
+  if (api?.createHash) return api.createHash('sha256').update(raw).digest('hex');
+  // Non-cryptographic last resort so sign-in still works without node crypto.
+  let h1 = 0x811c9dc5;
+  let h2 = 0x01000193;
+  for (let i = 0; i < raw.length; i += 1) {
+    h1 = Math.imul(h1 ^ raw.charCodeAt(i), 0x01000193) >>> 0;
+    h2 = Math.imul(h2 + raw.charCodeAt(i), 0x85ebca6b) >>> 0;
+  }
+  return `${h1.toString(16).padStart(8, '0')}${h2.toString(16).padStart(8, '0')}`;
+}
+
+async function findSessionRow(customerId, sessionToken) {
   if (!customerId || !sessionToken) return null;
   const res = await wixData.query('PortalSessions')
     .eq('customerId', String(customerId))
-    .eq('sessionToken', String(sessionToken))
+    .eq('tokenHash', hashToken(sessionToken))
     .limit(1)
     .find({ suppressAuth: true });
-  const session = res.items && res.items[0];
+  return (res.items && res.items[0]) || null;
+}
+
+async function resolveSession(customerId, sessionToken) {
+  const session = await findSessionRow(customerId, sessionToken);
   if (!session) return null;
   if (new Date(session.expiresAt) < new Date()) return null;
   return session;
@@ -100,7 +120,7 @@ export async function signIn({ email, bookingRef }) {
 
   await wixData.insert('PortalSessions', {
     customerId,
-    sessionToken: token,
+    tokenHash: hashToken(token),
     expiresAt,
     createdAt: new Date().toISOString()
   }, { suppressAuth: true });
@@ -121,13 +141,10 @@ export async function signIn({ email, bookingRef }) {
 export async function signOut({ customerId, sessionToken }) {
   if (!customerId || !sessionToken) return { ok: true };
   try {
-    const res = await wixData.query('PortalSessions')
-      .eq('customerId', String(customerId))
-      .eq('sessionToken', String(sessionToken))
-      .limit(1)
-      .find({ suppressAuth: true });
-    if (res.items && res.items[0]) {
-      await wixData.remove('PortalSessions', res.items[0]._id, { suppressAuth: true });
+    // Matches on the hash, and removes the row even if it has already expired.
+    const session = await findSessionRow(customerId, sessionToken);
+    if (session) {
+      await wixData.remove('PortalSessions', session._id, { suppressAuth: true });
     }
   } catch (_) {}
   return { ok: true };
