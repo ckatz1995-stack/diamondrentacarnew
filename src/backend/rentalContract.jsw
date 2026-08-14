@@ -4,6 +4,7 @@ import { getSecret } from "wix-secrets-backend";
 import { confirmAndAutoAssign } from "backend/fleetCalendar";
 import { requireStaffAccess } from "backend/staffAccess.jsw";
 import { asDate, extractCode, pickLabel, safeNum } from "backend/utils";
+import { bookingsOverlap } from "backend/availability.js";
 
 const FLEET_LIMIT = 1000;
 const BOOKING_LIMIT = 1000;
@@ -83,7 +84,7 @@ function toDateInputValue(value){
   return `${y}-${m}-${day}`;
 }
 
-function computeVatBreakdown(gross, vatRate = 0.24){
+export function computeVatBreakdown(gross, vatRate = 0.24){
   const g = safeNum(gross);
   const r = safeNum(vatRate);
   if (g <= 0 || r <= 0) return { gross: g, net: g, vat: 0, vatRate: r };
@@ -93,7 +94,7 @@ function computeVatBreakdown(gross, vatRate = 0.24){
   return { gross: round2(g), net: round2(net), vat: round2(vat), vatRate: r };
 }
 
-function billableDaysFromBooking(booking){
+export function billableDaysFromBooking(booking){
   const pickup = asDate(booking?.pickupDateTime);
   const dropoff = asDate(booking?.dropoffDateTime);
   if (!pickup || !dropoff) return 1;
@@ -102,7 +103,7 @@ function billableDaysFromBooking(booking){
   return Math.max(1, Math.ceil(hours / 24));
 }
 
-function deriveChargeLines(booking = {}, charges = {}){
+export function deriveChargeLines(booking = {}, charges = {}){
   const days = billableDaysFromBooking(booking);
   const hasBookingBase = Number.isFinite(Number(booking.baseCost));
   const hasBookingInsurance = Number.isFinite(Number(booking.insuranceCost));
@@ -135,7 +136,7 @@ const CHARGE_LINE_SPECS = [
   { code:'discount', key:'discount', label:'Discount', category:'discount', derived:false, sign:-1, order:90 }
 ];
 
-function buildChargeLinesFromCharges(charges = {}, existing = []){
+export function buildChargeLinesFromCharges(charges = {}, existing = []){
   const previous = Array.isArray(existing) ? existing : [];
   return CHARGE_LINE_SPECS.map((spec) => {
     const match = previous.find((row) => safeText(row?.code) === spec.code) || {};
@@ -160,7 +161,7 @@ function buildChargeLinesFromCharges(charges = {}, existing = []){
   }).filter((line) => line.absAmount > 0 || line.code === 'discount');
 }
 
-function normalizeChargeLinesPayload(rawLines = []){
+export function normalizeChargeLinesPayload(rawLines = []){
   const rows = Array.isArray(rawLines) ? rawLines : [];
   return rows.map((line) => {
     if (!line || typeof line !== "object") return null;
@@ -807,7 +808,7 @@ function buildPrintableDocumentModelFromPackage(pkg = {}){
   };
 }
 
-function escapeHtml(value){
+export function escapeHtml(value){
   return safeText(value)
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -1372,10 +1373,10 @@ function buildCategoryLabel(code, rawLabel, title){
   return `${c} - ${raw}`;
 }
 
+// Delegates to the shared definition in backend/availability.js. The previous local
+// implementation (a1 < b2 && b1 < a2) is algebraically the same rule.
 function rangesOverlap(startA, endA, startB, endB){
-  const a1 = asDate(startA); const a2 = asDate(endA); const b1 = asDate(startB); const b2 = asDate(endB);
-  if (!a1 || !a2 || !b1 || !b2) return false;
-  return a1 < b2 && b1 < a2;
+  return bookingsOverlap(startA, endA, startB, endB);
 }
 
 async function findBusyAssignedVehicleIds(start, end, excludeBookingId){
