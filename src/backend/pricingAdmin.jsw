@@ -58,7 +58,7 @@ async function requirePricingEdit(authToken){ return requireStaffAccess({ sessio
 async function writePricingAudit(actor = {}, action = '', entityType = 'pricing', entityId = '', oldValue = null, newValue = null, summary = '') {
   try {
     await wixData.insert(AUDIT_COLLECTION, {
-      entityType: text(entityType, 'pricing', { suppressAuth: true }),
+      entityType: text(entityType, 'pricing'),
       entityId: text(entityId),
       action: text(action),
       summary: text(summary),
@@ -68,7 +68,7 @@ async function writePricingAudit(actor = {}, action = '', entityType = 'pricing'
       actorName: text(actor?.fullName || actor?.name || actor?.email),
       createdAt: new Date(),
       retentionUntil: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000)
-    });
+    }, { suppressAuth: true });
   } catch (_) {}
 }
 

@@ -1457,7 +1457,7 @@ async function ensureRentalForBooking(booking){
     bookingId,
     rentalState,
     bookedCategoryCode: bookedCode,
-    assignedVehicleLabel: safeText(booking.assignedVehicleLabel || booking.assignedVehiclePlate || "", { suppressAuth: true }),
+    assignedVehicleLabel: safeText(booking.assignedVehicleLabel || booking.assignedVehiclePlate || ""),
     assignedCategoryCode: safeText(booking.assignedCategoryCode || ""),
     checkoutFuelLevel: 1,
     checkinFuelLevel: 1,
