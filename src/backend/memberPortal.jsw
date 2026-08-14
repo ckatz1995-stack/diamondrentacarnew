@@ -1,48 +1,18 @@
 // @ts-check
 import wixData from 'wix-data';
 import { PORTAL_SESSION_TTL_HOURS } from 'backend/siteConfig';
+import { sha256, randomHex } from 'backend/cryptoUtils.js';
 
-let _cryptoApi;
-function getCrypto() {
-  if (_cryptoApi !== undefined) return _cryptoApi;
-  try {
-    // In Wix/Velo runtime, lazy require is more reliable than a top-level import.
-    _cryptoApi = typeof require === 'function' ? require('crypto') : null;
-  } catch (_) {
-    _cryptoApi = null;
-  }
-  return _cryptoApi;
-}
-
-// Session tokens must not be guessable. Math.random() is a non-cryptographic
-// PRNG whose internal state can be recovered from a handful of outputs, which
-// would let an attacker predict other customers' portal tokens. Same 48-character
-// length as before, now 192 bits of real entropy.
+// Session tokens must not be guessable: randomHex is crypto.randomBytes-backed.
+// 24 bytes gives the same 48-character shape as the old Math.random() version,
+// with 192 bits of real entropy.
 function generateToken() {
-  const api = getCrypto();
-  if (api?.randomBytes) return api.randomBytes(24).toString('hex');
-  // Degraded fallback for a runtime without crypto — weak, but better than failing sign-in.
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  let t = '';
-  for (let i = 0; i < 48; i++) t += chars.charAt(Math.floor(Math.random() * chars.length));
-  return t;
+  return randomHex(24);
 }
 
 // Only the hash of a session token is stored, so a leaked PortalSessions table
 // yields nothing an attacker can present as a session. Mirrors StaffSessions.
-function hashToken(token) {
-  const raw = String(token || '');
-  const api = getCrypto();
-  if (api?.createHash) return api.createHash('sha256').update(raw).digest('hex');
-  // Non-cryptographic last resort so sign-in still works without node crypto.
-  let h1 = 0x811c9dc5;
-  let h2 = 0x01000193;
-  for (let i = 0; i < raw.length; i += 1) {
-    h1 = Math.imul(h1 ^ raw.charCodeAt(i), 0x01000193) >>> 0;
-    h2 = Math.imul(h2 + raw.charCodeAt(i), 0x85ebca6b) >>> 0;
-  }
-  return `${h1.toString(16).padStart(8, '0')}${h2.toString(16).padStart(8, '0')}`;
-}
+const hashToken = sha256;
 
 async function findSessionRow(customerId, sessionToken) {
   if (!customerId || !sessionToken) return null;

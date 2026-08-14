@@ -1,5 +1,7 @@
 import wixData from 'wix-data';
 import { getSecret } from 'wix-secrets-backend';
+import { getCrypto, sha256, randomHex, safeEqual } from 'backend/cryptoUtils.js';
+export { sha256, randomHex, safeEqual } from 'backend/cryptoUtils.js';
 
 export const COLLECTIONS = {
   users: 'StaffUsers',
@@ -54,35 +56,6 @@ function cleanId(value) {
   return raw || '';
 }
 
-let _cryptoApi;
-function getCrypto() {
-  if (_cryptoApi !== undefined) return _cryptoApi;
-  try {
-    // In Wix/Velo runtime, lazy require is often more reliable than a top-level default import.
-    _cryptoApi = typeof require === 'function' ? require('crypto') : null;
-  } catch (_) {
-    _cryptoApi = null;
-  }
-  return _cryptoApi;
-}
-
-function fallbackHash(input = '') {
-  const value = String(input || '');
-  let h1 = 0x811c9dc5;
-  let h2 = 0x9e3779b9;
-  let h3 = 0xc2b2ae35;
-  let h4 = 0x27d4eb2f;
-  for (let i = 0; i < value.length; i += 1) {
-    const c = value.charCodeAt(i);
-    h1 = Math.imul(h1 ^ c, 0x01000193) >>> 0;
-    h2 = Math.imul(h2 ^ c, 2246822519) >>> 0;
-    h3 = Math.imul(h3 ^ c, 3266489917) >>> 0;
-    h4 = Math.imul(h4 ^ c, 668265263) >>> 0;
-  }
-  const parts = [h1, h2, h3, h4].map((n) => n.toString(16).padStart(8, '0'));
-  return parts.join('').repeat(2).slice(0, 64);
-}
-
 function cryptoMode() {
   const api = getCrypto();
   return api && api.createHash && api.randomBytes && api.pbkdf2Sync ? 'native' : 'compat';
@@ -128,20 +101,6 @@ export function addDays(date, days) {
   return d;
 }
 
-export function sha256(value) {
-  const api = getCrypto();
-  if (api?.createHash) return api.createHash('sha256').update(String(value || '')).digest('hex');
-  return fallbackHash(String(value || ''));
-}
-
-export function randomHex(bytes = 16) {
-  const api = getCrypto();
-  if (api?.randomBytes) return api.randomBytes(bytes).toString('hex');
-  let out = '';
-  while (out.length < bytes * 2) out += `${Date.now().toString(16)}${Math.floor(Math.random() * 0xffffffff).toString(16).padStart(8, '0')}`;
-  return out.slice(0, bytes * 2);
-}
-
 function buildTempPassword() {
   return `Dr-${randomHex(4)}-${randomHex(3)}`;
 }
@@ -170,33 +129,6 @@ export function derivePasswordHash(password, salt) {
   let out = sha256(`${salt}::${password}`);
   for (let i = 0; i < 2048; i += 1) out = sha256(`${salt}:${i}:${out}:${password}`);
   return out;
-}
-
-export function safeEqual(a, b) {
-  const leftRaw = String(a || '');
-  const rightRaw = String(b || '');
-  const api = getCrypto();
-  if (api?.timingSafeEqual) {
-    try {
-      const left = Buffer.from(leftRaw, 'hex');
-      const right = Buffer.from(rightRaw, 'hex');
-      if (left.length !== right.length || !left.length) return false;
-      return api.timingSafeEqual(left, right);
-    } catch (_) {}
-  }
-  // Degraded fallback mode (when crypto.timingSafeEqual is unavailable):
-  // keep a constant-time style comparison loop and avoid direct string equality.
-  const left = leftRaw;
-  const right = rightRaw;
-  const max = Math.max(left.length, right.length);
-  if (!max) return false;
-  let diff = left.length ^ right.length;
-  for (let i = 0; i < max; i += 1) {
-    const lc = i < left.length ? left.charCodeAt(i) : 0;
-    const rc = i < right.length ? right.charCodeAt(i) : 0;
-    diff |= (lc ^ rc);
-  }
-  return diff === 0;
 }
 
 function verifyPassword(password, credential) {

@@ -105,16 +105,35 @@ describe('fleetCalendar catCode', () => {
     expect(catCode(undefined)).toBe('');
   });
 
-  test('does NOT reduce a descriptive label to its leading code', () => {
-    // Pinning current behaviour, not endorsing it. The first-token branch here is
-    // unreachable for the same reason it was in bookingEngine — a stray backspace
-    // in the regex — so the whole label is uppercased instead. Left as-is
-    // deliberately; bookingEngine's equivalent was fixed because its failure mode
-    // (returning '') silently drops vehicles from category matching, whereas this
-    // one degrades to a still-usable string.
-    expect(catCode('A - Hyundai i10')).toBe('A - HYUNDAI I10');
-    // Consequence worth seeing plainly: the two modules disagree about the same label.
-    expect(catCode('A - Hyundai i10')).not.toBe(deriveFleetCategoryCode('A - Hyundai i10'));
+  test('reduces a descriptive label to its leading code', () => {
+    // This branch was unreachable until the stray backspace was removed from the
+    // regex; the whole label used to be uppercased instead.
+    expect(catCode('A - Hyundai i10')).toBe('A');
+    expect(catCode('SUV large')).toBe('SUV');
+  });
+
+  test('agrees with bookingEngine on dashed and short labels', () => {
+    for (const label of ['A', 'ECO', 'SUV large', 'A - Hyundai i10', 'X']) {
+      expect(catCode(label)).toBe(deriveFleetCategoryCode(label));
+    }
+  });
+
+  test('still differs from bookingEngine on long single-word labels', () => {
+    // Pinning what the regex fix did NOT resolve. The two modules truncate to
+    // different lengths — fleetCalendar takes up to 4 characters, bookingEngine
+    // up to 3 — so a single-word category of 4+ characters still yields two
+    // different codes. Harmless while each module compares codes it derived
+    // itself, which is the case today, but it is a live trap if a raw label ever
+    // has to match across the two.
+    expect(catCode('Economy')).toBe('ECON');
+    expect(deriveFleetCategoryCode('Economy')).toBe('ECO');
+  });
+
+  test('still differs from bookingEngine on Greek-lettered labels', () => {
+    // fleetCalendar's character class includes Α-Ω and maps Greek chi to Latin X;
+    // bookingEngine's is [A-Z] only, so it extracts nothing from a Greek label.
+    expect(catCode('ΧΑ')).toBe('XΑ');
+    expect(deriveFleetCategoryCode('ΧΑ')).toBe('');
   });
 });
 

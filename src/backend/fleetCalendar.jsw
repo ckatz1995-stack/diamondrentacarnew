@@ -1,5 +1,6 @@
 // backend/fleetCalendar.jsw
 import wixData from "wix-data";
+import { escapeHtml } from "backend/htmlEscape.js";
 import { requireStaffAccess } from "backend/staffAccess.jsw";
 import { extractCode as sharedExtractCode, isLikelyId } from "backend/utils";
 
@@ -224,7 +225,7 @@ export function catCode(v) {
   s = String(s || "").trim();
   if (!s || isOpaqueCategoryId(s)) return "";
   // If it's like "A - Hyundai i10" or "A/..." => take first token
-  const m = s.match(/^([A-Za-z0-9Α-Ω]{1,4})/);
+  const m = s.match(/^([A-Za-z0-9Α-Ω]{1,4})/);
   const first = m ? m[1] : s;
   return String(first).replace("Χ","X").toUpperCase();
 }
@@ -241,14 +242,7 @@ function catLabel(v) {
   if (typeof v === "object") return String(v.title || v.label || v.name || v.code || v.value || "");
   return String(v);
 }
-function escHtml(value) {
-  return String(value == null ? "" : value)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
+const escHtml = escapeHtml;
 
 function yesNo(value) {
   if (value === true) return "Ready";

@@ -499,7 +499,9 @@ export async function upsertExtraService({ authToken, payload = {} } = {}){
 export async function upsertFeeRule({ authToken, payload = {} } = {}){
   const actor = await requirePricingEdit(authToken);
   await ensurePricingSeeded();
-  const result = await upsertByKey(PRICING_COLLECTIONS.feeRules, normalizeCatalogItem(payload, 'fee'));
+  const normalized = normalizeCatalogItem(payload, 'fee');
+  if (Number(normalized.amount) < 0) throw new Error('Invalid fee rule amount');
+  const result = await upsertByKey(PRICING_COLLECTIONS.feeRules, normalized);
   await writePricingAudit(actor, `pricing.${result.mode}`, 'pricing.fee', String(result.saved?.key || result.saved?._id || ''), result.previous, result.saved, `${result.mode === 'insert' ? 'Νέο' : 'Ενημέρωση'} fee rule ${text(result.saved?.label)}`);
   return result.saved;
 }

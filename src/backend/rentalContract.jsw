@@ -6,6 +6,7 @@ import { confirmAndAutoAssign } from "backend/fleetCalendar";
 import { requireStaffAccess } from "backend/staffAccess.jsw";
 import { asDate, extractCode, pickLabel, safeNum } from "backend/utils";
 import { bookingsOverlap } from "backend/availability.js";
+import { escapeHtml } from "backend/htmlEscape.js";
 
 const FLEET_LIMIT = 1000;
 const BOOKING_LIMIT = 1000;
@@ -825,14 +826,7 @@ function buildPrintableDocumentModelFromPackage(pkg = {}){
   };
 }
 
-export function escapeHtml(value){
-  return safeText(value)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
+export { escapeHtml } from 'backend/htmlEscape.js';
 
 function renderSectionHtml(section = {}){
   const key = safeText(section.key || '').toLowerCase();

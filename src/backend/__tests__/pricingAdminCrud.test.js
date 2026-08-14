@@ -146,20 +146,26 @@ describe('upsert validation', () => {
       .rejects.toThrow(/Invalid rate rule/i);
   });
 
-  test('fee rules accept a negative amount, unlike every other priced entity', async () => {
-    // Pinning an inconsistency rather than endorsing it. upsertInsurancePlan,
-    // upsertExtraService and upsertCategoryRateRule all reject negative values;
-    // upsertFeeRule has no such guard, so a negative fee is stored and behaves as
-    // a discount. That may be deliberate (a corrective adjustment) or an
-    // oversight — this test makes the difference visible either way, and will
-    // fail loudly if someone later adds the guard, prompting a decision.
+  test('rejects a negative fee rule amount, consistently with every other priced entity', async () => {
+    // upsertFeeRule used to be the one priced endpoint with no negative guard, so
+    // a negative fee was stored and behaved as a discount. It now matches
+    // upsertInsurancePlan, upsertExtraService and upsertCategoryRateRule.
+    install();
+    const token = await adminToken();
+    await expect(pricingAdmin.upsertFeeRule({
+      authToken: token,
+      payload: { key: 'adjustment', label: 'Goodwill adjustment', amount: -5 },
+    })).rejects.toThrow(/Invalid fee rule amount/i);
+  });
+
+  test('still accepts a zero fee amount', async () => {
     install();
     const token = await adminToken();
     const saved = await pricingAdmin.upsertFeeRule({
       authToken: token,
-      payload: { key: 'adjustment', label: 'Goodwill adjustment', amount: -5 },
+      payload: { key: 'damages', label: 'Damages', amount: 0 },
     });
-    expect(saved.amount).toBe(-5);
+    expect(saved.amount).toBe(0);
   });
 });
 

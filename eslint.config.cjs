@@ -1,6 +1,6 @@
 module.exports = [
   {
-    ignores: ["node_modules/**", "dist/**", ".wix/**"],
+    ignores: ["node_modules/**", "dist/**", ".wix/**", ".typecheck/**"],
   },
   {
     files: ["**/*.js", "**/*.jsw"],
