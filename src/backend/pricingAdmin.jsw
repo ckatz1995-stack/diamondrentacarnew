@@ -1,3 +1,4 @@
+// @ts-check
 import wixData from 'wix-data';
 import { PRICING_COLLECTIONS, clearPricingCatalogCache, getFallbackCatalogSnapshot, getPricingCatalog } from 'backend/pricingCatalog.jsw';
 import { requireStaffAccess } from 'backend/staffAccess.jsw';
@@ -338,6 +339,9 @@ async function getPickupLocationsAdminRows() {
   });
 }
 
+/**
+ * @param {any} [options]
+ */
 export async function getPricingAdminSnapshot({ authToken } = {}){
   await requirePricingView(authToken);
   await ensurePricingSeeded();
@@ -350,6 +354,9 @@ export async function getPricingAdminSnapshot({ authToken } = {}){
   return { ...catalog, vehicleCategories, fleetVehicles, pickupLocations };
 }
 
+/**
+ * @param {any} [options]
+ */
 export async function saveBusinessSettings({ authToken, payload = {} } = {}){
   const actor = await requirePricingEdit(authToken);
   await ensurePricingSeeded();
@@ -401,6 +408,18 @@ export async function saveBusinessSettings({ authToken, payload = {} } = {}){
   return saved;
 }
 
+/**
+ * Returns a different shape per `kind`: insurance carries pricePerDay, extras carry
+ * price, fee rules carry ruleType/audienceGroup/amount. Callers pass a literal kind
+ * and read the matching field, which is correct at runtime but not something TypeScript
+ * can narrow, so the return type unions the three with the variant fields optional.
+ * @param {any} [payload]
+ * @param {string} [kind]
+ * @returns {{ _id?: string, title: string, key: string, label: string, description: string,
+ *             sortOrder: number, active: boolean, publicVisible: boolean, billingMode: string,
+ *             pricePerDay?: number, price?: number,
+ *             ruleType?: string, audienceGroup?: string, amount?: number }}
+ */
 function normalizeCatalogItem(payload = {}, kind = 'insurance'){
   const safeId = cleanId(payload._id);
   const key = slugKey(payload.key || payload.label || payload.title);
@@ -450,6 +469,9 @@ export async function upsertByKey(collectionName, item){
   return { saved, previous, mode: previous ? 'update' : 'insert' };
 }
 
+/**
+ * @param {any} [options]
+ */
 export async function upsertInsurancePlan({ authToken, payload = {} } = {}){
   const actor = await requirePricingEdit(authToken);
   await ensurePricingSeeded();
@@ -459,6 +481,9 @@ export async function upsertInsurancePlan({ authToken, payload = {} } = {}){
   await writePricingAudit(actor, `pricing.${result.mode}`, 'pricing.insurance', String(result.saved?.key || result.saved?._id || ''), result.previous, result.saved, `${result.mode === 'insert' ? 'Νέο' : 'Ενημέρωση'} insurance plan ${text(result.saved?.label)}`);
   return result.saved;
 }
+/**
+ * @param {any} [options]
+ */
 export async function upsertExtraService({ authToken, payload = {} } = {}){
   const actor = await requirePricingEdit(authToken);
   await ensurePricingSeeded();
@@ -468,6 +493,9 @@ export async function upsertExtraService({ authToken, payload = {} } = {}){
   await writePricingAudit(actor, `pricing.${result.mode}`, 'pricing.extra', String(result.saved?.key || result.saved?._id || ''), result.previous, result.saved, `${result.mode === 'insert' ? 'Νέο' : 'Ενημέρωση'} extra service ${text(result.saved?.label)}`);
   return result.saved;
 }
+/**
+ * @param {any} [options]
+ */
 export async function upsertFeeRule({ authToken, payload = {} } = {}){
   const actor = await requirePricingEdit(authToken);
   await ensurePricingSeeded();
@@ -475,6 +503,9 @@ export async function upsertFeeRule({ authToken, payload = {} } = {}){
   await writePricingAudit(actor, `pricing.${result.mode}`, 'pricing.fee', String(result.saved?.key || result.saved?._id || ''), result.previous, result.saved, `${result.mode === 'insert' ? 'Νέο' : 'Ενημέρωση'} fee rule ${text(result.saved?.label)}`);
   return result.saved;
 }
+/**
+ * @param {any} [options]
+ */
 export async function deletePricingItem({ authToken, collectionName, itemId, itemKey } = {}){
   const actor = await requirePricingEdit(authToken);
   if (!collectionName || (!itemId && !itemKey)) throw new Error('Missing collectionName or itemId/itemKey');
@@ -499,6 +530,9 @@ export async function deletePricingItem({ authToken, collectionName, itemId, ite
 }
 
 
+/**
+ * @param {any} [options]
+ */
 export async function seedPricingDefaults({ authToken, target = 'all' } = {}) {
   const actor = await requirePricingEdit(authToken);
   await ensurePricingSeeded();
@@ -573,6 +607,9 @@ export async function seedPricingDefaults({ authToken, target = 'all' } = {}) {
   return result;
 }
 
+/**
+ * @param {any} [options]
+ */
 export async function resetPricingDefaults({ authToken, target = 'all' } = {}) {
   const actor = await requirePricingEdit(authToken);
   await ensurePricingSeeded();
@@ -609,6 +646,9 @@ export async function resetPricingDefaults({ authToken, target = 'all' } = {}) {
   return result;
 }
 
+/**
+ * @param {any} [options]
+ */
 export async function upsertVehicleCategory({ authToken, payload = {} } = {}){
   const actor = await requirePricingEdit(authToken);
   const normalized = normalizeVehicleCategoryItem(payload);
@@ -628,6 +668,9 @@ export async function upsertVehicleCategory({ authToken, payload = {} } = {}){
   return mapVehicleCategoryAdminRow(saved);
 }
 
+/**
+ * @param {any} [options]
+ */
 export async function deleteVehicleCategory({ authToken, itemId, categoryCode } = {}){
   const actor = await requirePricingEdit(authToken);
   const previous = itemId
@@ -639,6 +682,9 @@ export async function deleteVehicleCategory({ authToken, itemId, categoryCode } 
   return { success: true, removed: 1 };
 }
 
+/**
+ * @param {any} [options]
+ */
 export async function upsertFleetVehicle({ authToken, payload = {} } = {}){
   const actor = await requirePricingEdit(authToken);
   const normalized = normalizeFleetVehicleItem(payload);
@@ -659,6 +705,9 @@ export async function upsertFleetVehicle({ authToken, payload = {} } = {}){
   return mapFleetVehicleAdminRow(saved);
 }
 
+/**
+ * @param {any} [options]
+ */
 export async function deleteFleetVehicle({ authToken, itemId, plate } = {}){
   const actor = await requirePricingEdit(authToken);
   const previous = itemId
@@ -707,6 +756,9 @@ function normalizeCategoryRateRuleItem(payload = {}) {
   };
 }
 
+/**
+ * @param {any} [options]
+ */
 export async function upsertPricingSeason({ authToken, payload = {} } = {}) {
   const actor = await requirePricingEdit(authToken);
   const normalized = normalizePricingSeasonItem(payload);
@@ -717,10 +769,16 @@ export async function upsertPricingSeason({ authToken, payload = {} } = {}) {
   return result.saved;
 }
 
+/**
+ * @param {any} [options]
+ */
 export async function deletePricingSeason({ authToken, itemId, itemKey } = {}) {
   return deletePricingItem({ authToken, collectionName: PRICING_COLLECTIONS.pricingSeasons, itemId, itemKey });
 }
 
+/**
+ * @param {any} [options]
+ */
 export async function upsertCategoryRateRule({ authToken, payload = {} } = {}) {
   const actor = await requirePricingEdit(authToken);
   const normalized = normalizeCategoryRateRuleItem(payload);
@@ -731,11 +789,17 @@ export async function upsertCategoryRateRule({ authToken, payload = {} } = {}) {
   return result.saved;
 }
 
+/**
+ * @param {any} [options]
+ */
 export async function deleteCategoryRateRule({ authToken, itemId, itemKey } = {}) {
   return deletePricingItem({ authToken, collectionName: PRICING_COLLECTIONS.categoryRateRules, itemId, itemKey });
 }
 
 
+/**
+ * @param {any} [options]
+ */
 export async function upsertPickupLocation({ authToken, payload = {} } = {}) {
   const actor = await requirePricingEdit(authToken);
   const normalized = normalizePickupLocationItem(payload);
@@ -746,16 +810,25 @@ export async function upsertPickupLocation({ authToken, payload = {} } = {}) {
   return mapPickupLocationAdminRow(result.saved);
 }
 
+/**
+ * @param {any} [options]
+ */
 export async function deletePickupLocation({ authToken, itemId, itemKey } = {}) {
   return deletePricingItem({ authToken, collectionName: PRICING_COLLECTIONS.pickupLocations, itemId, itemKey });
 }
 
+/**
+ * @param {any} [options]
+ */
 export async function exportPricingCatalogSnapshot({ authToken } = {}) {
   await requirePricingView(authToken);
   await ensurePricingSeeded();
   return getPricingCatalog({ scope: 'all', force: true });
 }
 
+/**
+ * @param {any} [options]
+ */
 export async function getStaffPricingCatalog({ authToken } = {}) {
   await requireStaffAccess({ sessionToken: authToken, area: 'pricing', action: 'View' });
   return getPricingCatalog({ scope: 'all' });
