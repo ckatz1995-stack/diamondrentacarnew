@@ -78,3 +78,33 @@ Page → HTML: `INIT {locations, currency, companyName, bookingPageUrl}`, `AUTH_
 
 ## Invite contributors to work with you
 Git Integration & Wix CLI extends Editor X's [concurrent editing](https://support.wix.com/en/article/editor-x-about-concurrent-editing) capabilities. Invite other developers as collaborators on your [site](https://support.wix.com/en/article/inviting-people-to-contribute-to-your-site) and your [GitHub repo](https://docs.github.com/en/account-and-profile/setting-up-and-managing-your-personal-account-on-github/managing-access-to-your-personal-repositories/inviting-collaborators-to-a-personal-repository). Multiple developers can work on a site's code at once.
+
+## Type checking
+
+The backend is plain JavaScript, but TypeScript runs over it in `checkJs` mode to
+catch a class of bug this codebase has hit repeatedly: an argument in the wrong
+position that JavaScript accepts silently. Two real examples, both since fixed —
+an options object passed as a third argument to a two-parameter function, and a
+comma operator inside an object spread — are caught as `TS2554` and `TS2695`.
+
+Run it with:
+
+```
+npm run typecheck
+```
+
+Two things to know:
+
+- **Checking is opt-in per file.** `checkJs` is `false` in `tsconfig.json`; a file
+  is only checked if it starts with `// @ts-check`. This keeps the checked set at
+  zero errors and lets coverage grow a file at a time, rather than requiring a
+  repo-wide annotation pass up front.
+- **`.jsw` files need a mirror.** Velo requires web modules to keep the `.jsw`
+  extension, and `tsc` silently ignores extensions it does not recognise — a
+  tsconfig that "includes" `src/**/*.jsw` checks nothing and reports success. So
+  `scripts/typecheck.mjs` mirrors `src/` into `.typecheck/` with `.jsw` renamed to
+  `.js` before running `tsc`. Nothing about deployment changes.
+
+To add a file to the checked set, put `// @ts-check` at the top and run
+`npm run typecheck`. Most remaining errors are option-bag parameters that TS
+cannot infer from `= {}` defaults; a JSDoc `@param` annotation resolves them.

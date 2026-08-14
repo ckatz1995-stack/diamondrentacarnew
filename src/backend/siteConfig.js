@@ -1,3 +1,4 @@
+// @ts-check
 export const COLLECTIONS = {
   bookings: 'BookingsNew',
   fleet: 'FleetNew',

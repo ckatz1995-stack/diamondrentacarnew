@@ -1,3 +1,4 @@
+// @ts-check
 // Canonical definition of "these two bookings overlap".
 //
 // The rule is duplicated as a wix-data filter pair in several places

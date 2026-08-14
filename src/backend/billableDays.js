@@ -1,3 +1,4 @@
+// @ts-check
 function asDate(value) {
   if (!value && value !== 0) return null;
   const date = value instanceof Date ? value : new Date(value);

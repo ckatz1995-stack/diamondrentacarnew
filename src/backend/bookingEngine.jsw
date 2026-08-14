@@ -1,3 +1,4 @@
+// @ts-check
 import wixData from 'wix-data';
 import wixUsersBackend from 'wix-users-backend';
 import { VAT_RATE } from 'backend/bookingConfig';
@@ -345,6 +346,7 @@ function isVehicleCategoryActive(item = {}) {
   return (item?.active ?? item?.Active ?? true) !== false;
 }
 
+/** @param {{ vehicleId?: any, categoryCode?: any }} [options] */
 async function findVehicleCategoryRecord({ vehicleId, categoryCode } = {}) {
   const id = cleanText(vehicleId || '');
   const code = cleanText(categoryCode || '');
@@ -369,6 +371,7 @@ async function findVehicleCategoryRecord({ vehicleId, categoryCode } = {}) {
   return null;
 }
 
+/** @param {{ vehicleId?: any, categoryCode?: any }} [options] */
 export async function getVehicleCategoryDetails({ vehicleId, categoryCode } = {}) {
   const item = await findVehicleCategoryRecord({ vehicleId, categoryCode });
   if (!item) return null;
@@ -389,6 +392,7 @@ function buildFleetSpecs(entry = {}, fallback = {}) {
   };
 }
 
+/** @param {{ vehicleId?: any, categoryCode?: any }} [options] */
 export async function getFleetModelsPreview({ vehicleId, categoryCode } = {}) {
   let resolvedCategoryCode = cleanText(categoryCode || '');
   let vehicleItem = null;
