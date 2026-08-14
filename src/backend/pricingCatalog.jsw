@@ -1,3 +1,4 @@
+// @ts-check
 import wixData from 'wix-data';
 import * as bookingConfig from 'backend/bookingConfig.js';
 
@@ -23,37 +24,13 @@ function sortByOrder(a, b){ const sa = toNumber(a?.sortOrder, 9999); const sb = 
 async function safeQuery(collectionName, queryBuilder){ try { const q = typeof queryBuilder === 'function' ? queryBuilder(wixData.query(collectionName)) : wixData.query(collectionName); const res = await q.limit(1000).find({ suppressAuth: true }); return Array.isArray(res?.items) ? res.items : []; } catch (_) { return []; } }
 
 const VAT_RATE = toNumber(bookingConfig?.VAT_RATE, 0.24);
-const DEFAULT_BUSINESS_SETTINGS = bookingConfig?.DEFAULT_BUSINESS_SETTINGS || {
-  title: 'Default business settings',
-  currency: 'EUR',
-  vatRate: 24,
-  vatRateDecimal: VAT_RATE,
-  nightStartHour: 22,
-  nightEndHour: 8,
-  defaultDeposit: 300,
-  companyName: 'DIAMOND Rent A Car',
-  companyTagline: 'Ενοικίαση οχημάτων στη Θεσσαλονίκη με καθαρή διαδικασία και γρήγορη επιβεβαίωση.',
-  companyCity: 'Thessaloniki',
-  companyAddress: 'Θεσσαλονίκη, Ελλάδα',
-  footerNote: 'Επαγγελματική εμπειρία ενοικίασης οχήματος με καθαρή ροή κράτησης, ξεκάθαρη τιμολόγηση και προσωπική επιβεβαίωση.',
-  companyPhone: '+30 2310 000 000',
-  companyEmail: 'info@diamondrentacar.gr',
-  insuranceTermsTitle: 'Όροι και λεπτομέρειες ασφαλειών',
-  insuranceTermsIntro: 'Οι ασφαλιστικές επιλογές και οι σχετικοί όροι παρουσιάζονται με απλό τρόπο πριν από την ολοκλήρωση της κράτησης.',
-  insuranceTermsBody: 'Η βασική κάλυψη αφορά την τυπική συμμετοχή του ενοικιαστή σύμφωνα με τους όρους της εταιρίας. Οι επιπλέον καλύψεις μειώνουν ή περιορίζουν την ευθύνη ανάλογα με το πρόγραμμα που θα επιλεγεί. Πριν από την τελική παράδοση του οχήματος, η ομάδα μας επιβεβαιώνει ξανά τις καλύψεις, τις εξαιρέσεις και το ύψος της συμμετοχής. Δεν καλύπτονται περιστατικά που προκύπτουν από παραβίαση του ΚΟΚ, οδήγηση υπό επήρεια, μη εξουσιοδοτημένο οδηγό, απώλεια κλειδιών ή εγγράφων και χρήση του οχήματος εκτός των συμφωνημένων όρων. Οι πληροφορίες της σελίδας έχουν ενημερωτικό χαρακτήρα και υπερισχύουν οι τελικοί όροι που επιβεβαιώνονται από την εταιρία πριν την παραλαβή.',
-  insuranceDetailsTitle: 'Λεπτομέρειες ασφαλιστικών επιλογών',
-  insuranceDetailsIntro: 'Παρακάτω βλέπεις συνοπτικά τις επιλογές κάλυψης που χρησιμοποιούνται στο front booking flow.',
-  insuranceDetailsBody: 'Το CDW αποτελεί τη βασική κάλυψη χωρίς επιπλέον ημερήσια χρέωση. Το SCDW μειώνει περαιτέρω την οικονομική έκθεση του οδηγού, ενώ το FULL παρέχει την πιο ενισχυμένη επιλογή προστασίας που εμφανίζεται στο backroom και στο booking flow. Για κάθε κράτηση, το τελικό πρόγραμμα ασφάλισης, οι χρεώσεις και οι εξαιρέσεις επιβεβαιώνονται από την ομάδα μας πριν από την παράδοση.',
-  rentalTermsTitle: 'Όροι ενοικίασης και πολιτικές',
-  rentalTermsIntro: 'Στην παρακάτω σελίδα συγκεντρώνονται βασικοί όροι, προϋποθέσεις και πολιτικές της ενοικίασης με μορφή εύκολη για ανάγνωση και ενημέρωση από το backroom.',
-  rentalTermsBody: 'Η ενοικίαση ολοκληρώνεται μόνο μετά από επιβεβαίωση της διαθεσιμότητας από την εταιρία και έλεγχο των στοιχείων του οδηγού. Η εταιρία διατηρεί το δικαίωμα να προτείνει ισοδύναμο όχημα ίδιας ή ανώτερης κατηγορίας όταν αυτό απαιτηθεί από λειτουργικούς λόγους, χωρίς πρόσθετη χρέωση για τον πελάτη.',
-  rentalRequirementsBody: 'Ο κύριος οδηγός οφείλει να διαθέτει ισχύουσα άδεια οδήγησης, ταυτότητα ή διαβατήριο και κάρτα ή άλλο μέσο πληρωμής αποδεκτό από την εταιρία. Ελάχιστη ηλικία, έτη κατοχής διπλώματος, εγγύηση και τυχόν επασφάλιστρα εξαρτώνται από την κατηγορία οχήματος και την τελική επιβεβαίωση της κράτησης.',
-  rentalPoliciesBody: 'Η πολιτική καυσίμου, οι ώρες παράδοσης και παραλαβής, οι χρεώσεις εκτός ωραρίου, οι ακυρώσεις, οι καθυστερήσεις και οι όροι επέκτασης της μίσθωσης επιβεβαιώνονται πριν την παράδοση. Τυχόν ζημιές, πρόστιμα, απώλειες εξοπλισμού ή χρήση του οχήματος κατά παράβαση των συμφωνημένων όρων βαρύνουν τον ενοικιαστή σύμφωνα με την τελική σύμβαση.',
-  rentalPrivacyBody: 'Τα προσωπικά δεδομένα χρησιμοποιούνται αποκλειστικά για την εξυπηρέτηση της κράτησης, την επικοινωνία με τον πελάτη και την εκπλήρωση νομικών ή φορολογικών υποχρεώσεων της εταιρίας. Για ειδικά αιτήματα, διορθώσεις στοιχείων ή απορίες σχετικά με την επεξεργασία δεδομένων, ο πελάτης μπορεί να επικοινωνεί με την εταιρία στα διαθέσιμα στοιχεία επικοινωνίας.',
-  stationProfiles: [{ key:'default', label:'Κεντρικός σταθμός', description:'' }],
-  stationSettings: {},
-  active: true
-};
+// Single source of truth: bookingConfig owns the business-settings defaults.
+// This used to fall back to a duplicated literal that had drifted from it — missing
+// eight fields the normaliser below reads (so they would have resolved to undefined
+// rather than a default), carrying two fields bookingConfig does not define, and
+// disagreeing on `title`. The duplicate is gone rather than repaired, since keeping
+// two copies in step by hand is what failed the first time.
+const DEFAULT_BUSINESS_SETTINGS = bookingConfig.DEFAULT_BUSINESS_SETTINGS;
 const FALLBACK_INSURANCE_OPTIONS = Array.isArray(bookingConfig?.INSURANCE_OPTIONS) && bookingConfig.INSURANCE_OPTIONS.length ? bookingConfig.INSURANCE_OPTIONS : [
   { key: 'cdw', label: 'CDW', description: 'Βασική ασφαλιστική επιλογή χωρίς επιπλέον ημερήσια χρέωση.', pricePerDay: 0 },
   { key: 'scdw', label: 'SCDW', description: 'Μειωμένη ευθύνη με χρέωση 12,00€ ανά ημέρα.', pricePerDay: 12 },
