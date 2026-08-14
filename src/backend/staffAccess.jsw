@@ -105,7 +105,7 @@ function readBool(value, fallback = false) {
   return ['1', 'true', 'yes', 'y', 'on'].includes(raw);
 }
 
-function slugKey(value) {
+export function slugKey(value) {
   return String(value ?? '')
     .trim()
     .normalize('NFD')
@@ -116,25 +116,25 @@ function slugKey(value) {
     .toLowerCase();
 }
 
-function addHours(date, hours) {
+export function addHours(date, hours) {
   const d = new Date(date);
   d.setHours(d.getHours() + Number(hours || 0));
   return d;
 }
 
-function addDays(date, days) {
+export function addDays(date, days) {
   const d = new Date(date);
   d.setDate(d.getDate() + Number(days || 0));
   return d;
 }
 
-function sha256(value) {
+export function sha256(value) {
   const api = getCrypto();
   if (api?.createHash) return api.createHash('sha256').update(String(value || '')).digest('hex');
   return fallbackHash(String(value || ''));
 }
 
-function randomHex(bytes = 16) {
+export function randomHex(bytes = 16) {
   const api = getCrypto();
   if (api?.randomBytes) return api.randomBytes(bytes).toString('hex');
   let out = '';
@@ -164,7 +164,7 @@ function safeJson(value) {
   try { return JSON.stringify(value ?? null); } catch (_) { return ''; }
 }
 
-function derivePasswordHash(password, salt) {
+export function derivePasswordHash(password, salt) {
   const api = getCrypto();
   if (api?.pbkdf2Sync) return api.pbkdf2Sync(String(password || ''), String(salt || ''), PBKDF2_ITERATIONS, KEY_LENGTH, HASH_DIGEST).toString('hex');
   let out = sha256(`${salt}::${password}`);
@@ -172,7 +172,7 @@ function derivePasswordHash(password, salt) {
   return out;
 }
 
-function safeEqual(a, b) {
+export function safeEqual(a, b) {
   const leftRaw = String(a || '');
   const rightRaw = String(b || '');
   const api = getCrypto();
