@@ -686,6 +686,9 @@ export async function logoutStaff({ sessionToken } = {}) {
   return { success: true };
 }
 
+/**
+ * @param {{ sessionToken?: any, area?: string, action?: string, specialPermission?: string }} [options]
+ */
 export async function requireStaffAccess({ sessionToken, area = '', action = 'View', specialPermission = '' } = {}) {
   const state = await getSessionState({ sessionToken, touch: true });
   if (!state?.authenticated) throw new Error('AUTH_REQUIRED');

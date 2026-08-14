@@ -41,3 +41,22 @@ declare module 'wix-router' {
 
 // Velo page-code global.
 declare const $w: any;
+
+// npm packages used by the contract document pipeline. In Velo these are
+// installed through Wix's package manager rather than this repo's package.json,
+// so they are declared loosely here purely so tsc can resolve the imports.
+declare module 'pdfkit' {
+  const PDFDocument: any;
+  export default PDFDocument;
+  export = PDFDocument;
+}
+declare module 'puppeteer' {
+  const puppeteer: any;
+  export default puppeteer;
+  export = puppeteer;
+}
+declare module '@sendgrid/mail' {
+  const sgMail: any;
+  export default sgMail;
+  export = sgMail;
+}

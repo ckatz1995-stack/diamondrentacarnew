@@ -1,3 +1,4 @@
+// @ts-check
 // backend/rentalContract.jsw
 import wixData from "wix-data";
 import { getSecret } from "wix-secrets-backend";
@@ -188,6 +189,9 @@ export function normalizeChargeLinesPayload(rawLines = []){
   }).filter(Boolean).slice(0, 200);
 }
 
+/**
+ * @param {any} [options]
+ */
 function buildFinancialSnapshot({ booking = {}, rental = {}, totals = null } = {}){
   const lines = totals || deriveChargeLines(booking, rental?.charges || {});
   const billing = mergeBillingFallback(booking, rental);
@@ -352,6 +356,9 @@ function normalizeSignatureState(raw){
   };
 }
 
+/**
+ * @param {any} [options]
+ */
 function buildDocumentPipelineSnapshot({ booking = {}, rental = {}, financialSnapshot = null } = {}){
   const snapshot = financialSnapshot || rental?.financialSnapshot || booking?.financialSnapshot || buildFinancialSnapshot({ booking, rental });
   const billing = mergeBillingFallback(booking, rental);
@@ -474,6 +481,10 @@ function buildDocumentPipelineSnapshot({ booking = {}, rental = {}, financialSna
   };
 }
 
+/**
+ * @param {any} [documentPipeline]
+ * @param {any} [documentType]
+ */
 function getDocumentReadinessSlice(documentPipeline = {}, documentType = 'agreement'){
   const pipeline = documentPipeline && typeof documentPipeline === 'object' ? documentPipeline : {};
   const docs = pipeline.docs && typeof pipeline.docs === 'object' ? pipeline.docs : {};
@@ -489,6 +500,9 @@ function getDocumentReadinessSlice(documentPipeline = {}, documentType = 'agreem
   };
 }
 
+/**
+ * @param {any} [options]
+ */
 function buildContractDocumentPackage({ booking = {}, rental = {}, documentType = 'agreement' } = {}){
   const type = safeText(documentType || 'agreement').toLowerCase();
   const supported = new Set(['agreement', 'voucher', 'invoice', 'receipt']);
@@ -658,6 +672,9 @@ function row(label, value){
   return { label: safeText(label), value: safeText(value || '—') || '—' };
 }
 
+/**
+ * @param {any} [pkg]
+ */
 function buildPrintableDocumentModelFromPackage(pkg = {}){
   const p = pkg && typeof pkg === 'object' ? pkg : {};
   const meta = p.meta || {};
@@ -829,6 +846,9 @@ function renderSectionHtml(section = {}){
   return `<section class="doc-section ${escapeHtml(tone)} sec-${escapeHtml(key || 'generic')}"><h3>${escapeHtml(section.title || section.key || 'Section')}</h3>${bodyRows ? `<table class="doc-kv">${bodyRows}</table>` : ''}${tableHtml}</section>`;
 }
 
+/**
+ * @param {any} [options]
+ */
 function renderContractDocumentHtmlFromPrintable({ packageData = {}, printable = {} } = {}){
   const meta = printable.meta || {};
   const readiness = printable.readiness || {};
@@ -1876,6 +1896,9 @@ async function buildContractLookups(booking = {}){
   return { categories, vehicles, customers, companies };
 }
 
+/**
+ * @param {any} options
+ */
 export async function searchContractCustomers({ authToken, query = "", limit = 50 }) {
   await requireStaffAccess({ sessionToken: authToken, area: "rentals", action: "View" });
   try {
@@ -1918,6 +1941,9 @@ export async function searchContractCustomers({ authToken, query = "", limit = 5
   }
 }
 
+/**
+ * @param {any} options
+ */
 export async function searchContractCompanies({ authToken, query = "", limit = 50 }) {
   await requireStaffAccess({ sessionToken: authToken, area: "rentals", action: "View" });
   try {
@@ -2142,6 +2168,9 @@ async function collectBookingMatchesByCompanySeeds(seeds = {}, limit = 80){
   return filtered.slice(0, safeLimit);
 }
 
+/**
+ * @param {any} options
+ */
 export async function getCompanyInsights({ authToken, company = {}, limit = 80 }) {
   await requireStaffAccess({ sessionToken: authToken, area: "rentals", action: "View" });
   try {
@@ -2194,6 +2223,9 @@ export async function getCompanyInsights({ authToken, company = {}, limit = 80 }
 }
 
 
+/**
+ * @param {any} options
+ */
 export async function getCustomerInsights({ authToken, customer = {}, limit = 80 }) {
   await requireStaffAccess({ sessionToken: authToken, area: "rentals", action: "View" });
   try {
@@ -2276,6 +2308,9 @@ function mergeFinancialsFallback(booking = {}, rental = {}){
 // --------------------
 // ✅ Contract (this MUST work always)
 // --------------------
+/**
+ * @param {any} options
+ */
 export async function getContract({ authToken, bookingId }) {
   await requireStaffAccess({ sessionToken: authToken, area: "rentals", action: "View" });
   try {
@@ -2366,6 +2401,9 @@ export async function getContract({ authToken, bookingId }) {
   }
 }
 
+/**
+ * @param {any} options
+ */
 export async function exportContractDocumentPackage({ authToken, bookingId, documentType = 'agreement' }) {
   await requireStaffAccess({ sessionToken: authToken, area: "rentals", action: "View" });
   try {
@@ -2432,6 +2470,9 @@ export async function exportContractRenderedDocument({ authToken, bookingId, doc
   }
 }
 
+/**
+ * @param {any} options
+ */
 export async function getContractDocumentRenderCapabilities({ authToken }) {
   await requireStaffAccess({ sessionToken: authToken, area: "rentals", action: "View" });
   try {
@@ -2441,6 +2482,9 @@ export async function getContractDocumentRenderCapabilities({ authToken }) {
   }
 }
 
+/**
+ * @param {any} options
+ */
 export async function selfTestContractDocumentRenderer({ authToken }) {
   await requireStaffAccess({ sessionToken: authToken, area: "rentals", action: "View" });
   try {
@@ -2454,6 +2498,9 @@ export async function selfTestContractDocumentRenderer({ authToken }) {
   }
 }
 
+/**
+ * @param {any} options
+ */
 export async function runContractDocumentTemplateRegression({ authToken }) {
   await requireStaffAccess({ sessionToken: authToken, area: "rentals", action: "View" });
   try {
@@ -2494,6 +2541,9 @@ export async function exportContractPdfFromHtml({ authToken, bookingId, document
 }
 
 
+/**
+ * @param {any} options
+ */
 export async function confirmBookingAnalysis({ authToken, bookingId }) {
   await requireStaffAccess({ sessionToken: authToken, area: "rentals", action: "Edit" });
   try {
@@ -2514,6 +2564,9 @@ export async function confirmBookingAnalysis({ authToken, bookingId }) {
 // --------------------
 // Legacy start/close (kept)
 // --------------------
+/**
+ * @param {any} options
+ */
 export async function startRental({ authToken, bookingId, by }) {
   await requireStaffAccess({ sessionToken: authToken, area: "rentals", action: "Edit" });
   if (!bookingId) return { success:false, message:"Missing bookingId" };
@@ -2533,6 +2586,9 @@ export async function startRental({ authToken, bookingId, by }) {
   return { success:true };
 }
 
+/**
+ * @param {any} options
+ */
 export async function closeRental({ authToken, bookingId, by }) {
   await requireStaffAccess({ sessionToken: authToken, area: "rentals", action: "Edit" });
   if (!bookingId) return { success:false, message:"Missing bookingId" };
@@ -2555,6 +2611,9 @@ export async function closeRental({ authToken, bookingId, by }) {
 // --------------------
 // ✅ saveContract (PDF+Email are lazy-loaded)
 // --------------------
+/**
+ * @param {any} options
+ */
 export async function saveContract({ authToken, bookingId, payload, stage }) {
   const access = await requireStaffAccess({ sessionToken: authToken, area: "rentals", action: "Edit" });
   try {
@@ -2874,10 +2933,10 @@ export async function saveContract({ authToken, bookingId, payload, stage }) {
             durationMs: 0,
             capabilitySnapshot: getRendererCapabilitySnapshot()
           };
-          const PDFDocument = require("pdfkit");
+          const PDFDocumentLegacy = require("pdfkit");
           const pdfBuffer = await new Promise((resolve, reject) => {
             try {
-              const doc = new PDFDocument({ size:"A4", margin:42 });
+              const doc = new PDFDocumentLegacy({ size:"A4", margin:42 });
               const chunks = [];
               doc.on("data", c => chunks.push(c));
               doc.on("end", () => resolve(Buffer.concat(chunks)));
@@ -2939,9 +2998,15 @@ export async function saveContract({ authToken, bookingId, payload, stage }) {
 }
 
 // legacy (kept)
-export async function saveCheckout({ bookingId, payload }) {
-  return saveContract({ bookingId, payload, stage:"checkout" });
+// Legacy wrappers. These previously omitted authToken, so saveContract's
+// requireStaffAccess call rejected every invocation with AUTH_REQUIRED — they
+// failed closed, but could never succeed. Forwarding the token restores them
+// without weakening the gate, which still runs inside saveContract.
+/** @param {{ authToken?: any, bookingId?: any, payload?: any }} [options] */
+export async function saveCheckout({ authToken, bookingId, payload } = {}) {
+  return saveContract({ authToken, bookingId, payload, stage:"checkout" });
 }
-export async function saveCheckin({ bookingId, payload }) {
-  return saveContract({ bookingId, payload, stage:"final" });
+/** @param {{ authToken?: any, bookingId?: any, payload?: any }} [options] */
+export async function saveCheckin({ authToken, bookingId, payload } = {}) {
+  return saveContract({ authToken, bookingId, payload, stage:"final" });
 }
