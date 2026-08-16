@@ -1,5 +1,5 @@
 // @ts-check
-import { sendTelegramNotification } from 'backend/telegramService.jsw';
+import { sendTelegramNotification } from 'backend/telegramService';
 
 export async function BookingsNew_afterInsert(item, _) {
   try {

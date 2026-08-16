@@ -1,4 +1,4 @@
-import { sendTelegramNotification } from 'backend/telegramService.jsw';
+import { sendTelegramNotification } from 'backend/telegramService';
 import { BookingsNew_afterInsert } from '../data.js';
 
 // The wix-data hook that fires after a booking is written. It has exactly one
@@ -7,7 +7,7 @@ import { BookingsNew_afterInsert } from '../data.js';
 // wix-data nothing to pass back to the caller, so a notification failure would
 // turn into a booking that looks like it did not save.
 
-jest.mock('backend/telegramService.jsw', () => ({
+jest.mock('backend/telegramService', () => ({
   sendTelegramNotification: jest.fn(async () => {}),
 }));
 

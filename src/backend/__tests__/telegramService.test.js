@@ -1,6 +1,8 @@
+import { existsSync } from 'node:fs';
+import path from 'node:path';
 import * as wixFetch from 'wix-fetch';
 import { getSecret } from 'wix-secrets-backend';
-import { sendTelegramNotification, testTelegramNotification } from '../telegramService.jsw';
+import { sendTelegramNotification, testTelegramNotification } from '../telegramService.js';
 
 // The notification the office gets when a booking comes in. It runs from a
 // data hook, off the back of a customer completing a booking, which sets the
@@ -46,6 +48,25 @@ beforeEach(() => {
 
 afterEach(() => {
   jest.restoreAllMocks();
+});
+
+describe('the module is not exposed to the browser', () => {
+  test('it is a plain backend file, not a web module', () => {
+    // Velo makes every export of a .jsw callable from the browser. Neither
+    // export here has a frontend caller — sendTelegramNotification runs from a
+    // data hook, testTelegramNotification is a diagnostic — and as a .jsw both
+    // were reachable by anyone: enough to post arbitrary text into the office
+    // chat, or to learn whether the bot token exists and how long it is.
+    //
+    // Asserted structurally because nothing else would notice the extension
+    // changing back. permissions.json is not the guard here: every one of the
+    // 50 methods it lists is anonymous-invokable, so this backend's access
+    // control lives in its code, and the only way to keep a function off the
+    // public surface is to keep it out of a web module.
+    const backend = path.join(__dirname, '..');
+    expect(existsSync(path.join(backend, 'telegramService.js'))).toBe(true);
+    expect(existsSync(path.join(backend, 'telegramService.jsw'))).toBe(false);
+  });
 });
 
 describe('a failing notification never breaks the booking', () => {
@@ -144,16 +165,13 @@ describe('what the message says', () => {
     expect(messageText()).toContain('0.00 €');
   });
 
-  test('KNOWN DEFECT: a non-numeric total reaches the office as "NaN €"', async () => {
+  test('a non-numeric total reads as zero rather than "NaN €"', async () => {
     // `Number(x || 0)` guards null and undefined but not a non-numeric value, so
-    // Number('free').toFixed(2) is the string "NaN". Same class as the
-    // http-functions bug `toFinite` was added for, and the third instance of it
-    // in this backend. Lower reach than that one — totalPrice is computed
-    // numerically by createBooking rather than taken from the client — so it
-    // needs corrupt stored data to surface, which is why it is pinned here and
-    // reported rather than fixed in passing.
+    // this used to send the string "NaN". Third instance of the coercion class
+    // toFinite was added for in http-functions.
     await sendTelegramNotification(booking({ totalPrice: 'free' }));
-    expect(messageText()).toContain('NaN €');
+    expect(messageText()).toContain('0.00 €');
+    expect(messageText()).not.toContain('NaN');
   });
 
   test.each([
@@ -237,28 +255,52 @@ describe('what the message says', () => {
   });
 });
 
-describe('customer text reaches Telegram unescaped', () => {
-  // NOTE: this pins current behaviour, not desired behaviour. The message is
-  // sent with parse_mode HTML, which requires <, > and & to be escaped in text,
-  // but the booking fields are interpolated raw. The repo already has an
-  // escapeHtml helper in backend/htmlEscape.js that is not used here.
-  //
-  // customerName and internalMemo originate from the public booking form, so
-  // an ordinary name like "Ben & Jerry Ltd" is enough to produce a body Telegram
-  // rejects — and the rejection is swallowed by the catch above, so the office
-  // simply never hears about that booking.
+describe('customer text is escaped for Telegram HTML', () => {
+  // The message is sent with parse_mode HTML, so <, > and & carry meaning to
+  // Telegram's parser. Most of these fields come from the public booking form.
+  // Unescaped, a name as ordinary as "Ben & Jerry Ltd" produced a body Telegram
+  // rejects — and that rejection is swallowed by the module's own catch, so the
+  // office silently never heard about the booking.
   test.each([
-    ['an ampersand in the name', { customerName: 'Ben & Jerry Ltd' }, '&'],
-    ['angle brackets in the name', { customerName: 'A <b>Customer</b>' }, '<b>'],
-    ['markup in the internal memo', { internalMemo: '<script>x</script>' }, '<script>'],
-  ])('%s is sent through as-is', async (_label, over, raw) => {
+    ['an ampersand in the name', { customerName: 'Ben & Jerry Ltd' }, 'Ben &amp; Jerry Ltd'],
+    ['angle brackets in the name', { customerName: 'A <b>Customer</b>' }, '&lt;b&gt;'],
+    ['markup in the internal memo', { internalMemo: '<script>x</script>' }, '&lt;script&gt;'],
+    ['an ampersand in the pickup point', { pickuppoint: 'Hotel B&B' }, 'Hotel B&amp;B'],
+    ['markup in the extras field', { extras: '<i>Baby seat</i>' }, '&lt;i&gt;'],
+    ['markup in an unparseable date', { pickupDateTime: '<b>soon</b>' }, '&lt;b&gt;soon&lt;/b&gt;'],
+  ])('%s is escaped', async (_label, over, expected) => {
     await sendTelegramNotification(booking(over));
-    expect(messageText()).toContain(raw);
+    expect(messageText()).toContain(expected);
   });
 
-  test('the escaping the message does apply is only its own bold tags', async () => {
+  test.each([
+    ['the name', { customerName: 'A <b>Customer</b>' }],
+    ['the memo', { internalMemo: '<script>alert(1)</script>' }],
+    ['the flight number', { flightNumber: '<b>A3</b>' }],
+    ['the city', { city: '<i>Katerini</i>' }],
+    ['the return note', { dropoffInfo: '<u>late</u>' }],
+    ['the insurance package', { selectedPackage: '<s>full</s>' }],
+    ['the email', { email: '<a href="x">e</a>' }],
+  ])('no raw tag from %s survives into the body', async (_label, over) => {
+    // Checked as a property rather than field by field: any interpolation added
+    // later without escaping shows up here.
+    await sendTelegramNotification(booking(over));
+    const withoutOwnTags = messageText().replace(/<\/?b>/g, '');
+    expect(withoutOwnTags).not.toMatch(/<[a-zA-Z/]/);
+  });
+
+  test('the message keeps its own bold tags', async () => {
+    // Escaping the values must not escape the formatting the module itself adds.
     await sendTelegramNotification(booking());
     expect(messageText()).toContain('<b>RNT-2026-0001</b>');
+    expect(messageText()).toContain('🚗 <b>Νέα Κράτηση!</b>');
+  });
+
+  test('an ordinary apostrophe still renders as a character entity Telegram decodes', async () => {
+    // O'Brien is common enough that this is worth stating: the shared helper
+    // escapes quotes too, and Telegram decodes HTML entities in text.
+    await sendTelegramNotification(booking({ customerName: "O'Brien" }));
+    expect(messageText()).toContain('O&#39;Brien');
   });
 });
 
