@@ -2707,12 +2707,27 @@ export async function saveContract({ authToken, bookingId, payload, stage }) {
 
     applyChargesPayload(rental, payload);
     if (payload?.charges && typeof payload.charges === "object") {
-      booking.baseCost = safeNum(payload.charges.rental);
-      booking.insuranceCost = safeNum(payload.charges.insurance);
-      booking.extrasTotal = safeNum(payload.charges.options);
-      booking.ageFee = safeNum(payload.charges.ageFee);
-      booking.nightFee = safeNum(payload.charges.nightFee);
-      booking.totalPrice = Math.round((booking.baseCost + booking.insuranceCost + booking.extrasTotal + booking.ageFee + booking.nightFee + safeNum(payload.charges.transport) + safeNum(payload.charges.damages) + safeNum(payload.charges.surcharges) - safeNum(payload.charges.discount)) * 100) / 100;
+      // Read the figures applyChargesPayload just resolved, not the raw payload.
+      // Every field there is `payload ?? stored ?? 0`, so a partial edit keeps
+      // the charges it does not mention. Reading payload.charges directly meant
+      // an omitted field became 0 here, and syncBookingChargeFields below
+      // re-derives from the booking — it prefers the booking's totals — and
+      // merges the result back over rental.charges, so those zeros overwrote
+      // the values applyChargesPayload had just preserved. Sending only the
+      // field that changed dropped every other charge on both records.
+      //
+      // Only the five named booking fields below are observable: deriveChargeLines
+      // prefers them over the charges it is passed. The totalPrice line is dead —
+      // syncBookingChargeFields recomputes it a few lines down — so transport,
+      // damages, surcharges and discount are read from `applied` for consistency
+      // rather than because anything downstream can tell.
+      const applied = (rental.charges && typeof rental.charges === "object") ? rental.charges : {};
+      booking.baseCost = safeNum(applied.rental);
+      booking.insuranceCost = safeNum(applied.insurance);
+      booking.extrasTotal = safeNum(applied.options);
+      booking.ageFee = safeNum(applied.ageFee);
+      booking.nightFee = safeNum(applied.nightFee);
+      booking.totalPrice = Math.round((booking.baseCost + booking.insuranceCost + booking.extrasTotal + booking.ageFee + booking.nightFee + safeNum(applied.transport) + safeNum(applied.damages) + safeNum(applied.surcharges) - safeNum(applied.discount)) * 100) / 100;
       const days = billableDaysFromBooking(booking) || 1;
       booking.basePricePerDay = Math.round(((booking.baseCost / days) || 0) * 100) / 100;
       booking.insuranceExtraPerDay = Math.round(((booking.insuranceCost / days) || 0) * 100) / 100;

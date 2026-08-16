@@ -81,30 +81,51 @@ describe('charges', () => {
     expect(rental().charges).toMatchObject({ rental: 135, insurance: 36, damages: 40, discount: 15 });
   });
 
-  test('KNOWN DEFECT: a partial charges edit zeroes every charge it omits', async () => {
-    // applyChargesPayload is written for partial updates — every field reads
-    // `payload ?? current ?? 0`. The block immediately after it in saveContract
-    // is not:
-    //
-    //   booking.baseCost = safeNum(payload.charges.rental);   // no ?? current
-    //
-    // so an omitted field writes 0 onto the booking. syncBookingChargeFields
-    // then re-derives from the booking, which prefers the booking's totals, and
-    // merges the result back over rental.charges — so the zeroes win on both
-    // records despite applyChargesPayload having preserved them.
-    //
-    // Effect: sending only the field that changed drops every other charge to
-    // zero, and the customer's total falls to just that field. Whether it bites
-    // depends on whether the checkout screen sends the whole charges object,
-    // which is not visible from here. Pinned and reported rather than fixed.
+  test('a partial edit keeps the charges it does not mention', async () => {
+    // The checkout screen may send only what changed. This used to drop every
+    // other charge to zero: applyChargesPayload preserved them, then the block
+    // after it read the raw payload, wrote 0 for each omitted field onto the
+    // booking, and syncBookingChargeFields merged those zeros back over the
+    // rental. The customer's total fell to just the field that was edited.
     install();
     await save({ charges: { rental: 135, insurance: 36, damages: 40 } });
-    expect(rental().charges).toMatchObject({ rental: 135, insurance: 36, damages: 40 });
-
     await save({ charges: { damages: 55 } });
-    expect(rental().charges).toMatchObject({ rental: 0, insurance: 0, damages: 55 });
-    expect(booking().baseCost).toBe(0);
-    expect(booking().totalPrice).toBe(55);
+
+    expect(rental().charges).toMatchObject({ rental: 135, insurance: 36, damages: 55 });
+    expect(booking().baseCost).toBe(135);
+    expect(booking().insuranceCost).toBe(36);
+    expect(booking().totalPrice).toBe(226); // 135 + 36 + 55
+  });
+
+  test('a partial edit keeps the charges that have no booking field of their own', async () => {
+    // transport, damages, surcharges and discount are carried only on the
+    // rental, and the booking's total is recomputed from there by
+    // syncBookingChargeFields. So this asserts applyChargesPayload's own
+    // fallback rather than the fix above — the block the fix touches writes a
+    // totalPrice that is overwritten a few lines later and cannot be observed.
+    install();
+    await save({ charges: { rental: 100, transport: 20, surcharges: 10, discount: 5 } });
+    await save({ charges: { damages: 15 } });
+
+    expect(rental().charges).toMatchObject({ rental: 100, transport: 20, surcharges: 10, discount: 5, damages: 15 });
+    // 100 rental + 36 insurance + 20 transport + 10 surcharges + 15 damages - 5 discount.
+    // The 36 is the booking's insuranceCost, carried into the rental draft by
+    // ensureRentalForBooking and then preserved by every partial edit — which
+    // is the behaviour under test.
+    expect(booking().totalPrice).toBe(176);
+  });
+
+  test('an explicit zero still clears a charge', async () => {
+    // "Set this to nothing" must not become "leave it alone" — waiving a fee is
+    // a real edit, and `??` rather than `||` is what keeps the two apart. The
+    // distinction lives in applyChargesPayload; the recomputed total follows
+    // from it.
+    install();
+    await save({ charges: { rental: 135, damages: 40 } });
+    await save({ charges: { damages: 0 } });
+
+    expect(rental().charges).toMatchObject({ rental: 135, damages: 0 });
+    expect(booking().totalPrice).toBe(171); // 135 rental + 36 insurance, damages waived
   });
 
   test('a full charges edit round-trips every field', async () => {
