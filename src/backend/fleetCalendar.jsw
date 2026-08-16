@@ -1,3 +1,4 @@
+// @ts-check
 // backend/fleetCalendar.jsw
 import wixData from "wix-data";
 import { escapeHtml } from "backend/htmlEscape.js";
@@ -287,6 +288,9 @@ export function isNonRevenueBooking(b) {
  * =========================
  */
 
+/**
+ * @param {any} [options]
+ */
 export async function getFleetCalendarData({ authToken, from, to } = {}) {
   await requireStaffAccess({ sessionToken: authToken, area: "fleet", action: "View" });
   await ensureFieldMapping();
@@ -295,11 +299,16 @@ export async function getFleetCalendarData({ authToken, from, to } = {}) {
   const f = toDate(from) || new Date(new Date(now).setHours(0,0,0,0));
   const t = toDate(to) || new Date(now.getTime() + 14 * 86400000);
 
-  const vehicleCategoryMap = await fetchVehicleCategoryMap();
   const fleet = await fetchFleet();
   const bookings = await fetchBookingsInRange(iso(f), iso(t));
 
-  const groups = buildGroups(fleet, vehicleCategoryMap);
+  // The vehicle-category catalog used to be fetched here and passed to buildGroups,
+  // but buildGroups takes only `fleet` — the second argument was silently discarded,
+  // so the query ran on every calendar load and its result was never read. Removed.
+  // Groups are therefore labelled from each vehicle's own category code rather than
+  // the catalog title. Wiring the titles in is a UI decision; the fetcher that used to
+  // supply them is in git history if someone takes it on.
+  const groups = buildGroups(fleet);
   const { items, unassigned } = buildItems(bookings);
   const heat = buildHeatmap({ from: f, to: t, fleet, items });
 
@@ -309,6 +318,7 @@ export async function getFleetCalendarData({ authToken, from, to } = {}) {
 /**
  * Move booking to another vehicle ONLY.
  * Accept BOTH param names: newVehicleId OR resourceId (backwards compatible).
+ * @param {any} [options]
  */
 export async function moveBookingVehicleOnly({ authToken, bookingId, newVehicleId, resourceId } = {}) {
   await requireStaffAccess({ sessionToken: authToken, area: "fleet", action: "Edit" });
@@ -367,6 +377,7 @@ export async function moveBookingVehicleOnly({ authToken, bookingId, newVehicleI
 /**
  * Confirm + auto-assign.
  * (Safe default: sample algorithm)
+  * @param {{ authToken?: any, bookingId?: any }} [options]
  */
 export async function confirmAndAutoAssign({ authToken, bookingId } = {}) {
   await requireStaffAccess({ sessionToken: authToken, area: "fleet", action: "Edit" });
@@ -434,6 +445,7 @@ export async function confirmAndAutoAssign({ authToken, bookingId } = {}) {
 
 /**
  * Acknowledge unassigned bookings in a range (optional)
+ * @param {{ authToken?: any, from?: any, to?: any }} [options]
  */
 export async function acknowledgeUnassignedInRange({ authToken, from, to } = {}) {
   await requireStaffAccess({ sessionToken: authToken, area: "fleet", action: "View" });
@@ -466,22 +478,6 @@ export async function acknowledgeUnassignedInRange({ authToken, from, to } = {})
  * DATA FETCH
  * =========================
  */
-
-async function fetchVehicleCategoryMap() {
-  // Maps Vehicles._id -> Vehicles.category (A/B/...) for decoding Fleet.Category references
-  try {
-    const res = await wixData.query("VehiclesNew").limit(1000).find({ suppressAuth: true });
-    const map = {};
-    for (const v of (res.items || [])) {
-      const id = String(v._id || "");
-      const code = String(v.category || v.Category || "").trim() || (String(v.title || v.Title || "").split(" - ")[0] || "").trim();
-      if (id && code) map[id] = code;
-    }
-    return map;
-  } catch (_) {
-    return {};
-  }
-}
 
 async function fetchFleet() {
   await ensureFieldMapping();
@@ -706,7 +702,7 @@ function buildItems(bookings) {
 export function buildHeatmap({ from, to, fleet, items }) {
   const start = new Date(from);
   const end = new Date(to);
-  const days = Math.max(1, Math.ceil((end - start) / 86400000));
+  const days = Math.max(1, Math.ceil((end.getTime() - start.getTime()) / 86400000));
   const fleetIds = new Set((fleet || []).map(v => String(v?.[VF.id] || "")));
 
   // heat[vehicleId][dayIndex] = count
@@ -720,8 +716,8 @@ export function buildHeatmap({ from, to, fleet, items }) {
     const s = new Date(it.start);
     const e = new Date(it.end);
 
-    const sIdx = Math.max(0, Math.floor((s - start) / 86400000));
-    const eIdx = Math.min(days - 1, Math.floor((e - start) / 86400000));
+    const sIdx = Math.max(0, Math.floor((s.getTime() - start.getTime()) / 86400000));
+    const eIdx = Math.min(days - 1, Math.floor((e.getTime() - start.getTime()) / 86400000));
 
     for (let i = sIdx; i <= eIdx; i++) heat[vid][i] += 1;
   }

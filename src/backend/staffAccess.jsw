@@ -1,3 +1,4 @@
+// @ts-check
 import wixData from 'wix-data';
 import { getSecret } from 'wix-secrets-backend';
 import { getCrypto, sha256, randomHex, safeEqual } from 'backend/cryptoUtils.js';
@@ -328,6 +329,9 @@ async function upsertCredential(email, password, options = {}) {
     : wixData.insert(COLLECTIONS.credentials, payload, { suppressAuth: true });
 }
 
+/**
+ * @param {any} [options]
+ */
 async function createSession({ email, roleKey, fullName, remember = false, userAgent = '' } = {}) {
   const rawToken = randomHex(TOKEN_BYTES);
   const expiresAt = remember ? addDays(new Date(), REMEMBER_TTL_DAYS) : addHours(new Date(), SESSION_TTL_HOURS);
@@ -518,6 +522,9 @@ async function revokeSessionsByQuery(queryBuilder, currentTokenHash = '', except
   return revoked;
 }
 
+/**
+ * @param {any} [options]
+ */
 export async function loginStaff({ email, password, remember = false, userAgent = '' } = {}) {
   await bootstrapRoles();
   const safeEmail = normalizeEmail(email);
@@ -580,6 +587,9 @@ export async function loginStaff({ email, password, remember = false, userAgent 
   };
 }
 
+/**
+ * @param {any} [options]
+ */
 export async function getSessionState({ sessionToken, touch = true } = {}) {
   const rawToken = text(sessionToken);
   if (!rawToken) return { authenticated: false };
@@ -608,6 +618,9 @@ export async function getSessionState({ sessionToken, touch = true } = {}) {
   return buildProfile(user, role, session, credential);
 }
 
+/**
+ * @param {any} [options]
+ */
 export async function logoutStaff({ sessionToken } = {}) {
   const rawToken = text(sessionToken);
   if (!rawToken) return { success: true };
@@ -633,12 +646,18 @@ export async function requireStaffAccess({ sessionToken, area = '', action = 'Vi
   return state;
 }
 
+/**
+ * @param {any} [options]
+ */
 export async function authorizeStaffRoute({ sessionToken, area = '', action = 'View' } = {}) {
   const state = await getSessionState({ sessionToken, touch: true });
   if (!state?.authenticated) return { authenticated: false, allowed: false };
   return { ...state, allowed: canAccessArea(state.permissions, area, action) };
 }
 
+/**
+ * @param {any} [options]
+ */
 export async function getStaffAccessSnapshot({ sessionToken } = {}) {
   await bootstrapRoles();
   const state = await getSessionState({ sessionToken, touch: false });
@@ -743,6 +762,9 @@ export async function getStaffAccessSnapshot({ sessionToken } = {}) {
   };
 }
 
+/**
+ * @param {any} [options]
+ */
 export async function upsertStaffRole({ sessionToken, payload = {} } = {}) {
   const ctx = await requireStaffAccess({ sessionToken, area: '', action: 'View', specialPermission: 'manageStaff' });
   const item = normalizeRole(payload);
@@ -764,6 +786,9 @@ export async function upsertStaffRole({ sessionToken, payload = {} } = {}) {
   return saved;
 }
 
+/**
+ * @param {any} [options]
+ */
 export async function upsertStaffUser({ sessionToken, payload = {} } = {}) {
   const ctx = await requireStaffAccess({ sessionToken, area: '', action: 'View', specialPermission: 'manageStaff' });
   const item = normalizeUser(payload);
@@ -788,6 +813,9 @@ export async function upsertStaffUser({ sessionToken, payload = {} } = {}) {
   return saved;
 }
 
+/**
+ * @param {any} [options]
+ */
 export async function deactivateStaffUser({ sessionToken, itemId } = {}) {
   const ctx = await requireStaffAccess({ sessionToken, area: '', action: 'View', specialPermission: 'manageStaff' });
   if (!itemId) throw new Error('Missing itemId');
@@ -798,6 +826,9 @@ export async function deactivateStaffUser({ sessionToken, itemId } = {}) {
   return updated;
 }
 
+/**
+ * @param {any} [options]
+ */
 export async function reactivateStaffUser({ sessionToken, itemId } = {}) {
   const ctx = await requireStaffAccess({ sessionToken, area: '', action: 'View', specialPermission: 'manageStaff' });
   if (!itemId) throw new Error('Missing itemId');
@@ -807,6 +838,9 @@ export async function reactivateStaffUser({ sessionToken, itemId } = {}) {
   return updated;
 }
 
+/**
+ * @param {any} [options]
+ */
 export async function inviteStaffUser({ sessionToken, payload = {} } = {}) {
   const ctx = await requireStaffAccess({ sessionToken, area: '', action: 'View', specialPermission: 'manageStaff' });
   const safeEmail = normalizeEmail(payload.email);
@@ -858,6 +892,9 @@ export async function inviteStaffUser({ sessionToken, payload = {} } = {}) {
   };
 }
 
+/**
+ * @param {any} [options]
+ */
 export async function setStaffPassword({ sessionToken, email, newPassword, mustChangePassword = false } = {}) {
   const ctx = await requireStaffAccess({ sessionToken, area: '', action: 'View', specialPermission: 'manageStaff' });
   const safeEmail = normalizeEmail(email);
@@ -870,6 +907,9 @@ export async function setStaffPassword({ sessionToken, email, newPassword, mustC
   return { success: true, email: safeEmail, mustChangePassword: !!mustChangePassword };
 }
 
+/**
+ * @param {any} [options]
+ */
 export async function resetStaffPassword({ sessionToken, email } = {}) {
   const ctx = await requireStaffAccess({ sessionToken, area: '', action: 'View', specialPermission: 'manageStaff' });
   const safeEmail = normalizeEmail(email);
@@ -884,6 +924,9 @@ export async function resetStaffPassword({ sessionToken, email } = {}) {
   return { success: true, email: safeEmail, tempPassword, mustChangePassword: true };
 }
 
+/**
+ * @param {any} [options]
+ */
 export async function revokeStaffSessions({ sessionToken, email, itemId = '', exceptCurrent = false } = {}) {
   const ctx = await requireStaffAccess({ sessionToken, area: '', action: 'View', specialPermission: 'manageStaff' });
   const currentTokenHash = sessionToken ? sha256(sessionToken) : '';
@@ -903,6 +946,9 @@ export async function revokeStaffSessions({ sessionToken, email, itemId = '', ex
   return { success: true, revoked };
 }
 
+/**
+ * @param {any} [options]
+ */
 export async function changeOwnPassword({ sessionToken, currentPassword, newPassword } = {}) {
   const state = await requireStaffAccess({ sessionToken, area: '', action: 'View' });
   const safeEmail = normalizeEmail(state.email);
@@ -915,6 +961,9 @@ export async function changeOwnPassword({ sessionToken, currentPassword, newPass
 }
 
 
+/**
+ * @param {any} [options]
+ */
 export async function revokeOwnOtherSessions({ sessionToken } = {}) {
   const state = await requireStaffAccess({ sessionToken, area: '', action: 'View' });
   const safeEmail = normalizeEmail(state.email);
@@ -948,6 +997,9 @@ async function hasRecentRecoveryRequest(email, minutes = 15) {
   }
 }
 
+/**
+ * @param {any} [options]
+ */
 export async function requestAccessRecovery({ email, userAgent = '' } = {}) {
   const safeEmail = normalizeEmail(email);
   const generic = {
@@ -1032,6 +1084,9 @@ async function doPurgeExpiredSessions() {
   return { deleted };
 }
 
+/**
+ * @param {any} [options]
+ */
 export async function cleanupSessions({ sessionToken } = {}) {
   const ctx = await requireStaffAccess({ sessionToken, area: '', action: 'View', specialPermission: 'manageStaff' });
   const result = await doPurgeExpiredSessions();

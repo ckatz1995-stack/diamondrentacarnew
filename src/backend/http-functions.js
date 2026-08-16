@@ -1,8 +1,18 @@
+// @ts-check
 import wixData from "wix-data";
 import { ok, badRequest, serverError } from "wix-http-functions";
 import { createBooking } from "backend/bookingEngine";
 import { INSURANCE_OPTIONS } from "backend/bookingConfig";
 import { getPublicPricingCatalog } from "backend/pricingCatalog.jsw";
+
+// `??` only catches null/undefined, so `Number(x) ?? 0` still yields NaN for a
+// non-numeric input, which then propagates into the recomputed total. These money
+// fields coerce through a finite check instead.
+/** @param {any} value @param {number} [fallback] */
+function toFinite(value, fallback = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
 function respond(body, fn = ok){ return fn({ headers: {"Content-Type":"application/json","Cache-Control":"no-store","Access-Control-Allow-Origin":"*","Access-Control-Allow-Methods":"GET, POST, OPTIONS","Access-Control-Allow-Headers":"Content-Type"}, body }); }
 function readOrigin(request){ const origin = String(request?.headers?.origin || '').trim(); if (origin) return origin; const referer = String(request?.headers?.referer || '').trim(); if (!referer) return ''; try { return new URL(referer).origin; } catch (_) { return ''; } }
 function parseCsv(value){ return String(value || '').split(',').map((item) => item.trim()).filter(Boolean); }
@@ -57,21 +67,21 @@ export async function get_bookingSummary(request){
     const billableDays = Number(booking.billableDays || 0) || (() => {
       const a = asDate(booking.pickupDateTime); const b = asDate(booking.dropoffDateTime);
       if (!a || !b || b <= a) return 1;
-      return Math.max(1, Math.ceil((b - a) / 86400000));
+      return Math.max(1, Math.ceil((b.getTime() - a.getTime()) / 86400000));
     })();
     const snapshot = booking.pricingSnapshot && typeof booking.pricingSnapshot === 'object' ? booking.pricingSnapshot : null;
     const breakdown = snapshot?.breakdown || {};
-    const baseCost = Number(breakdown.rental ?? booking.baseCost ?? ((Number(booking.basePricePerDay || 0)) * billableDays) ?? 0);
-    const insuranceCost = Number(breakdown.insurance ?? booking.insuranceCost ?? ((Number(booking.insuranceExtraPerDay || 0)) * billableDays) ?? 0);
-    const extrasCost = Number(breakdown.options ?? booking.extrasTotal ?? 0);
-    const ageFee = Number(breakdown.ageFee ?? booking.ageFee ?? 0);
-    const nightFee = Number(breakdown.nightFee ?? booking.nightFee ?? 0);
-    const transport = Number(breakdown.transport ?? 0);
-    const damages = Number(breakdown.damages ?? 0);
-    const surcharges = Number(breakdown.surcharges ?? 0);
-    const discount = Number(breakdown.discount ?? 0);
-    const recomputedTotal = Number((baseCost + insuranceCost + extrasCost + ageFee + nightFee + transport + damages + surcharges - discount).toFixed(2));
-    const storedTotal = Number(snapshot?.breakdown?.gross ?? booking.totalPrice ?? 0);
+    const baseCost = toFinite(breakdown.rental ?? booking.baseCost ?? ((Number(booking.basePricePerDay || 0)) * billableDays));
+    const insuranceCost = toFinite(breakdown.insurance ?? booking.insuranceCost ?? ((Number(booking.insuranceExtraPerDay || 0)) * billableDays));
+    const extrasCost = toFinite(breakdown.options ?? booking.extrasTotal ?? 0);
+    const ageFee = toFinite(breakdown.ageFee ?? booking.ageFee ?? 0);
+    const nightFee = toFinite(breakdown.nightFee ?? booking.nightFee ?? 0);
+    const transport = toFinite(breakdown.transport ?? 0);
+    const damages = toFinite(breakdown.damages ?? 0);
+    const surcharges = toFinite(breakdown.surcharges ?? 0);
+    const discount = toFinite(breakdown.discount ?? 0);
+    const recomputedTotal = toFinite((baseCost + insuranceCost + extrasCost + ageFee + nightFee + transport + damages + surcharges - discount).toFixed(2));
+    const storedTotal = toFinite(snapshot?.breakdown?.gross ?? booking.totalPrice ?? 0);
     const total = recomputedTotal > 0 ? recomputedTotal : storedTotal;
 
     return respond({ success:true, item:{

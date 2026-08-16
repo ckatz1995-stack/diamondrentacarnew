@@ -60,3 +60,29 @@ declare module '@sendgrid/mail' {
   export default sgMail;
   export = sgMail;
 }
+
+declare module 'wix-http-functions' {
+  export function ok(options?: any): any;
+  export function badRequest(options?: any): any;
+  export function serverError(options?: any): any;
+  export function notFound(options?: any): any;
+  export function response(options?: any): any;
+  export function forbidden(options?: any): any;
+}
+
+declare module 'wix-members-frontend' {
+  const wixMembersFrontend: any;
+  export default wixMembersFrontend;
+  export const authentication: any;
+  export const currentMember: any;
+}
+declare module 'wix-storage' {
+  export const local: any;
+  export const session: any;
+  export const memory: any;
+}
+declare module 'wix-storage-frontend' {
+  export const local: any;
+  export const session: any;
+  export const memory: any;
+}

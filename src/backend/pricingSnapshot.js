@@ -1,3 +1,4 @@
+// @ts-check
 import { computeBillableDays } from 'backend/billableDays';
 
 function text(value, fallback = '') {

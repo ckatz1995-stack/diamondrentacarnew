@@ -1,3 +1,4 @@
+// @ts-check
 
 import wixData from 'wix-data';
 import { requireStaffAccess } from 'backend/staffAccess.jsw';
@@ -168,6 +169,9 @@ async function findBookingsByIds(ids = []){
   return map;
 }
 
+/**
+ * @param {any} [options]
+ */
 export async function getVehicleCardData({ sessionToken, fleetVehicleId } = {}) {
   await requireStaffAccess({ sessionToken, area: 'fleet', action: 'View' });
   const targetId = txt(fleetVehicleId);
@@ -240,6 +244,9 @@ export async function getVehicleCardData({ sessionToken, fleetVehicleId } = {}) 
   return { success: true, fleet, category: categoryRecord, summary, rentals: rentalsHistory };
 }
 
+/**
+ * @param {any} [options]
+ */
 export async function saveVehicleCardData({ sessionToken, fleetVehicleId, patch = {} } = {}) {
   await requireStaffAccess({ sessionToken, area: 'fleet', action: 'Edit' });
   const targetId = txt(fleetVehicleId);
