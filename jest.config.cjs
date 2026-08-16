@@ -24,6 +24,7 @@ module.exports = {
     '^wix-secrets-backend$': '<rootDir>/test/mocks/wix-secrets-backend.js',
     '^wix-users-backend$': '<rootDir>/test/mocks/wix-users-backend.js',
     '^wix-http-functions$': '<rootDir>/test/mocks/wix-http-functions.js',
+    '^wix-fetch$': '<rootDir>/test/mocks/wix-fetch.js',
     '^backend/(.*)$': '<rootDir>/src/backend/$1',
   },
 };
