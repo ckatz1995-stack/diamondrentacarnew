@@ -467,29 +467,41 @@ describe('request triage', () => {
     expect(ids(result.tabs.requests)[0]).toBe('b-triage');
   });
 
-  // --- Two defects, pinned as they currently behave -------------------------
-  // These assert what the code does today, not what it should do. Both are
-  // reported alongside this suite; the assertions are written so that fixing
-  // either one fails here loudly rather than passing unnoticed.
-
-  test('KNOWN DEFECT: every request is flagged "Assigned vehicle blocked"', async () => {
-    // deriveRequestTriage tests `safeText(item.vehicleServiceBlocked)`, but
-    // mapBookingLite always sets that field to a real boolean — and
-    // safeText(false) is the string "false", which is truthy. So the +20 fires
-    // for every request, including ones with no vehicle at all.
+  // The "vehicle blocked" flag used to be read through safeText, and
+  // safeText(false) is the string "false" — truthy. It fired on every request,
+  // which put a permanent +20 floor under every score.
+  test('a request whose vehicle is fine is not flagged as blocked', async () => {
     install(seed({
-      BookingsNew: [request({ assignedVehicle: '' })], // no vehicle, so nothing can be blocked
+      BookingsNew: [request({ assignedVehicle: 'car-1' })], // car-1 is Ready
+    }));
+    expect(triageOf(await board()).reasons).not.toContain('Assigned vehicle blocked');
+  });
+
+  test('a request with no vehicle at all is not flagged as blocked', async () => {
+    // Nothing is assigned, so nothing can be service-blocked. It should be
+    // flagged for the missing vehicle and nothing else.
+    install(seed({
+      BookingsNew: [request({ assignedVehicle: '', pickupDateTime: '2026-03-13T00:00:00.000Z' })],
+    }));
+    const triage = triageOf(await board());
+    expect(triage.reasons).toEqual(['No assigned vehicle']);
+  });
+
+  test('a request whose vehicle really is blocked is flagged', async () => {
+    install(seed({
+      BookingsNew: [request({ assignedVehicle: 'car-1', pickupDateTime: '2026-03-13T00:00:00.000Z' })],
+      FleetNew: [{ _id: 'car-1', plate: 'AAA-1111', model: 'Aygo', operationalStatus: 'Blocked' }],
     }));
     const triage = triageOf(await board());
     expect(triage.reasons).toContain('Assigned vehicle blocked');
+    expect(triage.score).toBe(20);
   });
 
-  test('KNOWN DEFECT: the +20 floor means no request is ever "low"', async () => {
-    // A request with nothing whatever wrong with it: pickup 72h out (past every
-    // urgency band), a ready vehicle already assigned, payment settled. Its
-    // score should be 0. The phantom "vehicle blocked" alone contributes 20,
-    // which is exactly the "medium" threshold — so the lowest priority the
-    // board can ever show is medium, and the "low" lane is dead code.
+  test('a request with nothing wrong with it scores zero and ranks low', async () => {
+    // Pickup 72h out (past every urgency band), a ready vehicle assigned,
+    // payment settled. This is the case the phantom flag made unreachable —
+    // with a permanent +20, "low" was dead code and the calmest request the
+    // board could show was "medium".
     install(seed({
       BookingsNew: [request({
         pickupDateTime: '2026-03-13T00:00:00.000Z',
@@ -498,19 +510,19 @@ describe('request triage', () => {
       })],
     }));
     const triage = triageOf(await board());
-    expect(triage.reasons).toEqual(['Assigned vehicle blocked']);
-    expect(triage.score).toBe(20);
-    expect(triage.priority).toBe('medium'); // would be 'low' with a score of 0
+    expect(triage.reasons).toEqual([]);
+    expect(triage.score).toBe(0);
+    expect(triage.priority).toBe('low');
   });
 
-  test('KNOWN DEFECT: dueAt equals the window start, ignoring slaHours', async () => {
-    // dueAt is addDays(rangeStart, slaHours / 24), but addDays goes through
-    // Date#setDate, which truncates its fractional argument to 0. Every SLA
-    // deadline is therefore "right now" regardless of priority.
+  test('dueAt is slaHours after the window start, not the window start itself', async () => {
+    // This used to be addDays(rangeStart, slaHours / 24); Date#setDate truncates
+    // its fractional argument, so every SLA deadline landed on "right now".
     install(seed({ BookingsNew: [request()] }));
     const triage = triageOf(await board());
-    expect(triage.slaHours).toBeGreaterThan(0);
-    expect(triage.dueAt).toBe(new Date(START).toISOString());
+    const expected = new Date(new Date(START).getTime() + triage.slaHours * 3600000);
+    expect(triage.dueAt).toBe(expected.toISOString());
+    expect(new Date(triage.dueAt).getTime()).toBeGreaterThan(new Date(START).getTime());
   });
 });
 
@@ -714,18 +726,22 @@ describe('the triage audit trail', () => {
     expect(result.triageAudit.nextFollowUpAt).toBe('2026-03-11T15:00:00.000Z');
   });
 
-  test('KNOWN DEFECT: hold and escalate set a follow-up of "now" instead of +2h/+1h', async () => {
-    // followUpByAction asks addDays for 2/24 and 1/24 of a day, but addDays
-    // truncates through Date#setDate, so both are no-ops. The follow-up lands
-    // at the moment of the action, which is never in the future.
+  test.each([
+    ['hold', '2026-03-10T14:00:00.000Z'],     // +2h
+    ['escalate', '2026-03-10T13:00:00.000Z'], // +1h
+  ])('%s schedules a follow-up in the future', async (action, expected) => {
+    // These used to ask addDays for 2/24 and 1/24 of a day; Date#setDate
+    // truncates, so both were no-ops and the follow-up landed at the moment of
+    // the action. The clock is fixed here because the assertion is about a
+    // specific offset from now — on a real clock it would drift.
     jest.useFakeTimers();
     try {
       jest.setSystemTime(new Date('2026-03-10T12:00:00.000Z'));
       install();
       const result = await actOnDailyRequest({
-        authToken: await token(), bookingId: 'b-request', action: 'hold', actorName: 'Maria',
+        authToken: await token(), bookingId: 'b-request', action, actorName: 'Maria',
       });
-      expect(result.triageAudit.nextFollowUpAt).toBe('2026-03-10T12:00:00.000Z');
+      expect(result.triageAudit.nextFollowUpAt).toBe(expected);
     } finally {
       jest.useRealTimers();
     }

@@ -3,7 +3,7 @@
 import wixData from "wix-data";
 import { requireStaffAccess } from "backend/staffAccess.jsw";
 import { setBookingBoardStatus } from "backend/bookingsBoard.jsw";
-import { addDays, asDate, extractCode, isLikelyId, pickLabel, safeNum, safeText } from "backend/utils";
+import { addDays, addHours, asDate, extractCode, isLikelyId, pickLabel, safeNum, safeText } from "backend/utils";
 
 const BOOKING_LIMIT = 1000;
 const FLEET_LIMIT = 1000;
@@ -67,8 +67,8 @@ function hasEquipmentExtras(it){ if (Array.isArray(it?.selectedExtrasList) && it
 function stationOf(it){ return safeText(it?.station || it?.pickupStation || it?.dropoffStation || it?.pickuppoint || it?.dropoffpoint || ""); }
 function isoOrEmpty(value){ const d = asDate(value); return d ? d.toISOString() : ""; }
 function followUpByAction(action, now = new Date()){
-  if (action === "hold") return addDays(now, 2 / 24).toISOString();
-  if (action === "escalate") return addDays(now, 1 / 24).toISOString();
+  if (action === "hold") return addHours(now, 2).toISOString();
+  if (action === "escalate") return addHours(now, 1).toISOString();
   return "";
 }
 function triageAuditFromBooking(raw = {}){
@@ -140,7 +140,10 @@ function deriveRequestTriage(item = {}, rangeStart = new Date()){
   if (!safeText(item.flightNumber) && /airport|αεροδρ/i.test(`${safeText(item.pickuppoint)} ${safeText(item.dropoffpoint)}`)) { score += 12; reasons.push("Airport transfer without flight"); }
   if (safeNum(item.totalBalance) > 0) { score += 8; reasons.push("Outstanding balance"); }
   if (safeText(item.paymentStatus).toLowerCase() === "pending") { score += 8; reasons.push("Payment pending"); }
-  if (safeText(item.vehicleServiceBlocked)) { score += 20; reasons.push("Assigned vehicle blocked"); }
+  // Truthiness directly: mapBookingLite always sets this to a real boolean, and
+  // safeText(false) is the string "false", which is truthy — so wrapping it made
+  // the flag fire for every request.
+  if (item.vehicleServiceBlocked) { score += 20; reasons.push("Assigned vehicle blocked"); }
 
   const priority = score >= 60 ? "urgent" : score >= 35 ? "high" : score >= 20 ? "medium" : "low";
   const slaHours = priority === "urgent" ? 1 : priority === "high" ? 2 : priority === "medium" ? 6 : 12;
@@ -148,7 +151,7 @@ function deriveRequestTriage(item = {}, rangeStart = new Date()){
     score,
     priority,
     slaHours,
-    dueAt: addDays(rangeStart, slaHours / 24).toISOString(),
+    dueAt: addHours(rangeStart, slaHours).toISOString(),
     reasons,
     suggestedAction: priority === "urgent" || priority === "high" ? "Escalate + assign now" : "Review and schedule"
   };
