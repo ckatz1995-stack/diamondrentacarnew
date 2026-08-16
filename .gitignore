@@ -16,3 +16,4 @@ secrets.js
 # macOS
 .DS_Store
 .typecheck/
+coverage/

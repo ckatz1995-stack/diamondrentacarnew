@@ -461,16 +461,18 @@ export async function acknowledgeUnassignedInRange({ authToken, from, to } = {})
     String(b?.[F.status] || "") !== "Canceled"
   );
 
-  let updated = 0;
-  for (const _b of unassignedBookings) {
-    // If you have ACK fields, set them here; otherwise skip
-    // b["ackAt"] = nowIso;
-    // b["ackBy"] = userId;
-    // await wixData.update(COLLECTIONS.Bookings, b);
-    // updated++;
-  }
-
-  return { success: true, total: unassignedBookings.length, updated };
+  // Nothing is stamped on the bookings: there are no acknowledgement fields to
+  // write, and inventing them here would be guessing at the schema. What this
+  // does is count. `acknowledged: false` says so, because `success: true` beside
+  // a non-zero `total` reads like work was done — and calling it again returns
+  // the same total forever.
+  return {
+    success: true,
+    total: unassignedBookings.length,
+    updated: 0,
+    acknowledged: false,
+    message: 'Counted only — acknowledgement is not recorded against the bookings.'
+  };
 }
 
 /**

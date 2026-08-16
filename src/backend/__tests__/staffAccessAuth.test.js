@@ -107,6 +107,23 @@ describe('loginStaff — success path', () => {
     expect(rememberedMs).toBeGreaterThan(29 * 24 * 60 * 60 * 1000);
   });
 
+  test('a normal session lasts exactly twelve hours', async () => {
+    // Tightened from the bound above once the session TTL moved onto
+    // millisecond arithmetic. It pins the figure rather than a range; it does
+    // not distinguish that change from the wall-clock version it replaced,
+    // since the two only diverge across a DST boundary and the test
+    // environment runs in UTC.
+    jest.useFakeTimers();
+    try {
+      jest.setSystemTime(new Date('2026-03-10T12:00:00Z'));
+      install(seed());
+      const session = await loginStaff({ email: 'staff@example.com', password: PASSWORD });
+      expect(new Date(session.expiresAt).toISOString()).toBe('2026-03-11T00:00:00.000Z');
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   test('records a successful login in the audit log', async () => {
     install(seed());
     await loginStaff({ email: 'staff@example.com', password: PASSWORD });

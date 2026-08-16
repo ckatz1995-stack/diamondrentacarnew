@@ -141,7 +141,15 @@ const CHARGE_LINE_SPECS = [
 export function buildChargeLinesFromCharges(charges = {}, existing = []){
   const previous = Array.isArray(existing) ? existing : [];
   return CHARGE_LINE_SPECS.map((spec) => {
-    const match = previous.find((row) => safeText(row?.code) === spec.code) || {};
+    // Matched on code, falling back to key. normalizeChargeLinesPayload fills
+    // `code` from `key` when only one is given, so a caller sending
+    // { key: 'damages' } produced code 'damages' — which matches no spec, since
+    // the codes differ from the keys ('damage_fee'). Its label was silently
+    // dropped. Code still wins, so a caller sending both is unaffected.
+    const match = previous.find((row) => safeText(row?.code) === spec.code)
+      || previous.find((row) => safeText(row?.key) === spec.key && !safeText(row?.code))
+      || previous.find((row) => safeText(row?.code) === spec.key)
+      || {};
     const rawValue = safeNum(charges?.[spec.key]);
     const amount = spec.sign < 0 ? -Math.abs(rawValue) : Math.abs(rawValue);
     return {
@@ -1560,17 +1568,27 @@ function applyChargesPayload(rental, payload){
   const chargeLinesPayload = Array.isArray(payload?.chargeLines) ? payload.chargeLines : null;
   if (!ch && !chargeLinesPayload) return;
 
+  // The guard above lets either half through on its own, so `ch` can still be
+  // null here — a payload carrying only chargeLines. Reading it directly threw,
+  // and saveContract's outer catch turned that into a failure message naming a
+  // null dereference, which an operator could do nothing with. Treating the
+  // missing half as empty gives charge-lines-only edits their obvious meaning:
+  // the itemisation changes, the figures stay as they were.
+  //
+  // Note `typeof null === "object"`, so an explicit `charges: null` lands here
+  // too rather than being filtered out above.
+  const supplied = ch || {};
   const cur = (rental.charges && typeof rental.charges === "object") ? rental.charges : {};
   const nextCharges = {
-    rental: safeNum(ch.rental ?? cur.rental ?? 0),
-    insurance: safeNum(ch.insurance ?? cur.insurance ?? 0),
-    options: safeNum(ch.options ?? cur.options ?? 0),
-    ageFee: safeNum(ch.ageFee ?? cur.ageFee ?? 0),
-    nightFee: safeNum(ch.nightFee ?? cur.nightFee ?? 0),
-    transport: safeNum(ch.transport ?? cur.transport ?? 0),
-    damages: safeNum(ch.damages ?? cur.damages ?? 0),
-    surcharges: safeNum(ch.surcharges ?? cur.surcharges ?? 0),
-    discount: safeNum(ch.discount ?? cur.discount ?? 0),
+    rental: safeNum(supplied.rental ?? cur.rental ?? 0),
+    insurance: safeNum(supplied.insurance ?? cur.insurance ?? 0),
+    options: safeNum(supplied.options ?? cur.options ?? 0),
+    ageFee: safeNum(supplied.ageFee ?? cur.ageFee ?? 0),
+    nightFee: safeNum(supplied.nightFee ?? cur.nightFee ?? 0),
+    transport: safeNum(supplied.transport ?? cur.transport ?? 0),
+    damages: safeNum(supplied.damages ?? cur.damages ?? 0),
+    surcharges: safeNum(supplied.surcharges ?? cur.surcharges ?? 0),
+    discount: safeNum(supplied.discount ?? cur.discount ?? 0),
   };
   rental.charges = nextCharges;
   const suppliedLines = normalizeChargeLinesPayload(chargeLinesPayload || rental.chargeLines || []);
@@ -2707,12 +2725,27 @@ export async function saveContract({ authToken, bookingId, payload, stage }) {
 
     applyChargesPayload(rental, payload);
     if (payload?.charges && typeof payload.charges === "object") {
-      booking.baseCost = safeNum(payload.charges.rental);
-      booking.insuranceCost = safeNum(payload.charges.insurance);
-      booking.extrasTotal = safeNum(payload.charges.options);
-      booking.ageFee = safeNum(payload.charges.ageFee);
-      booking.nightFee = safeNum(payload.charges.nightFee);
-      booking.totalPrice = Math.round((booking.baseCost + booking.insuranceCost + booking.extrasTotal + booking.ageFee + booking.nightFee + safeNum(payload.charges.transport) + safeNum(payload.charges.damages) + safeNum(payload.charges.surcharges) - safeNum(payload.charges.discount)) * 100) / 100;
+      // Read the figures applyChargesPayload just resolved, not the raw payload.
+      // Every field there is `payload ?? stored ?? 0`, so a partial edit keeps
+      // the charges it does not mention. Reading payload.charges directly meant
+      // an omitted field became 0 here, and syncBookingChargeFields below
+      // re-derives from the booking — it prefers the booking's totals — and
+      // merges the result back over rental.charges, so those zeros overwrote
+      // the values applyChargesPayload had just preserved. Sending only the
+      // field that changed dropped every other charge on both records.
+      //
+      // Only the five named booking fields below are observable: deriveChargeLines
+      // prefers them over the charges it is passed. The totalPrice line is dead —
+      // syncBookingChargeFields recomputes it a few lines down — so transport,
+      // damages, surcharges and discount are read from `applied` for consistency
+      // rather than because anything downstream can tell.
+      const applied = (rental.charges && typeof rental.charges === "object") ? rental.charges : {};
+      booking.baseCost = safeNum(applied.rental);
+      booking.insuranceCost = safeNum(applied.insurance);
+      booking.extrasTotal = safeNum(applied.options);
+      booking.ageFee = safeNum(applied.ageFee);
+      booking.nightFee = safeNum(applied.nightFee);
+      booking.totalPrice = Math.round((booking.baseCost + booking.insuranceCost + booking.extrasTotal + booking.ageFee + booking.nightFee + safeNum(applied.transport) + safeNum(applied.damages) + safeNum(applied.surcharges) - safeNum(applied.discount)) * 100) / 100;
       const days = billableDaysFromBooking(booking) || 1;
       booking.basePricePerDay = Math.round(((booking.baseCost / days) || 0) * 100) / 100;
       booking.insuranceExtraPerDay = Math.round(((booking.insuranceCost / days) || 0) * 100) / 100;

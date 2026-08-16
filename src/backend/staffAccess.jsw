@@ -2,6 +2,7 @@
 import wixData from 'wix-data';
 import { getSecret } from 'wix-secrets-backend';
 import { getCrypto, sha256, randomHex, safeEqual } from 'backend/cryptoUtils.js';
+import { addDays, addHours } from 'backend/utils';
 export { sha256, randomHex, safeEqual } from 'backend/cryptoUtils.js';
 
 export const COLLECTIONS = {
@@ -90,17 +91,12 @@ export function slugKey(value) {
     .toLowerCase();
 }
 
-export function addHours(date, hours) {
-  const d = new Date(date);
-  d.setHours(d.getHours() + Number(hours || 0));
-  return d;
-}
-
-export function addDays(date, days) {
-  const d = new Date(date);
-  d.setDate(d.getDate() + Number(days || 0));
-  return d;
-}
+// addHours and addDays now come from backend/utils. The copies that used to
+// live here went through Date#setHours / Date#setDate, which truncate a
+// fractional argument — and hasRecentRecoveryRequest below asks for a quarter
+// of an hour. utils.addHours does the arithmetic in milliseconds, so fractions
+// survive; utils.addDays stays calendar-based, which is what a 30-day session
+// wants across a DST boundary.
 
 function buildTempPassword() {
   return `Dr-${randomHex(4)}-${randomHex(3)}`;

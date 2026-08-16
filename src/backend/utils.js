@@ -14,10 +14,21 @@ export function asDate(value) {
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+// Whole calendar days only. Date#setDate truncates a fractional argument, so
+// addDays(d, 2 / 24) silently returns d unchanged. Use addHours for sub-day
+// offsets; this stays calendar-based because adding a day across a DST boundary
+// is not the same as adding 24 hours.
 export function addDays(date, days) {
   const d = new Date(date);
   d.setDate(d.getDate() + Number(days || 0));
   return d;
+}
+
+// Exact hour arithmetic, done in milliseconds. Date#setHours truncates the same
+// way Date#setDate does, so it cannot express a fraction of an hour either.
+export function addHours(date, hours) {
+  const d = new Date(date);
+  return new Date(d.getTime() + safeNum(hours) * 3600000);
 }
 
 export function pickLabel(value) {

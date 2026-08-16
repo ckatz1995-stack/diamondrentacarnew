@@ -21,7 +21,8 @@
     "check:undone": "bash scripts/check-undone.sh",
     "check:smoke": "bash scripts/smoke-frontend.sh",
     "test": "jest",
-    "typecheck": "node scripts/typecheck.mjs"
+    "typecheck": "node scripts/typecheck.mjs",
+    "coverage": "jest --coverage"
   },
   "overrides": {
     "tar": "^7.5.21",
