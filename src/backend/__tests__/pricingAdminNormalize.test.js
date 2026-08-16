@@ -215,6 +215,21 @@ describe('pricing seasons', () => {
     expect(saved.key).toMatch(/^[a-z0-9_]+$/);
   });
 
+  test('a season with no label is refused', async () => {
+    // The guard used to read `if (!normalized.label)`, which could never fire —
+    // the normalizer defaults the label to the literal 'Season'. It now checks
+    // the payload.
+    install();
+    await expect(save({ startDate: '2026-06-01', endDate: '2026-09-15' }))
+      .rejects.toThrow('Missing pricing season label');
+    expect(fake.rows('PricingSeasons')).toHaveLength(0);
+  });
+
+  test('a season titled instead of labelled is accepted', async () => {
+    install();
+    expect((await save({ title: 'High Season', startDate: '2026-06-01', endDate: '2026-09-15' })).label).toBe('High Season');
+  });
+
   test.each([
     ['no dates at all', {}],
     ['only a start date', { startDate: '2026-06-01' }],
@@ -258,12 +273,12 @@ describe('pricing seasons', () => {
     expect(saved.priority).toBe(0);
   });
 
-  test('two unlabelled seasons with different dates do not collide', async () => {
-    // Without a label the key comes from the dates. Losing that would make the
-    // second season overwrite the first.
+  test('two differently named seasons do not collide', async () => {
+    // The key is derived from the label. Two seasons sharing a key would mean
+    // the second silently overwrites the first.
     install();
-    await save({ startDate: '2026-06-01', endDate: '2026-09-15' });
-    await save({ startDate: '2026-12-01', endDate: '2027-01-10' });
+    await save({ label: 'High Season', startDate: '2026-06-01', endDate: '2026-09-15' });
+    await save({ label: 'Christmas', startDate: '2026-12-01', endDate: '2027-01-10' });
     expect(fake.rows('PricingSeasons')).toHaveLength(2);
   });
 
@@ -324,15 +339,21 @@ describe('vehicle categories', () => {
   });
 
   test('a category with neither a code nor a title is refused on the code', async () => {
-    // Note which error comes back. The guard reading `if (!normalized.title)`
-    // cannot fire: the normalizer defaults the title to the code and then to
-    // 'Όχημα', so it is never empty. The code guard is what actually rejects
-    // this. Third instance of the same dead-guard shape in this file, after the
-    // season and pickup-location labels.
+    // There is no title guard: the title falls back to the code, which is a
+    // useful shortcut rather than an accident, so the code is the field that
+    // actually has to be there. An unreachable title guard used to sit above
+    // this one and has been removed — the error a caller sees is unchanged.
     install();
     await expect(admin.upsertVehicleCategory({ authToken: await token(), payload: { price: 45 } }))
       .rejects.toThrow('Missing vehicle category code');
     expect(fake.rows('VehiclesNew')).toHaveLength(0);
+  });
+
+  test('a category with only a code is still accepted', async () => {
+    // The shortcut the missing title guard leaves open, pinned so removing it
+    // is a deliberate choice rather than a side effect.
+    install();
+    expect((await save({ category: 'ECO', price: 45 })).title).toBe('ECO');
   });
 
   test('the admin list shows the code alongside the title', async () => {
@@ -394,16 +415,20 @@ describe('pickup locations', () => {
     expect(fake.rows('PickupLocations')).toHaveLength(0);
   });
 
-  test('a location with no label is stored as "Location" rather than refused', async () => {
-    // The guard reading `if (!normalized.label) throw` cannot fire: the
-    // normalizer builds the label with `text(payload.label || ..., 'Location')`,
-    // and that fallback is a literal, so the field is never empty. The same
-    // dead guard exists for pricing seasons. Pinned as current behaviour and
-    // reported — the effect is a nameless record silently named "Location",
-    // not a crash.
+  test('a location with no label is refused', async () => {
+    // The guard used to read `if (!normalized.label)`, which could never fire —
+    // the normalizer defaults the label to the literal 'Location'. Unlabelled
+    // locations were stored and several of them all read "Location" in the
+    // admin list. It now checks the payload.
     install();
-    const saved = await save({ label: '' });
-    expect(saved.label).toBe('Location');
+    await expect(save({ label: '' })).rejects.toThrow('Missing pickup location label');
+    expect(fake.rows('PickupLocations')).toHaveLength(0);
+  });
+
+  test('a location titled instead of labelled is accepted', async () => {
+    // The normalizer reads either field, so the guard has to as well.
+    install();
+    expect((await save({ label: '', title: 'Airport' })).label).toBe('Airport');
   });
 
   test('the surcharge is stored as a number', async () => {

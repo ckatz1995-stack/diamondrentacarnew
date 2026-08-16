@@ -654,7 +654,13 @@ export async function resetPricingDefaults({ authToken, target = 'all' } = {}) {
 export async function upsertVehicleCategory({ authToken, payload = {} } = {}){
   const actor = await requirePricingEdit(authToken);
   const normalized = normalizeVehicleCategoryItem(payload);
-  if (!normalized.title) throw new Error('Missing vehicle category title');
+  // No title guard here, deliberately. The normalizer falls the title back to
+  // the category code, which is a useful default rather than an accident — a
+  // category saved as just "ECO" is a reasonable thing to do. The guard that
+  // used to sit here could never fire for that reason, and requiring a title
+  // would take away a working shortcut. The code guard below is what makes the
+  // record identifiable, and it is the error a caller with neither field
+  // already receives.
   if (!normalized.category) throw new Error('Missing vehicle category code');
 
   let previous = null;
@@ -764,7 +770,11 @@ function normalizeCategoryRateRuleItem(payload = {}) {
 export async function upsertPricingSeason({ authToken, payload = {} } = {}) {
   const actor = await requirePricingEdit(authToken);
   const normalized = normalizePricingSeasonItem(payload);
-  if (!normalized.label) throw new Error('Missing pricing season label');
+  // Checked against the payload, not the normalized row: the normalizer defaults
+  // the label to the literal 'Season', so `!normalized.label` could never be
+  // true and this guard never fired. Unlabelled seasons were stored, and several
+  // of them all read "Season" in the admin list.
+  if (!text(payload.label || payload.title)) throw new Error('Missing pricing season label');
   if (!normalized.startDate || !normalized.endDate) throw new Error('Missing pricing season dates');
   const result = await upsertByKey(PRICING_COLLECTIONS.pricingSeasons, normalized);
   await writePricingAudit(actor, `pricing.${result.mode}`, 'pricing.pricingSeason', String(result.saved?.key || result.saved?._id || ''), result.previous, result.saved, `${result.mode === 'insert' ? 'Νέα' : 'Ενημέρωση'} pricing season ${text(result.saved?.label)}`);
@@ -805,7 +815,9 @@ export async function deleteCategoryRateRule({ authToken, itemId, itemKey } = {}
 export async function upsertPickupLocation({ authToken, payload = {} } = {}) {
   const actor = await requirePricingEdit(authToken);
   const normalized = normalizePickupLocationItem(payload);
-  if (!normalized.label) throw new Error('Missing pickup location label');
+  // Same dead-guard shape as the pricing season above: the normalizer defaults
+  // the label to the literal 'Location'.
+  if (!text(payload.label || payload.title)) throw new Error('Missing pickup location label');
   if (!normalized.address) throw new Error('Missing pickup location address');
   const result = await upsertByKey(PRICING_COLLECTIONS.pickupLocations, normalized);
   await writePricingAudit(actor, `pricing.${result.mode}`, 'pricing.pickupLocation', String(result.saved?.key || result.saved?._id || ''), result.previous, result.saved, `${result.mode === 'insert' ? 'Νέα' : 'Ενημέρωση'} τοποθεσία ${text(result.saved?.label)}`);
