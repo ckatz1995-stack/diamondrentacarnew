@@ -263,52 +263,69 @@ describe('access recovery', () => {
     expect(auditFor('requestRecovery')).toHaveLength(1);
   });
 
-  test('KNOWN DEFECT: the repeat window is an hour rather than the 15 minutes asked for', async () => {
-    // hasRecentRecoveryRequest asks addHours for -(15/60) of an hour, but
-    // addHours goes through Date#setHours, which truncates its argument. The
-    // fractional hour is lost and the lookback lands exactly one hour earlier.
-    // Stricter than intended rather than looser, so it is pinned rather than
-    // treated as urgent — but it is not the documented behaviour.
+  // The repeat window is a quarter of an hour, which only works if the helper
+  // computing it can express a fraction of an hour. The copy that used to live
+  // in staffAccess went through Date#setHours and truncated, so the window was
+  // an hour for most of the day and nothing at all between midnight and 1am.
+  //
+  // Every test below advances the clock between requests. Frozen, the stored
+  // timestamp and the computed lookback are the same instant and the `>=`
+  // comparison matches, which would hide a broken window rather than show it.
+  test('a repeat inside the window is turned away', async () => {
     jest.useFakeTimers();
     try {
       jest.setSystemTime(new Date('2026-03-10T12:00:00Z'));
       install();
       await request(ME);
 
-      // 20 minutes later: past the intended 15-minute window, still inside the
-      // hour the code actually applies.
-      jest.setSystemTime(new Date('2026-03-10T12:20:00Z'));
+      jest.setSystemTime(new Date('2026-03-10T12:10:00Z'));
       expect((await request(ME)).accepted).toBe(false);
-
-      // Just over an hour after the first request, it is allowed again.
-      jest.setSystemTime(new Date('2026-03-10T13:05:00Z'));
-      expect((await request(ME)).accepted).toBe(true);
+      expect(auditFor('requestRecovery')).toHaveLength(1);
     } finally {
       jest.useRealTimers();
     }
   });
 
-  test('KNOWN DEFECT: between midnight and 1am the repeat check does not apply at all', async () => {
-    // The same truncation, at the one hour where it bites hardest. Date#setHours
-    // truncates toward zero, so at hour 0 the negative fraction rounds to 0, the
-    // lookback becomes "now", and the query for earlier requests matches
-    // nothing. For that hour the endpoint can be called repeatedly, and each
-    // call queues another administrator task.
+  test('a repeat after the window is allowed', async () => {
+    // 20 minutes is past the quarter hour. Under the truncating helper this was
+    // still inside the hour the code actually applied, and was refused.
     jest.useFakeTimers();
     try {
-      // The clock has to advance between requests. Frozen, the stored timestamp
-      // and the computed lookback are the same instant and the `>=` comparison
-      // matches — which hides the defect rather than showing it.
-      jest.setSystemTime(new Date('2026-03-10T00:10:00'));
+      jest.setSystemTime(new Date('2026-03-10T12:00:00Z'));
+      install();
+      await request(ME);
+
+      jest.setSystemTime(new Date('2026-03-10T12:20:00Z'));
+      expect((await request(ME)).accepted).toBe(true);
+      expect(auditFor('requestRecovery')).toHaveLength(2);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  test.each([
+    ['just past midnight', '2026-03-10T00:10:00'],
+    ['mid-morning', '2026-03-10T09:10:00'],
+    ['late evening', '2026-03-10T23:10:00'],
+  ])('the window holds %s, not only at convenient hours', async (_label, startIso) => {
+    // Midnight is the case that was broken: Date#setHours truncates toward
+    // zero, so at hour 0 the negative fraction rounded away, the lookback
+    // became "now", and the check did not apply at all. Local times on purpose
+    // — the truncation was a local-hour effect, so a UTC-only test would have
+    // missed it on any machine east or west of here.
+    jest.useFakeTimers();
+    try {
+      const start = new Date(startIso);
+      jest.setSystemTime(start);
       install();
       expect((await request(ME)).accepted).toBe(true);
 
-      jest.setSystemTime(new Date('2026-03-10T00:20:00'));
-      expect((await request(ME)).accepted).toBe(true);
+      jest.setSystemTime(new Date(start.getTime() + 5 * 60000));
+      expect((await request(ME)).accepted).toBe(false);
 
-      jest.setSystemTime(new Date('2026-03-10T00:40:00'));
+      jest.setSystemTime(new Date(start.getTime() + 20 * 60000));
       expect((await request(ME)).accepted).toBe(true);
-      expect(auditFor('requestRecovery')).toHaveLength(3);
+      expect(auditFor('requestRecovery')).toHaveLength(2);
     } finally {
       jest.useRealTimers();
     }
