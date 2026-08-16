@@ -11,6 +11,7 @@ import * as contract from '../rentalContract.jsw';
 // asserting on generated markup rather than on behaviour.
 
 const STAFF = 'staff@example.com';
+const VIEWER = 'viewer@example.com';
 const PASSWORD = 'correct-horse-battery';
 const BOOKING_ID = 'bk-1';
 
@@ -19,13 +20,17 @@ function seed(extra = {}) {
   return {
     StaffRoles: [
       { _id: 'role-admin', key: 'admin', label: 'Administrator', active: true },
-      { _id: 'role-viewer', key: 'viewer', label: 'Viewer', active: true, specialPermissions: '' },
+      // Can read the contract screens but not change them.
+      { _id: 'role-viewer', key: 'viewer', label: 'Viewer', active: true, rentalsView: true, specialPermissions: '' },
     ],
-    StaffUsers: [{ _id: 'user-1', email: STAFF, fullName: 'Staff', roleKey: 'admin', active: true }],
-    StaffCredentials: [{
-      _id: 'cred-1', email: STAFF, passwordSalt,
-      passwordHash: derivePasswordHash(PASSWORD, passwordSalt), active: true,
-    }],
+    StaffUsers: [
+      { _id: 'user-1', email: STAFF, fullName: 'Staff', roleKey: 'admin', active: true },
+      { _id: 'user-2', email: VIEWER, fullName: 'Viewer', roleKey: 'viewer', active: true },
+    ],
+    StaffCredentials: [
+      { _id: 'cred-1', email: STAFF, passwordSalt, passwordHash: derivePasswordHash(PASSWORD, passwordSalt), active: true },
+      { _id: 'cred-2', email: VIEWER, passwordSalt, passwordHash: derivePasswordHash(PASSWORD, passwordSalt), active: true },
+    ],
     StaffSessions: [],
     StaffAuditLog: [],
     BookingsNew: [{
@@ -93,6 +98,27 @@ describe('auth gating', () => {
   test.each(GATED_EXPORTS)('%s refuses a bogus token', async (name, args) => {
     install();
     await expect(contract[name]({ authToken: 'made-up', ...args })).rejects.toThrow('AUTH_REQUIRED');
+  });
+
+  test('reading a contract is not enough to change one', async () => {
+    // Every mutating export gates on rentals/Edit while getContract needs only
+    // View. Without a view-only role in the fixtures the two are
+    // indistinguishable, and downgrading any of these gates passes silently.
+    install();
+    const { sessionToken } = await loginStaff({ email: VIEWER, password: PASSWORD });
+
+    await expect(contract.getContract({ authToken: sessionToken, bookingId: BOOKING_ID }))
+      .resolves.toMatchObject({ success: true });
+
+    for (const name of ['startRental', 'closeRental', 'confirmBookingAnalysis']) {
+      await expect(contract[name]({ authToken: sessionToken, bookingId: BOOKING_ID }))
+        .rejects.toThrow('ACCESS_DENIED');
+    }
+    // getContract materialises the rental draft through ensureRentalForBooking,
+    // so a row existing here is the read doing its job. What must not have
+    // happened is the state advancing.
+    expect(bookingRow().rentalState).toBe('');
+    expect(rentalRow().rentalState).toBe('Booking');
   });
 
   test('nothing is written when the caller is unauthenticated', async () => {
