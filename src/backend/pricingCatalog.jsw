@@ -206,6 +206,15 @@ function parseDateOnly(value){
   dt.setHours(0,0,0,0);
   return dt;
 }
+// The local/UTC mix below is deliberate in effect, though it does not look it.
+// parseDateOnly normalises to *local* midnight while the repeatYearly branch
+// reads getUTCMonth/getUTCDate, so both the season bounds and the date being
+// checked shift by the same whole day outside UTC — and the comparison comes
+// out as "these are local calendar dates", which is what an operator typing
+// 15 December into the admin form means. Verified against a clean local-date
+// implementation across every boundary instant in Europe/Athens: no
+// disagreement. Left alone rather than "tidied" into all-UTC, which would
+// silently move every season boundary by a day for a non-UTC deployment.
 function seasonMatchesDate(date, season){
   if (!(date instanceof Date) || Number.isNaN(date.getTime())) return false;
   const start = parseDateOnly(season?.startDate);
