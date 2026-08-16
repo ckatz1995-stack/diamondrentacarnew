@@ -400,6 +400,13 @@ export async function getFleetModelsPreview({ vehicleId, categoryCode } = {}) {
     vehicleItem = await findVehicleCategoryRecord({ vehicleId, categoryCode: resolvedCategoryCode || '' });
     if (!resolvedCategoryCode) {
       resolvedCategoryCode = cleanText(vehicleItem?.category || vehicleItem?.Category || '');
+    } else if (cleanText(vehicleItem?.category || vehicleItem?.Category || '') !== resolvedCategoryCode) {
+      // The id and the code disagree — a stale id alongside a fresh code. The
+      // code decides which models are listed, so it has to decide the fallback
+      // image too. Left as it was, the id supplied the picture and an economy
+      // model could be shown wearing the luxury car's photograph, beside the
+      // economy price.
+      vehicleItem = null;
     }
   }
 

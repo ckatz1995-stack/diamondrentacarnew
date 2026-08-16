@@ -188,22 +188,32 @@ describe('charges', () => {
     expect(line.label).toBe('Dented rear door');
   });
 
-  test('CONTRACT: a line identified only by its key does not match, and loses its label', async () => {
-    // Lines are matched on `code` — 'damage_fee' — while the charge itself is
-    // keyed 'damages'. normalizeChargeLinesPayload accepts either and falls
-    // `code` back to `key`, so a caller sending { key: 'damages' } produces
-    // code 'damages', which matches no spec: the amount still comes from the
-    // charges, but the label silently reverts to the default.
-    //
-    // Pinned rather than changed. Making `key` match too is a small change with
-    // a real chance of colliding with a caller that sends both.
+  test('a line identified only by its key keeps its label too', async () => {
+    // Lines are matched on `code` — 'damage_fee' — while the charge is keyed
+    // 'damages'. normalizeChargeLinesPayload falls `code` back to `key`, so a
+    // caller sending { key: 'damages' } produced code 'damages', matching no
+    // spec: the amount applied but the label silently reverted to the default.
     install();
     await save({ charges: { rental: 135, damages: 40 } });
     await save({ chargeLines: [{ key: 'damages', label: 'Dented rear door', amount: 40 }] });
 
     const line = (rental().chargeLines || []).find((l) => l.key === 'damages');
-    expect(line.label).toBe('Damages');
+    expect(line.label).toBe('Dented rear door');
     expect(line.amount).toBe(40);
+  });
+
+  test('an explicit code still wins over a key that points elsewhere', async () => {
+    // The fallback must not let a stray key override a caller that named the
+    // code outright.
+    install();
+    await save({ charges: { rental: 135, damages: 40 } });
+    await save({ chargeLines: [
+      { code: 'damage_fee', label: 'By code', amount: 40 },
+      { key: 'damages', label: 'By key', amount: 40 },
+    ] });
+
+    const line = (rental().chargeLines || []).find((l) => l.key === 'damages');
+    expect(line.label).toBe('By code');
   });
 
   test('an explicit null charges object is treated as no figures, not as a crash', async () => {

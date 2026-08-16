@@ -326,22 +326,30 @@ describe('acknowledging unassigned bookings', () => {
     expect((await acknowledgeUnassignedInRange({ authToken: await token(), from: FROM, to: TO })).total).toBe(0);
   });
 
-  test('KNOWN GAP: it reports success and acknowledges nothing', async () => {
-    // The loop that would stamp the bookings is commented out in the source, so
-    // this counts and returns without writing. A caller cannot tell the
-    // difference: `success: true` with a non-zero `total` reads like work was
-    // done, and calling it again returns the same total forever.
-    //
-    // Pinned rather than changed — what an acknowledgement should record is a
-    // product decision, and inventing fields here would be guessing.
+  test('it says plainly that nothing was acknowledged', async () => {
+    // It counts; it does not stamp the bookings, because there are no
+    // acknowledgement fields to write and inventing them would be guessing at
+    // the schema. `acknowledged: false` is what lets a caller tell — previously
+    // `success: true` beside a non-zero `total` read like work was done, and
+    // calling it again returned the same total forever.
     install(seed({
       BookingsNew: [booking({ _id: 'bk-none', assignedVehicle: '' })],
     }));
     const before = fake.rows('BookingsNew');
     const result = await acknowledgeUnassignedInRange({ authToken: await token(), from: FROM, to: TO });
 
-    expect(result).toMatchObject({ success: true, total: 1, updated: 0 });
+    expect(result).toMatchObject({ success: true, total: 1, updated: 0, acknowledged: false });
+    expect(result.message).toMatch(/not recorded/i);
     expect(fake.calls.update.filter((c) => c.collection === 'BookingsNew')).toHaveLength(0);
     expect(fake.rows('BookingsNew')).toEqual(before);
+  });
+
+  test('calling it twice reports the same total, unchanged', async () => {
+    // The property that makes the flag necessary: there is no state to advance.
+    install(seed({ BookingsNew: [booking({ _id: 'bk-none', assignedVehicle: '' })] }));
+    const t = await token();
+    const first = await acknowledgeUnassignedInRange({ authToken: t, from: FROM, to: TO });
+    const second = await acknowledgeUnassignedInRange({ authToken: t, from: FROM, to: TO });
+    expect(second).toEqual(first);
   });
 });

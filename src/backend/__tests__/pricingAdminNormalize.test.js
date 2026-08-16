@@ -184,16 +184,30 @@ describe('category rate rules — the record that sets the daily price', () => {
     expect(saved.active).toBe(false);
   });
 
-  test('an inverted band is stored as given', async () => {
-    // minDays 10 with maxDays 2 can never match: the reader requires
-    // days >= minDays and days <= maxDays. Nothing rejects it, so the rule sits
-    // in the admin list looking active while never applying. Pinned as current
-    // behaviour and reported rather than changed here — refusing it is a
-    // product decision about what an operator is allowed to save.
+  test('an inverted band is refused rather than stored unusable', async () => {
+    // minDays 10 with maxDays 2 can never match: the reader wants
+    // days >= minDays and days <= maxDays. Saved, it sat in the admin list
+    // looking active while never applying to a booking.
     install();
-    const saved = await save({ label: 'Inverted', categoryCode: 'ECO', pricePerDay: 40, minDays: 10, maxDays: 2 });
-    expect(saved.minDays).toBe(10);
-    expect(saved.maxDays).toBe(2);
+    await expect(save({ label: 'Inverted', categoryCode: 'ECO', pricePerDay: 40, minDays: 10, maxDays: 2 }))
+      .rejects.toThrow('Invalid rate rule day band');
+    expect(fake.rows('CategoryRateRules')).toHaveLength(0);
+  });
+
+  test('an open-ended band is still allowed', async () => {
+    // maxDays 0 means "no ceiling" and is below minDays numerically, so the
+    // guard has to exempt it or every long-stay rule becomes unsavable.
+    install();
+    const saved = await save({ label: 'Long stay', categoryCode: 'ECO', pricePerDay: 35, minDays: 7, maxDays: 0 });
+    expect(saved).toMatchObject({ minDays: 7, maxDays: 0 });
+  });
+
+  test('a band whose ends meet is allowed', async () => {
+    // Exactly one day wide: minDays === maxDays is a real band, not an
+    // inversion.
+    install();
+    const saved = await save({ label: 'Single day', categoryCode: 'ECO', pricePerDay: 60, minDays: 3, maxDays: 3 });
+    expect(saved).toMatchObject({ minDays: 3, maxDays: 3 });
   });
 });
 

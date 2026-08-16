@@ -299,17 +299,11 @@ describe('the sample models shown for a category', () => {
     expect(item.specs.fuel).toBe('-');
   });
 
-  test('KNOWN DEFECT: a mismatched vehicle id lends its photo to another category', async () => {
-    // When vehicleId and categoryCode disagree, the id wins for resolving
-    // `vehicleItem` while the code decides which fleet rows are listed. The
-    // category fallback image is taken from vehicleItem, so the models of one
-    // category can be shown wearing a picture from another — here an economy
-    // model displaying the luxury car's photograph, alongside the economy
-    // price.
-    //
-    // Narrow: it needs a caller sending both with a stale id, which the booking
-    // UI may or may not do. Pinned and reported rather than changed, because
-    // which of the two should win is a UI question.
+  test('a mismatched vehicle id does not lend its photo to another category', async () => {
+    // When vehicleId and categoryCode disagree, the code decides which models
+    // are listed, so it decides the fallback image too. This used to let the id
+    // supply the picture: an economy model shown wearing the luxury car's
+    // photograph, beside the economy price.
     install({
       VehiclesNew: [
         category({ _id: 'cat-lux', category: 'LUX', title: 'Luxury', price: 120, image: 'https://cdn.example/luxury.jpg' }),
@@ -320,7 +314,20 @@ describe('the sample models shown for a category', () => {
     const result = await getFleetModelsPreview({ vehicleId: 'cat-lux', categoryCode: 'ECO' });
 
     expect(result.items.map((i) => i.model)).toEqual(['Aygo']);
-    expect(result.items[0].photos).toEqual(['https://cdn.example/luxury.jpg']);
+    expect(result.items[0].photos).not.toContain('https://cdn.example/luxury.jpg');
+  });
+
+  test('a mismatched id still falls back to the requested category own photo', async () => {
+    // Dropping the stale id must not cost the correct image.
+    install({
+      VehiclesNew: [
+        category({ _id: 'cat-lux', category: 'LUX', title: 'Luxury', price: 120, image: 'https://cdn.example/luxury.jpg' }),
+        category({ _id: 'cat-eco', category: 'ECO', title: 'Economy', price: 35, image: 'https://cdn.example/eco.jpg' }),
+      ],
+      FleetNew: [fleetRow()],
+    });
+    const result = await getFleetModelsPreview({ vehicleId: 'cat-lux', categoryCode: 'ECO' });
+    expect(result.items[0].photos).toEqual(['https://cdn.example/eco.jpg']);
   });
 
   test('a matching vehicle id and code show the right photo', async () => {

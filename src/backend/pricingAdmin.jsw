@@ -796,6 +796,11 @@ export async function upsertCategoryRateRule({ authToken, payload = {} } = {}) {
   const normalized = normalizeCategoryRateRuleItem(payload);
   if (!normalized.categoryCode && !normalized.vehicleCategoryId) throw new Error('Missing category for rate rule');
   if (normalized.pricePerDay < 0) throw new Error('Invalid rate rule price');
+  // maxDays of 0 means "no ceiling"; any other value below minDays describes a
+  // band the reader can never satisfy — it wants days >= minDays and
+  // days <= maxDays. Such a rule saved fine and then sat in the admin list
+  // looking active while never applying to a booking.
+  if (normalized.maxDays > 0 && normalized.maxDays < normalized.minDays) throw new Error('Invalid rate rule day band');
   const result = await upsertByKey(PRICING_COLLECTIONS.categoryRateRules, normalized);
   await writePricingAudit(actor, `pricing.${result.mode}`, 'pricing.categoryRateRule', String(result.saved?.key || result.saved?._id || ''), result.previous, result.saved, `${result.mode === 'insert' ? 'Νέος' : 'Ενημέρωση'} rate rule ${text(result.saved?.label)}`);
   return result.saved;

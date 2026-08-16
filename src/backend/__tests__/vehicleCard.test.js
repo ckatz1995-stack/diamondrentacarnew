@@ -8,13 +8,14 @@ import { getVehicleCardData, saveVehicleCardData } from '../vehicleCard.jsw';
 // rentals brought in.
 //
 // It is unusual in this codebase for looking a record up several ways — by
-// internal id or business key, across a legacy collection name and a current
-// one — and for gathering rentals through three different foreign keys before
-// deduplicating them. Those fallbacks only run when the earlier attempt throws,
-// so the tests below use the fake's strict-collections mode: real wix-data
-// rejects a query against a collection that does not exist, and under the
-// lenient default the first candidate answers with an empty result and the
-// fallback never runs. It would look covered while being untested.
+// internal id or business key — and for gathering rentals through three
+// different foreign keys before deduplicating them.
+//
+// These run in the fake's strict-collections mode, where an unseeded collection
+// throws the way real wix-data does. That mode was added to prove the old
+// legacy-collection fallbacks actually ran; the fallbacks are gone now, but the
+// strictness is worth keeping: it catches a query aimed at a collection this
+// module does not own.
 
 const STAFF = 'staff@example.com';
 const READER = 'reader@example.com';
@@ -144,16 +145,15 @@ describe('finding the vehicle', () => {
     expect(result.fleet.plate).toBe('AAA-1111');
   });
 
-  test('from the legacy collection name when the current one is absent', async () => {
-    // COLLECTION_CANDIDATES exists for sites that still carry the old `Fleet`
-    // collection. The fallback only runs because querying a missing collection
-    // throws.
+  test('a legacy Fleet collection is not consulted', async () => {
+    // The candidate-name fallbacks are gone. A record living only under the old
+    // `Fleet` name is not found — which is the honest outcome, since it could
+    // never have been saved either: the write always targeted FleetNew.
     const s = seed();
     delete s.FleetNew;
     s.Fleet = [{ _id: FLEET_ID, plate: 'LEG-0001', model: 'Panda', categoryId: 'cat-eco' }];
     install(s);
-    const result = await card();
-    expect(result.fleet.plate).toBe('LEG-0001');
+    await expect(card()).rejects.toThrow('FLEET_VEHICLE_NOT_FOUND');
   });
 
   test.each([

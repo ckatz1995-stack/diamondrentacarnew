@@ -9,12 +9,13 @@ const COLLECTIONS = {
   bookings: 'BookingsNew',
   rentals: 'RentalsNew'
 };
-const COLLECTION_CANDIDATES = {
-  fleet: ['Fleet', 'FleetNew'],
-  bookings: ['BookingsNew', 'Bookings'],
-  rentals: ['RentalsNew', 'Rentals'],
-  vehicles: ['Vehicles', 'VehiclesNew']
-};
+// There were candidate-name lists here — ['Fleet', 'FleetNew'] and friends —
+// tried in order so a query against a missing legacy collection would throw and
+// fall through to the real one. The legacy collections do not exist, so every
+// lookup paid for a failing query first, and saveVehicleCardData still wrote to
+// COLLECTIONS.fleet regardless: a record found under a legacy name could be read
+// and never saved. Removed rather than repaired, since there was nothing behind
+// the fallback.
 
 function txt(v){ return String(v ?? '').trim(); }
 function num(v){ const n = Number(v); return Number.isFinite(n) ? n : null; }
@@ -101,44 +102,31 @@ function compareDateDesc(a,b){
   return bd - ad;
 }
 
-async function firstSuccessful(items = [], fn){
-  let lastErr = null;
-  for (const item of items) {
-    try { return await fn(item); } catch (err) { lastErr = err; }
-  }
-  if (lastErr) throw lastErr;
-  return null;
-}
-
-async function findManyByField(collectionNames = [], field, values = []){
+async function findManyByField(collectionName, field, values = []){
   const uniq = Array.from(new Set((values || []).map((v) => txt(v)).filter(Boolean)));
   if (!uniq.length) return [];
-  const rows = [];
-  for (const name of collectionNames) {
-    try {
-      const res = await wixData.query(name).hasSome(field, uniq).limit(1000).find({ suppressAuth: true });
-      rows.push(...(res.items || []));
-    } catch (_) {}
+  try {
+    const res = await wixData.query(collectionName).hasSome(field, uniq).limit(1000).find({ suppressAuth: true });
+    return res.items || [];
+  } catch (_) {
+    return [];
   }
-  return rows;
 }
 
 async function findFleetRecordByAnyId(rawId){
   const targetId = txt(rawId);
   if (!targetId) return null;
-  for (const collectionName of COLLECTION_CANDIDATES.fleet) {
-    try {
-      const byInternal = await wixData.get(collectionName, targetId, { suppressAuth: true });
-      if (byInternal) return byInternal;
-    } catch (_) {}
-    try {
-      const byFleetVehicleId = await wixData.query(collectionName)
-        .eq('fleetVehicleId', targetId)
-        .limit(1)
-        .find({ suppressAuth: true });
-      if ((byFleetVehicleId.items || [])[0]) return byFleetVehicleId.items[0];
-    } catch (_) {}
-  }
+  try {
+    const byInternal = await wixData.get(COLLECTIONS.fleet, targetId, { suppressAuth: true });
+    if (byInternal) return byInternal;
+  } catch (_) {}
+  try {
+    const byFleetVehicleId = await wixData.query(COLLECTIONS.fleet)
+      .eq('fleetVehicleId', targetId)
+      .limit(1)
+      .find({ suppressAuth: true });
+    if ((byFleetVehicleId.items || [])[0]) return byFleetVehicleId.items[0];
+  } catch (_) {}
   return null;
 }
 
@@ -149,16 +137,14 @@ async function findBookingsByIds(ids = []){
     const chunk = bookingIds.slice(i, i + 50);
     if (!chunk.length) continue;
     const rows = [];
-    for (const collectionName of COLLECTION_CANDIDATES.bookings) {
-      try {
-        const byBusinessId = await wixData.query(collectionName).hasSome('bookingId', chunk).limit(1000).find({ suppressAuth: true });
-        rows.push(...(byBusinessId.items || []));
-      } catch (_) {}
-      try {
-        const byInternalId = await wixData.query(collectionName).hasSome('_id', chunk).limit(1000).find({ suppressAuth: true });
-        rows.push(...(byInternalId.items || []));
-      } catch (_) {}
-    }
+    try {
+      const byBusinessId = await wixData.query(COLLECTIONS.bookings).hasSome('bookingId', chunk).limit(1000).find({ suppressAuth: true });
+      rows.push(...(byBusinessId.items || []));
+    } catch (_) {}
+    try {
+      const byInternalId = await wixData.query(COLLECTIONS.bookings).hasSome('_id', chunk).limit(1000).find({ suppressAuth: true });
+      rows.push(...(byInternalId.items || []));
+    } catch (_) {}
     rows.forEach((item) => {
       const businessId = txt(item.bookingId);
       const internalId = txt(item._id);
@@ -179,20 +165,19 @@ export async function getVehicleCardData({ sessionToken, fleetVehicleId } = {}) 
 
   const fleetRecord = await findFleetRecordByAnyId(targetId);
   if (!fleetRecord) throw new Error('FLEET_VEHICLE_NOT_FOUND');
-  const categoryQuery = await firstSuccessful(COLLECTION_CANDIDATES.vehicles, async (collectionName) => (
+  const categoryQuery = await (
     txt(fleetRecord.categoryId)
-      ? wixData.query(collectionName).eq('categoryRecordId', txt(fleetRecord.categoryId)).limit(1).find({ suppressAuth: true })
-      : wixData.query(collectionName).eq('categoryCode', txt(fleetRecord.categoryCode)).limit(1).find({ suppressAuth: true })
-  ));
+      ? wixData.query(COLLECTIONS.vehicles).eq('categoryRecordId', txt(fleetRecord.categoryId)).limit(1).find({ suppressAuth: true })
+      : wixData.query(COLLECTIONS.vehicles).eq('categoryCode', txt(fleetRecord.categoryCode)).limit(1).find({ suppressAuth: true })
+  ).catch(() => ({ items: [] }));
   const categoryRecord = normalizeCategory((categoryQuery?.items || [])[0] || {});
   const fleet = normalizeFleet(fleetRecord, categoryRecord);
 
   const internalId = txt(fleetRecord._id);
   const fleetVehicleBusinessId = txt(fleetRecord.fleetVehicleId || targetId);
-  const rentalCandidates = COLLECTION_CANDIDATES.rentals;
-  const rentalsByInternal = await findManyByField(rentalCandidates, 'assignedVehicleId', [internalId]);
-  const rentalsByBusiness = await findManyByField(rentalCandidates, 'assignedVehicleId', [fleetVehicleBusinessId]);
-  const rentalsByFleetVehicleId = await findManyByField(rentalCandidates, 'fleetVehicleId', [fleetVehicleBusinessId, internalId]);
+  const rentalsByInternal = await findManyByField(COLLECTIONS.rentals, 'assignedVehicleId', [internalId]);
+  const rentalsByBusiness = await findManyByField(COLLECTIONS.rentals, 'assignedVehicleId', [fleetVehicleBusinessId]);
+  const rentalsByFleetVehicleId = await findManyByField(COLLECTIONS.rentals, 'fleetVehicleId', [fleetVehicleBusinessId, internalId]);
 
   const rentalsMap = new Map();
   [...rentalsByInternal, ...rentalsByBusiness, ...rentalsByFleetVehicleId].forEach((item) => {
@@ -281,9 +266,6 @@ export async function saveVehicleCardData({ sessionToken, fleetVehicleId, patch 
     legacyUpdatedAt: new Date().toISOString()
   };
 
-  const targetCollection = COLLECTION_CANDIDATES.fleet.includes(txt(current._collectionName))
-    ? txt(current._collectionName)
-    : COLLECTIONS.fleet;
-  const updated = await wixData.update(targetCollection, next, { suppressAuth: true });
+  const updated = await wixData.update(COLLECTIONS.fleet, next, { suppressAuth: true });
   return { success: true, fleet: normalizeFleet(updated) };
 }

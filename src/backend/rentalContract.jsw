@@ -141,7 +141,15 @@ const CHARGE_LINE_SPECS = [
 export function buildChargeLinesFromCharges(charges = {}, existing = []){
   const previous = Array.isArray(existing) ? existing : [];
   return CHARGE_LINE_SPECS.map((spec) => {
-    const match = previous.find((row) => safeText(row?.code) === spec.code) || {};
+    // Matched on code, falling back to key. normalizeChargeLinesPayload fills
+    // `code` from `key` when only one is given, so a caller sending
+    // { key: 'damages' } produced code 'damages' — which matches no spec, since
+    // the codes differ from the keys ('damage_fee'). Its label was silently
+    // dropped. Code still wins, so a caller sending both is unaffected.
+    const match = previous.find((row) => safeText(row?.code) === spec.code)
+      || previous.find((row) => safeText(row?.key) === spec.key && !safeText(row?.code))
+      || previous.find((row) => safeText(row?.code) === spec.key)
+      || {};
     const rawValue = safeNum(charges?.[spec.key]);
     const amount = spec.sign < 0 ? -Math.abs(rawValue) : Math.abs(rawValue);
     return {
