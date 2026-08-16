@@ -45,7 +45,7 @@ export function createFakeWixData(seed = {}, { strictCollections = false } = {})
     return store.get(collection);
   };
 
-  const calls = { insert: [], update: [], remove: [] };
+  const calls = { insert: [], update: [], remove: [], bulkRemove: [] };
 
   function query(collection) {
     const filters = [];
@@ -145,7 +145,23 @@ export function createFakeWixData(seed = {}, { strictCollections = false } = {})
     return row ? { ...row } : null;
   }
 
-  const api = { query, insert, update, remove, get };
+  // Returns the same `removed` count shape the session cleanup reads back. Ids
+  // that match nothing are skipped rather than counted, so a caller asserting on
+  // the count is asserting on rows that actually went.
+  async function bulkRemove(collection, ids = [], options) {
+    const rows = rowsFor(collection);
+    let removed = 0;
+    for (const id of ids || []) {
+      const index = rows.findIndex((row) => valuesMatch(row._id, id));
+      if (index === -1) continue;
+      rows.splice(index, 1);
+      removed += 1;
+    }
+    calls.bulkRemove.push({ collection, ids: [...(ids || [])], options });
+    return { removed, skipped: (ids || []).length - removed, removedItemIds: [...(ids || [])] };
+  }
+
+  const api = { query, insert, update, remove, get, bulkRemove };
   let target = null;
   let originals = null;
 
