@@ -41,14 +41,47 @@ export function createFakeWixData(seed = {}) {
     const sorts = [];
     let limitValue = 1000;
 
+    // Comparisons mirror wix-data: lt/gt/le/ge are used on date fields in this
+    // codebase, so they compare as dates; the rest compare as values or strings.
+    const asComparable = (v) => (v instanceof Date || typeof v === 'string' ? new Date(v) : v);
+    const str = (v) => String(v ?? '');
+
     const builder = {
       eq(field, value) { filters.push((row) => valuesMatch(row?.[field], value)); return builder; },
       ne(field, value) { filters.push((row) => !valuesMatch(row?.[field], value)); return builder; },
-      lt(field, value) { filters.push((row) => new Date(row?.[field]) < new Date(value)); return builder; },
-      gt(field, value) { filters.push((row) => new Date(row?.[field]) > new Date(value)); return builder; },
+      lt(field, value) { filters.push((row) => asComparable(row?.[field]) < asComparable(value)); return builder; },
+      gt(field, value) { filters.push((row) => asComparable(row?.[field]) > asComparable(value)); return builder; },
+      le(field, value) { filters.push((row) => asComparable(row?.[field]) <= asComparable(value)); return builder; },
+      ge(field, value) { filters.push((row) => asComparable(row?.[field]) >= asComparable(value)); return builder; },
+      between(field, a, b) {
+        filters.push((row) => asComparable(row?.[field]) >= asComparable(a) && asComparable(row?.[field]) <= asComparable(b));
+        return builder;
+      },
+      startsWith(field, value) { filters.push((row) => str(row?.[field]).startsWith(str(value))); return builder; },
+      endsWith(field, value) { filters.push((row) => str(row?.[field]).endsWith(str(value))); return builder; },
+      contains(field, value) { filters.push((row) => str(row?.[field]).toLowerCase().includes(str(value).toLowerCase())); return builder; },
+      hasSome(field, values) {
+        const wanted = (Array.isArray(values) ? values : [values]).map(str);
+        filters.push((row) => {
+          const actual = Array.isArray(row?.[field]) ? row[field].map(str) : [str(row?.[field])];
+          return actual.some((v) => wanted.includes(v));
+        });
+        return builder;
+      },
+      hasAll(field, values) {
+        const wanted = (Array.isArray(values) ? values : [values]).map(str);
+        filters.push((row) => {
+          const actual = Array.isArray(row?.[field]) ? row[field].map(str) : [str(row?.[field])];
+          return wanted.every((v) => actual.includes(v));
+        });
+        return builder;
+      },
+      isEmpty(field) { filters.push((row) => row?.[field] == null || row?.[field] === ''); return builder; },
+      isNotEmpty(field) { filters.push((row) => row?.[field] != null && row?.[field] !== ''); return builder; },
       ascending(field) { sorts.push(field); return builder; },
       descending(field) { sorts.push(`-${field}`); return builder; },
       include() { return builder; },
+      skip() { return builder; },
       limit(n) { limitValue = n; return builder; },
       async find() {
         let items = rowsFor(collection).filter((row) => filters.every((f) => f(row)));
