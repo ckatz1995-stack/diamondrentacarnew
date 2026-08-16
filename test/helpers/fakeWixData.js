@@ -23,14 +23,25 @@ function valuesMatch(rowValue, expected) {
   return String(rowValue) === String(expected);
 }
 
-export function createFakeWixData(seed = {}) {
+// `strictCollections` makes an unseeded collection throw instead of springing
+// into existence empty. Real wix-data rejects a query against a collection that
+// does not exist, and some backend modules rely on exactly that: they try a list
+// of candidate collection names and let the failures fall through to the one
+// that is really there. Under the lenient default the first candidate answers
+// with an empty result and the real collection is never reached, so those
+// fallbacks look tested when nothing exercised them. Off by default because most
+// suites just want the collections they seeded.
+export function createFakeWixData(seed = {}, { strictCollections = false } = {}) {
   const store = new Map();
   for (const [collection, rows] of Object.entries(seed)) {
     store.set(collection, rows.map((row) => ({ ...row })));
   }
 
   const rowsFor = (collection) => {
-    if (!store.has(collection)) store.set(collection, []);
+    if (!store.has(collection)) {
+      if (strictCollections) throw new Error(`fakeWixData: collection ${collection} does not exist`);
+      store.set(collection, []);
+    }
     return store.get(collection);
   };
 
