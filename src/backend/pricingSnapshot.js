@@ -1,3 +1,4 @@
+// @ts-check
 import { computeBillableDays } from 'backend/billableDays';
 
 function text(value, fallback = '') {
@@ -67,6 +68,10 @@ function normalizeExtraDetails(rawExtras, days, extrasByKey) {
   }).filter((item) => item.key || item.label);
 }
 
+/**
+ * @param {{ catalog?: any, booking?: any, selectedPackage?: any, selectedExtrasDetails?: any,
+ *           charges?: any, capturedAt?: any, source?: string }} [options]
+ */
 export function buildPricingSnapshot({ catalog = {}, booking = {}, selectedPackage, selectedExtrasDetails, charges = {}, capturedAt, source = 'booking-flow' } = {}) {
   const businessSettings = catalog?.businessSettings || {};
   const { insuranceByKey, extrasByKey } = buildCatalogMaps(catalog);

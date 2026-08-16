@@ -1,3 +1,4 @@
+// @ts-check
 import wixData from "wix-data";
 import { confirmAndAutoAssign } from "backend/fleetCalendar";
 import { requireStaffAccess } from "backend/staffAccess.jsw";
@@ -38,6 +39,9 @@ function startOfDay(date) {
   d.setHours(0,0,0,0);
   return d;
 }
+/**
+ * @param {any} [options]
+ */
 function normalizeBoardRange({ startDate, endDate } = {}) {
   const today = startOfDay(new Date());
   const defaultStart = addDays(today, -30);
@@ -105,6 +109,9 @@ function mapBooking(booking, fleetMap, todayStart, tomorrowStart) {
   };
 }
 
+/**
+ * @param {any} [options]
+ */
 export async function getBookingsBoardData({ authToken, startDate, endDate } = {}) {
   await requireStaffAccess({ sessionToken: authToken, area: "bookings", action: "View" });
   try {
@@ -136,6 +143,9 @@ export async function getBookingsBoardData({ authToken, startDate, endDate } = {
 
 const ALLOWED_BOOKING_STATUSES = new Set(["Confirmed", "Pending", "Hold", "Escalated", "Canceled"]);
 
+/**
+ * @param {any} [options]
+ */
 export async function setBookingBoardStatus({ authToken, bookingId, newStatus } = {}) {
   await requireStaffAccess({ sessionToken: authToken, area: "bookings", action: "Edit" });
   try {

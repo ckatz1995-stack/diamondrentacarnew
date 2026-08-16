@@ -1,3 +1,4 @@
+// @ts-check
 // Booking total and VAT arithmetic, extracted from createBooking so it can be
 // exercised without a database. The values are server-authoritative — createBooking
 // ignores any money the client sends — so this is the code that decides what a

@@ -132,6 +132,29 @@ describe('getFallbackCatalogSnapshot', () => {
     expect(snapshot.pricingSeasons).toEqual([]);
     expect(snapshot.maps.insurance).toHaveProperty('cdw', 0);
   });
+
+  test('resolves every business setting to a real default, never undefined', () => {
+    // Regression test for a drifted duplicate: pricingCatalog used to carry its own
+    // copy of the business-settings defaults, missing eight fields the normaliser
+    // reads. Those resolved to undefined instead of a value, silently and only on
+    // the fallback path. Asserting on the whole object rather than a field list
+    // means a newly added setting is covered without anyone remembering to.
+    const { businessSettings } = getFallbackCatalogSnapshot();
+    const undefinedKeys = Object.entries(businessSettings)
+      .filter(([, value]) => value === undefined)
+      .map(([key]) => key);
+    expect(undefinedKeys).toEqual([]);
+  });
+
+  test('carries the operational settings that used to be missing from the duplicate', () => {
+    const { businessSettings } = getFallbackCatalogSnapshot();
+    expect(businessSettings.operatingHoursLabel).toBeTruthy();
+    expect(businessSettings.afterHoursNotice).toBeTruthy();
+    expect(businessSettings.allowOverbooking).toBe(false);
+    expect(businessSettings.enableTriggeredEmails).toBe(false);
+    expect(businessSettings.vehiclesPageDisplayMode).toBe('categories');
+    expect(businessSettings.vehiclesPageModelsSource).toBe('fleet');
+  });
 });
 
 describe('isNightShift', () => {

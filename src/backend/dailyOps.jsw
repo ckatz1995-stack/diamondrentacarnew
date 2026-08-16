@@ -1,3 +1,4 @@
+// @ts-check
 // backend/dailyOps.jsw
 import wixData from "wix-data";
 import { requireStaffAccess } from "backend/staffAccess.jsw";
@@ -13,7 +14,7 @@ function overlaps(start, end, rangeStart, rangeEnd){
   return s < re && e > rs;
 }
 function norm(x){ return safeText(x).toLowerCase(); }
-function diffDays(startValue, endValue){ const start = asDate(startValue), end = asDate(endValue); if (!start || !end || end <= start) return 0; return Math.max(1, Math.ceil((end - start) / 86400000)); }
+function diffDays(startValue, endValue){ const start = asDate(startValue), end = asDate(endValue); if (!start || !end || end <= start) return 0; return Math.max(1, Math.ceil((end.getTime() - start.getTime()) / 86400000)); }
 function readDT(b, key){
   const candidates = [b?.[key]];
   if (key === "pickupDateTime") candidates.push(b?.pickup, b?.pickupDT, b?.pickupDate, b?.pickupDatetime, b?.pickUpDateTime);
@@ -82,6 +83,9 @@ function triageAuditFromBooking(raw = {}){
     : (Array.isArray(blob.historySummary) ? blob.historySummary.map((x)=> safeText(x)).filter(Boolean) : []);
   return { owner, updatedAt, lastAction, lastNote, nextFollowUpAt, historySummary };
 }
+/**
+ * @param {any} [options]
+ */
 async function updateRequestTriageAudit({ bookingId, actorName, action, note, nextFollowUpAt, ownerOverride, clearOwner } = {}){
   const id = safeText(bookingId);
   if (!id) return { success:false, message:"Missing booking id" };
@@ -314,6 +318,9 @@ function mapBookingLite(b, fleet){
 function byStart(a,b){ return (asDate(a.pickupDateTime || a.start)?.getTime() || 0) - (asDate(b.pickupDateTime || b.start)?.getTime() || 0); }
 function byDropoff(a,b){ return (asDate(a.dropoffDateTime || a.end)?.getTime() || 0) - (asDate(b.dropoffDateTime || b.end)?.getTime() || 0); }
 
+/**
+ * @param {any} [options]
+ */
 export async function getDailyOps({ authToken, startISO, endISO } = {}) {
   await requireStaffAccess({ sessionToken: authToken, area: "rentals", action: "View" });
   try {
@@ -367,6 +374,9 @@ export async function getDailyOps({ authToken, startISO, endISO } = {}) {
   }
 }
 
+/**
+ * @param {any} [options]
+ */
 export async function actOnDailyRequest({ authToken, bookingId, action, actorName, note, nextFollowUpAt, targetOwner } = {}){
   await requireStaffAccess({ sessionToken: authToken, area: "bookings", action: "Edit" });
   const id = safeText(bookingId);

@@ -1,3 +1,4 @@
+// @ts-check
 export function safeText(value) {
   return String(value ?? "").trim();
 }

@@ -1,3 +1,6 @@
+import wixData from 'wix-data';
+import { createFakeWixData } from '../../../test/helpers/fakeWixData.js';
+import { loginStaff, derivePasswordHash, randomHex } from '../staffAccess.jsw';
 import {
   computeVatBreakdown,
   billableDaysFromBooking,
@@ -5,6 +8,8 @@ import {
   buildChargeLinesFromCharges,
   normalizeChargeLinesPayload,
   escapeHtml,
+  saveCheckout,
+  saveCheckin,
 } from '../rentalContract.jsw';
 
 describe('billableDaysFromBooking', () => {
@@ -205,5 +210,52 @@ describe('escapeHtml', () => {
   test('coerces null and undefined to an empty string', () => {
     expect(escapeHtml(null)).toBe('');
     expect(escapeHtml(undefined)).toBe('');
+  });
+});
+
+describe('saveCheckout / saveCheckin — legacy wrappers', () => {
+  const EMAIL = 'admin@example.com';
+  const PASSWORD = 'correct-horse-battery';
+  let fake;
+
+  function install() {
+    const passwordSalt = randomHex(16);
+    fake = createFakeWixData({
+      StaffRoles: [{ _id: 'role-admin', key: 'admin', label: 'Administrator', active: true, sortOrder: 1 }],
+      StaffUsers: [{ _id: 'user-1', email: EMAIL, fullName: 'Admin', roleKey: 'admin', active: true }],
+      StaffCredentials: [{
+        _id: 'cred-1', email: EMAIL, passwordSalt,
+        passwordHash: derivePasswordHash(PASSWORD, passwordSalt), active: true,
+      }],
+      StaffSessions: [],
+      StaffAuditLog: [],
+      BookingsNew: [],
+    }).install(wixData);
+    return fake;
+  }
+
+  afterEach(() => {
+    if (fake) fake.restore();
+    fake = null;
+  });
+
+  test('still reject an unauthenticated caller', async () => {
+    install();
+    await expect(saveCheckout({ bookingId: 'b1', payload: {} })).rejects.toThrow('AUTH_REQUIRED');
+    await expect(saveCheckin({ bookingId: 'b1', payload: {} })).rejects.toThrow('AUTH_REQUIRED');
+  });
+
+  test('forward the auth token instead of rejecting a valid session', async () => {
+    // Regression test: both wrappers used to drop authToken on the way to
+    // saveContract, so its requireStaffAccess gate rejected every call. They
+    // failed closed — safe, but permanently broken. With a real session they
+    // must now get past the gate; "Missing bookingId" proves the gate passed.
+    install();
+    const { sessionToken } = await loginStaff({ email: EMAIL, password: PASSWORD });
+
+    await expect(saveCheckout({ authToken: sessionToken, bookingId: '', payload: {} }))
+      .resolves.toMatchObject({ success: false, message: 'Missing bookingId' });
+    await expect(saveCheckin({ authToken: sessionToken, bookingId: '', payload: {} }))
+      .resolves.toMatchObject({ success: false, message: 'Missing bookingId' });
   });
 });

@@ -69,27 +69,30 @@ export function createFakeWixData(seed = {}) {
     return builder;
   }
 
-  async function insert(collection, item) {
+  // `options` is recorded as well as the payload: wix-data takes suppressAuth as a
+  // third argument, and a caller that misplaces it into the item (or drops it) is a
+  // real bug this repo has hit more than once. Tests need to assert the call shape.
+  async function insert(collection, item, options) {
     const row = { ...item, _id: item?._id || nextId(collection.toLowerCase()) };
     rowsFor(collection).push(row);
-    calls.insert.push({ collection, item: row });
+    calls.insert.push({ collection, item: row, options });
     return { ...row };
   }
 
-  async function update(collection, item) {
+  async function update(collection, item, options) {
     const rows = rowsFor(collection);
     const index = rows.findIndex((row) => valuesMatch(row._id, item?._id));
     if (index === -1) throw new Error(`fakeWixData: no ${collection} row with _id ${item?._id}`);
     rows[index] = { ...item };
-    calls.update.push({ collection, item: { ...item } });
+    calls.update.push({ collection, item: { ...item }, options });
     return { ...rows[index] };
   }
 
-  async function remove(collection, id) {
+  async function remove(collection, id, options) {
     const rows = rowsFor(collection);
     const index = rows.findIndex((row) => valuesMatch(row._id, id));
     const [removed] = index === -1 ? [null] : rows.splice(index, 1);
-    calls.remove.push({ collection, id });
+    calls.remove.push({ collection, id, options });
     return removed ? { ...removed } : null;
   }
 

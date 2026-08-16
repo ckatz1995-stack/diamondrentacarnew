@@ -1,3 +1,4 @@
+// @ts-check
 export const VAT_RATE = 0.24;
 
 export const DEFAULT_BUSINESS_SETTINGS = {
