@@ -1560,17 +1560,27 @@ function applyChargesPayload(rental, payload){
   const chargeLinesPayload = Array.isArray(payload?.chargeLines) ? payload.chargeLines : null;
   if (!ch && !chargeLinesPayload) return;
 
+  // The guard above lets either half through on its own, so `ch` can still be
+  // null here — a payload carrying only chargeLines. Reading it directly threw,
+  // and saveContract's outer catch turned that into a failure message naming a
+  // null dereference, which an operator could do nothing with. Treating the
+  // missing half as empty gives charge-lines-only edits their obvious meaning:
+  // the itemisation changes, the figures stay as they were.
+  //
+  // Note `typeof null === "object"`, so an explicit `charges: null` lands here
+  // too rather than being filtered out above.
+  const supplied = ch || {};
   const cur = (rental.charges && typeof rental.charges === "object") ? rental.charges : {};
   const nextCharges = {
-    rental: safeNum(ch.rental ?? cur.rental ?? 0),
-    insurance: safeNum(ch.insurance ?? cur.insurance ?? 0),
-    options: safeNum(ch.options ?? cur.options ?? 0),
-    ageFee: safeNum(ch.ageFee ?? cur.ageFee ?? 0),
-    nightFee: safeNum(ch.nightFee ?? cur.nightFee ?? 0),
-    transport: safeNum(ch.transport ?? cur.transport ?? 0),
-    damages: safeNum(ch.damages ?? cur.damages ?? 0),
-    surcharges: safeNum(ch.surcharges ?? cur.surcharges ?? 0),
-    discount: safeNum(ch.discount ?? cur.discount ?? 0),
+    rental: safeNum(supplied.rental ?? cur.rental ?? 0),
+    insurance: safeNum(supplied.insurance ?? cur.insurance ?? 0),
+    options: safeNum(supplied.options ?? cur.options ?? 0),
+    ageFee: safeNum(supplied.ageFee ?? cur.ageFee ?? 0),
+    nightFee: safeNum(supplied.nightFee ?? cur.nightFee ?? 0),
+    transport: safeNum(supplied.transport ?? cur.transport ?? 0),
+    damages: safeNum(supplied.damages ?? cur.damages ?? 0),
+    surcharges: safeNum(supplied.surcharges ?? cur.surcharges ?? 0),
+    discount: safeNum(supplied.discount ?? cur.discount ?? 0),
   };
   rental.charges = nextCharges;
   const suppliedLines = normalizeChargeLinesPayload(chargeLinesPayload || rental.chargeLines || []);

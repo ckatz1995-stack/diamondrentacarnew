@@ -159,20 +159,66 @@ describe('charges', () => {
     expect(kinds).toContain('damages');
   });
 
-  test('KNOWN DEFECT: sending charge lines without a charges object fails the save', async () => {
-    // applyChargesPayload guards with `if (!ch && !chargeLinesPayload) return;`
-    // — it proceeds when either is present — then dereferences `ch`
-    // unconditionally on the next lines. With chargeLines alone, `ch` is null
-    // and the read throws. saveContract's outer catch turns that into
-    // { success: false } carrying a TypeError message, so the screen reports a
-    // failure the operator cannot act on.
+  test('charge lines can be edited without resending the figures', async () => {
+    // The guard lets either half of the payload through alone, so `ch` can be
+    // null here. Reading it directly used to throw, and the outer catch turned
+    // that into a failure naming a null dereference — nothing an operator could
+    // act on. Editing the itemisation now leaves the figures as they were.
     install();
+    await save({ charges: { rental: 135, damages: 40 } });
+
     const result = await saveContract({
       authToken: await token(), bookingId: BOOKING_ID, stage: 'checkout',
-      payload: { chargeLines: [{ key: 'damages', label: 'Dent', amount: 40 }] },
+      payload: { chargeLines: [{ key: 'damages', label: 'Dented rear door', amount: 40 }] },
     });
-    expect(result.success).toBe(false);
-    expect(result.message).toMatch(/Cannot read properties of null/);
+
+    expect(result.success).toBe(true);
+    expect(rental().charges).toMatchObject({ rental: 135, damages: 40 });
+  });
+
+  test('a relabelled charge line keeps its label', async () => {
+    // The point of sending lines alone: the figures are agreed, the wording on
+    // the printed contract is not. Identified by `code`, which is what
+    // buildChargeLinesFromCharges matches on.
+    install();
+    await save({ charges: { rental: 135, damages: 40 } });
+    await save({ chargeLines: [{ code: 'damage_fee', label: 'Dented rear door', amount: 40 }] });
+
+    const line = (rental().chargeLines || []).find((l) => l.key === 'damages');
+    expect(line.label).toBe('Dented rear door');
+  });
+
+  test('CONTRACT: a line identified only by its key does not match, and loses its label', async () => {
+    // Lines are matched on `code` — 'damage_fee' — while the charge itself is
+    // keyed 'damages'. normalizeChargeLinesPayload accepts either and falls
+    // `code` back to `key`, so a caller sending { key: 'damages' } produces
+    // code 'damages', which matches no spec: the amount still comes from the
+    // charges, but the label silently reverts to the default.
+    //
+    // Pinned rather than changed. Making `key` match too is a small change with
+    // a real chance of colliding with a caller that sends both.
+    install();
+    await save({ charges: { rental: 135, damages: 40 } });
+    await save({ chargeLines: [{ key: 'damages', label: 'Dented rear door', amount: 40 }] });
+
+    const line = (rental().chargeLines || []).find((l) => l.key === 'damages');
+    expect(line.label).toBe('Damages');
+    expect(line.amount).toBe(40);
+  });
+
+  test('an explicit null charges object is treated as no figures, not as a crash', async () => {
+    // `typeof null === "object"`, so a null slips past the type check above and
+    // reaches the same dereference.
+    install();
+    await save({ charges: { rental: 135 } });
+
+    const result = await saveContract({
+      authToken: await token(), bookingId: BOOKING_ID, stage: 'checkout',
+      payload: { charges: null, chargeLines: [{ key: 'rental', label: 'Rental', amount: 135 }] },
+    });
+
+    expect(result.success).toBe(true);
+    expect(rental().charges.rental).toBe(135);
   });
 
   test('a payload with no charges section leaves the stored charges alone', async () => {
