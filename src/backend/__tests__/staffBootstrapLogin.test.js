@@ -130,6 +130,18 @@ describe('the first login on an empty deployment', () => {
     expect(result.profile.mustChangePassword).toBe(true);
   });
 
+  test('the result does not claim to say whether the back door was used', async () => {
+    // There used to be a bootstrapUsed flag here that read false on exactly the
+    // login it named, because the credential it tested had just been inserted
+    // and so had an _id. Nothing consumed it, and a flag that is silently wrong
+    // is worse than no flag: mustChangePassword above is what actually
+    // distinguishes this login, and it is derived from the stored row.
+    const { staffAccess } = await start();
+    const result = await staffAccess.loginStaff({ email: ADMIN_EMAIL, password: BOOTSTRAP_PASSWORD });
+    expect(result).not.toHaveProperty('bootstrapUsed');
+    expect(Object.keys(result).sort()).toEqual(['expiresAt', 'profile', 'sessionToken', 'success']);
+  });
+
   test('the door closes behind it: a second admin cannot bootstrap afterwards', async () => {
     // This is what makes the back door a one-shot rather than a standing key.
     const seedData = seed({

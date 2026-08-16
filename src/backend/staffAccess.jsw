@@ -578,7 +578,6 @@ export async function loginStaff({ email, password, remember = false, userAgent 
     success: true,
     sessionToken: created.sessionToken,
     expiresAt: created.expiresAt,
-    bootstrapUsed: !credential?._id,
     profile: buildProfile(user, role, { ...created, remember }, credential)
   };
 }
