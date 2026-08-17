@@ -765,6 +765,27 @@ export async function upsertStaffRole({ sessionToken, payload = {} } = {}) {
   const item = normalizeRole(payload);
   item.key = await assertUniqueRoleKey(item.key, item._id);
   const oldItem = item._id ? await wixData.get(COLLECTIONS.roles, item._id, { suppressAuth: true }).catch(() => null) : null;
+
+  // systemRole marks the built-in roles. normalizeRole reads it from the payload
+  // and defaults it to false, so a save that simply omits the field used to clear
+  // it — the flag that says "this role is structural" quietly erased by an edit
+  // to the label. It is carried over from the stored row instead.
+  if (oldItem && !('systemRole' in payload)) item.systemRole = readBool(oldItem.systemRole, false);
+
+  // Deactivating the admin role locks every administrator out at once:
+  // loginStaff refuses an inactive role, no other default role carries
+  // manageStaff to undo it, and the bootstrap password stays shut because
+  // credentials exist. The only way back is editing the row directly in the CMS.
+  //
+  // No "is there another one" check, because assertUniqueRoleKey above has
+  // already refused any second role keyed admin — there is only ever the one.
+  if (oldItem
+    && text(oldItem.key).toLowerCase() === 'admin'
+    && readBool(oldItem.active, true)
+    && !readBool(item.active, true)) {
+    throw new Error('Δεν γίνεται να απενεργοποιηθεί ο admin ρόλος.');
+  }
+
   const saved = item._id
     ? await wixData.update(COLLECTIONS.roles, { ...oldItem, ...item }, { suppressAuth: true })
     : await wixData.insert(COLLECTIONS.roles, item, { suppressAuth: true });
