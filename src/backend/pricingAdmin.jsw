@@ -438,7 +438,12 @@ function normalizeCatalogItem(payload = {}, kind = 'insurance'){
   return { ...base, ruleType: text(payload.ruleType, 'manual'), audienceGroup: text(payload.audienceGroup), amount: toNumber(payload.amount ?? payload.price, 0), billingMode: text(payload.billingMode, 'perBooking') === 'perDay' ? 'perDay' : 'perBooking' };
 }
 
-export async function upsertByKey(collectionName, item){
+// Not exported: every export in a .jsw is callable from the browser, and this
+// writes to a collection named by its caller with suppressAuth and no allowlist.
+// It is reached through the gated upsert* endpoints above, which decide the
+// collection themselves — deletePricingItem, the only public function that takes
+// a collection name, checks it against an allowlist for the same reason.
+async function upsertByKey(collectionName, item){
   const safeItem = { ...item, key: slugKey(item?.key || item?.label || item?.title) };
   const safeId = cleanId(safeItem._id);
   if (safeId) safeItem._id = safeId;
