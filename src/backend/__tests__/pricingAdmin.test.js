@@ -1,145 +1,214 @@
 import wixData from 'wix-data';
-import { upsertByKey } from '../pricingAdmin.jsw';
+import { createFakeWixData } from '../../../test/helpers/fakeWixData.js';
+import { loginStaff, derivePasswordHash, randomHex } from '../staffAccess.jsw';
+import { upsertInsurancePlan } from '../pricingAdmin.jsw';
+import { clearPricingCatalogCache } from '../pricingCatalog.jsw';
 
+// The upsert-by-key machinery behind every pricing save: it matches an existing
+// row by its normalised key, merges the payload over it, and clears out any
+// duplicate rows that ended up sharing that key.
+//
+// Driven through upsertInsurancePlan rather than against the helper directly.
+// The helper used to be exported, which put a function that writes to a
+// caller-named collection with suppressAuth on the browser-callable surface; it
+// is module-internal now, and this is the path a caller actually takes to reach
+// it — permission check, normalisation and all.
+
+const STAFF = 'admin@example.com';
+const PASSWORD = 'correct-horse-battery';
 const COLLECTION = 'InsurancePlans';
 
-// Chainable stand-in for a wix-data query builder. The helpers inside
-// pricingAdmin.jsw chain .eq()/.limit()/.include() before awaiting .find().
-function queryBuilder(items) {
-  const builder = {
-    eq: () => builder,
-    limit: () => builder,
-    include: () => builder,
-    ascending: () => builder,
-    find: async () => ({ items }),
+function seed(plans = []) {
+  const passwordSalt = randomHex(16);
+  return {
+    StaffRoles: [{ _id: 'r-admin', key: 'admin', label: 'Admin', active: true }],
+    StaffUsers: [{ _id: 'u-admin', email: STAFF, fullName: 'Admin', roleKey: 'admin', active: true }],
+    StaffCredentials: [{
+      _id: 'c-admin', email: STAFF, passwordSalt,
+      passwordHash: derivePasswordHash(PASSWORD, passwordSalt), active: true,
+    }],
+    StaffSessions: [],
+    StaffAuditLog: [],
+    // Seeded non-empty so ensurePricingSeeded leaves these collections alone.
+    [COLLECTION]: plans,
+    BusinessSettings: [{ _id: 'bs-1', currency: 'EUR' }],
+    ExtraServices: [{ _id: 'x-1', key: 'gps', label: 'GPS', price: 5 }],
+    FeeRules: [{ _id: 'f-1', key: 'night', label: 'Night', amount: 15 }],
   };
-  return builder;
 }
 
-function mockCollectionRows(rows) {
-  wixData.query = jest.fn(() => queryBuilder(rows));
+let fake;
+function install(plans) {
+  clearPricingCatalogCache();
+  fake = createFakeWixData(seed(plans)).install(wixData);
+  return fake;
 }
 
-const originalQuery = wixData.query;
-const originalUpdate = wixData.update;
-const originalInsert = wixData.insert;
-const originalRemove = wixData.remove;
+async function token() {
+  const { sessionToken } = await loginStaff({ email: STAFF, password: PASSWORD });
+  return sessionToken;
+}
 
-beforeEach(() => {
-  wixData.update = jest.fn(async (_collection, item) => ({ ...item }));
-  wixData.insert = jest.fn(async (_collection, item) => ({ ...item, _id: 'generated-id' }));
-  wixData.remove = jest.fn(async () => ({}));
-});
+const save = async (payload) => upsertInsurancePlan({ authToken: await token(), payload });
+
+/** Writes to the plans collection only — the session touch and audit rows are noise here. */
+const planWrites = (kind) => fake.calls[kind].filter((c) => c.collection === COLLECTION);
+const planRow = (key) => fake.rows(COLLECTION).find((r) => r.key === key);
 
 afterEach(() => {
-  wixData.query = originalQuery;
-  wixData.update = originalUpdate;
-  wixData.insert = originalInsert;
-  wixData.remove = originalRemove;
-  jest.restoreAllMocks();
+  if (fake) fake.restore();
+  fake = null;
+  clearPricingCatalogCache();
 });
 
-describe('upsertByKey — update path', () => {
-  const existingRow = {
-    _id: 'plan-1',
-    key: 'cdw',
-    label: 'CDW',
-    description: 'Existing description',
-    pricePerDay: 0,
-    sortOrder: 10,
-    publicVisible: true,
-  };
+describe('saving over an existing row', () => {
+  const existing = () => [{
+    _id: 'plan-1', key: 'cdw', label: 'CDW', description: 'Basic cover',
+    pricePerDay: 10, billingMode: 'perDay', active: true, sortOrder: 5,
+    // A field no normaliser writes — the merge is the only thing that can carry
+    // it through. Picking sortOrder here would prove nothing: normalizeCatalogItem
+    // sets that on every save, so it is the payload overwriting, not the merge
+    // failing.
+    legacyImportRef: 'IMPORT-2019-441',
+  }];
 
   test('passes suppressAuth as the options argument, not as a data field', async () => {
-    // Regression test: a misplaced comma operator inside the spread previously
-    // made this call `update(collection, { suppressAuth: true, ...item })` with
-    // no options argument at all, so updates ran without suppressAuth.
-    mockCollectionRows([existingRow]);
+    // The bug this file was written for: a comma operator inside a spread once
+    // put suppressAuth into the record instead of into the options argument, so
+    // the flag was stored as data and the write ran without it.
+    install(existing());
+    await save({ _id: 'plan-1', key: 'cdw', label: 'CDW', pricePerDay: 12 });
 
-    await upsertByKey(COLLECTION, { _id: 'plan-1', key: 'cdw', label: 'CDW', pricePerDay: 12 });
-
-    expect(wixData.update).toHaveBeenCalledTimes(1);
-    const [collection, item, options] = wixData.update.mock.calls[0];
-    expect(collection).toBe(COLLECTION);
-    expect(options).toEqual({ suppressAuth: true });
-    expect(item).not.toHaveProperty('suppressAuth');
+    const [write] = planWrites('update');
+    expect(write.options).toEqual({ suppressAuth: true });
+    expect(write.item).not.toHaveProperty('suppressAuth');
   });
 
   test('merges the previous record so fields absent from the payload survive', async () => {
-    mockCollectionRows([existingRow]);
+    install(existing());
+    await save({ _id: 'plan-1', key: 'cdw', label: 'CDW', pricePerDay: 12 });
+    expect(planRow('cdw').legacyImportRef).toBe('IMPORT-2019-441');
+  });
 
-    await upsertByKey(COLLECTION, { _id: 'plan-1', key: 'cdw', label: 'CDW', pricePerDay: 12 });
-
-    const [, item] = wixData.update.mock.calls[0];
-    expect(item.description).toBe('Existing description');
-    expect(item.sortOrder).toBe(10);
-    expect(item.publicVisible).toBe(true);
+  test('but a field the normaliser always writes is decided by the save', async () => {
+    // The other half, and the one that surprises: sortOrder is written on every
+    // save whether the caller mentioned it or not, so an omitted sortOrder is
+    // reset to its default rather than preserved.
+    install(existing());
+    await save({ _id: 'plan-1', key: 'cdw', label: 'CDW', pricePerDay: 12 });
+    expect(planRow('cdw').sortOrder).toBe(9999);
   });
 
   test('lets the incoming payload win over the previous record', async () => {
-    mockCollectionRows([existingRow]);
-
-    await upsertByKey(COLLECTION, { _id: 'plan-1', key: 'cdw', label: 'CDW Updated', pricePerDay: 12 });
-
-    const [, item] = wixData.update.mock.calls[0];
-    expect(item.pricePerDay).toBe(12);
-    expect(item.label).toBe('CDW Updated');
-    expect(item._id).toBe('plan-1');
+    install(existing());
+    await save({ _id: 'plan-1', key: 'cdw', label: 'CDW Updated', pricePerDay: 12 });
+    expect(planRow('cdw')).toMatchObject({ label: 'CDW Updated', pricePerDay: 12 });
   });
 
-  test('reports update mode and returns the previous record', async () => {
-    mockCollectionRows([existingRow]);
+  test('updates rather than inserting a second row', async () => {
+    install(existing());
+    await save({ _id: 'plan-1', key: 'cdw', label: 'CDW', pricePerDay: 12 });
 
-    const result = await upsertByKey(COLLECTION, { _id: 'plan-1', key: 'cdw', label: 'CDW' });
+    expect(planWrites('update')).toHaveLength(1);
+    expect(planWrites('insert')).toHaveLength(0);
+    expect(fake.rows(COLLECTION)).toHaveLength(1);
+  });
 
-    expect(result.mode).toBe('update');
-    expect(result.previous).toMatchObject({ _id: 'plan-1' });
-    expect(wixData.insert).not.toHaveBeenCalled();
+  test('is audited as an update, carrying what was there before', async () => {
+    install(existing());
+    await save({ _id: 'plan-1', key: 'cdw', label: 'CDW Updated', pricePerDay: 12 });
+
+    const entry = fake.rows('StaffAuditLog').find((e) => e.action === 'pricing.update');
+    expect(entry).toBeDefined();
+    expect(entry.oldValue).toContain('Basic cover');
+    expect(entry.newValue).toContain('CDW Updated');
   });
 
   test('adopts the id of an existing row matched by key when no id is supplied', async () => {
-    mockCollectionRows([existingRow]);
+    // How a save from a form that never learned the id still lands on the right
+    // row instead of creating a twin.
+    install(existing());
+    await save({ key: 'cdw', label: 'CDW', pricePerDay: 12 });
 
-    await upsertByKey(COLLECTION, { key: 'cdw', label: 'CDW', pricePerDay: 12 });
-
-    expect(wixData.update).toHaveBeenCalledTimes(1);
-    const [, item] = wixData.update.mock.calls[0];
-    expect(item._id).toBe('plan-1');
-    expect(wixData.insert).not.toHaveBeenCalled();
+    expect(fake.rows(COLLECTION)).toHaveLength(1);
+    expect(planRow('cdw')._id).toBe('plan-1');
+    expect(planWrites('insert')).toHaveLength(0);
   });
 
   test('removes duplicate rows that share the key but not the surviving id', async () => {
-    mockCollectionRows([existingRow, { _id: 'plan-duplicate', key: 'cdw', label: 'CDW copy' }]);
+    install([
+      ...existing(),
+      { _id: 'plan-dupe', key: 'cdw', label: 'CDW (duplicate)', pricePerDay: 99 },
+    ]);
+    await save({ _id: 'plan-1', key: 'cdw', label: 'CDW', pricePerDay: 12 });
 
-    await upsertByKey(COLLECTION, { _id: 'plan-1', key: 'cdw', label: 'CDW' });
+    const remaining = fake.rows(COLLECTION);
+    expect(remaining).toHaveLength(1);
+    expect(remaining[0]._id).toBe('plan-1');
+    expect(planWrites('remove').map((c) => c.id)).toEqual(['plan-dupe']);
+  });
 
-    expect(wixData.remove).toHaveBeenCalledTimes(1);
-    expect(wixData.remove).toHaveBeenCalledWith(COLLECTION, 'plan-duplicate', { suppressAuth: true });
+  test('the duplicate removal passes suppressAuth too', async () => {
+    install([
+      ...existing(),
+      { _id: 'plan-dupe', key: 'cdw', label: 'CDW (duplicate)', pricePerDay: 99 },
+    ]);
+    await save({ _id: 'plan-1', key: 'cdw', label: 'CDW', pricePerDay: 12 });
+    expect(planWrites('remove')[0].options).toEqual({ suppressAuth: true });
   });
 });
 
-describe('upsertByKey — insert path', () => {
-  test('inserts with suppressAuth options when no matching row exists', async () => {
-    mockCollectionRows([]);
+describe('saving a row that does not exist yet', () => {
+  test('inserts with suppressAuth as the options argument', async () => {
+    install([{ _id: 'plan-other', key: 'other', label: 'Other', pricePerDay: 1 }]);
+    await save({ key: 'scdw', label: 'Super CDW', pricePerDay: 20 });
 
-    const result = await upsertByKey(COLLECTION, { key: 'scdw', label: 'SCDW', pricePerDay: 20 });
-
-    expect(wixData.update).not.toHaveBeenCalled();
-    expect(wixData.insert).toHaveBeenCalledTimes(1);
-    const [collection, item, options] = wixData.insert.mock.calls[0];
-    expect(collection).toBe(COLLECTION);
-    expect(options).toEqual({ suppressAuth: true });
-    expect(item).not.toHaveProperty('_id');
-    expect(item).not.toHaveProperty('suppressAuth');
-    expect(result.mode).toBe('insert');
+    const [write] = planWrites('insert');
+    expect(write.options).toEqual({ suppressAuth: true });
+    expect(write.item).not.toHaveProperty('suppressAuth');
+    expect(planRow('scdw')).toMatchObject({ label: 'Super CDW', pricePerDay: 20 });
   });
 
   test('normalizes the key from the label when none is supplied', async () => {
-    mockCollectionRows([]);
+    install([{ _id: 'plan-other', key: 'other', label: 'Other', pricePerDay: 1 }]);
+    await save({ label: 'Super CDW', pricePerDay: 20 });
+    expect(fake.rows(COLLECTION).map((r) => r.key)).toContain('super_cdw');
+  });
 
-    await upsertByKey(COLLECTION, { label: 'Full Coverage', pricePerDay: 30 });
+  test('is audited as an insert, with nothing before it', async () => {
+    install([{ _id: 'plan-other', key: 'other', label: 'Other', pricePerDay: 1 }]);
+    await save({ key: 'scdw', label: 'Super CDW', pricePerDay: 20 });
 
-    const [, item] = wixData.insert.mock.calls[0];
-    expect(item.key).toBe('full_coverage');
+    const entry = fake.rows('StaffAuditLog').find((e) => e.action === 'pricing.insert');
+    expect(entry).toBeDefined();
+    expect(entry.oldValue).toBe('');
+  });
+
+  test('an empty id on the payload does not become a stored field', async () => {
+    install([{ _id: 'plan-other', key: 'other', label: 'Other', pricePerDay: 1 }]);
+    await save({ _id: '', key: 'scdw', label: 'Super CDW', pricePerDay: 20 });
+
+    const [write] = planWrites('insert');
+    expect(write.item._id).not.toBe('');
+  });
+});
+
+describe('the gate in front of it', () => {
+  test('refuses an unauthenticated caller, and writes nothing', async () => {
+    install([{ _id: 'plan-1', key: 'cdw', label: 'CDW', pricePerDay: 10 }]);
+
+    await expect(upsertInsurancePlan({ payload: { key: 'cdw', label: 'Hacked', pricePerDay: 0 } }))
+      .rejects.toThrow('AUTH_REQUIRED');
+    expect(planWrites('update')).toHaveLength(0);
+    expect(planWrites('insert')).toHaveLength(0);
+    expect(planRow('cdw').label).toBe('CDW');
+  });
+
+  test('refuses a negative price before anything is written', async () => {
+    install([{ _id: 'plan-1', key: 'cdw', label: 'CDW', pricePerDay: 10 }]);
+
+    await expect(save({ _id: 'plan-1', key: 'cdw', label: 'CDW', pricePerDay: -5 }))
+      .rejects.toThrow('Invalid insurance pricePerDay');
+    expect(planRow('cdw').pricePerDay).toBe(10);
   });
 });

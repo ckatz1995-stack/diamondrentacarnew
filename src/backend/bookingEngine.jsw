@@ -30,21 +30,6 @@ async function generateBookingNumber() {
     return `RNT-${year}-${String(nextNumber).padStart(4, "0")}`;
 }
 
-// Overlap rule below is the DB form of bookingsOverlap() in backend/availability.js —
-// keep the two in step if the semantics ever change.
-async function hasOverlap(vehicleId, start, end, excludeBookingId) {
-    const res = await wixData.query("BookingsNew")
-        .eq("assignedVehicle", vehicleId)
-        .ne("status", "Canceled")
-        .lt("pickupDateTime", end)      // pickup < newEnd
-        .gt("dropoffDateTime", start)   // dropoff > newStart
-        .limit(1000)
-        .find({ suppressAuth: true });
-
-    const items = res.items || [];
-    return items.some(b => b._id !== excludeBookingId);
-}
-
 async function getActiveFleetCountByCategoryKeys(categoryKeys = []) {
   const uniqueKeys = [...new Set((categoryKeys || []).map(v => String(v || '').trim()).filter(Boolean))];
   for (const key of uniqueKeys) {
@@ -793,67 +778,3 @@ vehicleCategorySpecs: mapVehicleCategoryCatalogItem(vehicle).specs,
     }
 }
 
-// ==========================
-// Calendar: move/assign + overlap block + audit
-// ==========================
-export async function applyCalendarChange(change) {
-    try {
-        const { bookingId, resourceId, start, end } = change || {};
-        if (!bookingId) return { success: false, message: "Missing bookingId" };
-
-        const booking = await wixData.get("BookingsNew", bookingId, { suppressAuth: true });
-        if (!booking) return { success: false, message: "Booking not found" };
-
-        if (booking.status === "Canceled") {
-            return { success: false, message: "Canceled booking cannot be moved" };
-        }
-
-        const newStart = start ? new Date(start) : new Date(booking.pickupDateTime);
-        const newEnd = end ? new Date(end) : new Date(booking.dropoffDateTime);
-
-        if (Number.isNaN(newStart.getTime()) || Number.isNaN(newEnd.getTime()) || newEnd <= newStart) {
-            return { success: false, message: "Invalid dates" };
-        }
-
-        const newAssigned = (!resourceId || resourceId === "unassigned") ? null : resourceId;
-
-        // overlap check
-        if (newAssigned) {
-            const overlap = await hasOverlap(newAssigned, newStart, newEnd, bookingId);
-            if (overlap) return { success: false, message: "BOOKING_OVERLAP" };
-        }
-
-        const userId = wixUsersBackend.currentUser?.id || null;
-        const now = new Date();
-
-        const assignedChanged = String(booking.assignedVehicle || "") !== String(newAssigned || "");
-
-        booking.pickupDateTime = newStart;
-        booking.dropoffDateTime = newEnd;
-        booking.assignedVehicle = newAssigned;
-
-        booking.scheduleChangedAt = now;
-        booking.scheduleChangedBy = userId;
-
-        if (assignedChanged) {
-            booking.assignedVehicleChangedAt = now;
-            booking.assignedVehicleChangedBy = userId;
-        }
-
-        const saved = await wixData.update("BookingsNew", booking, { suppressAuth: true });
-
-        const event = {
-            id: saved._id,
-            resourceId: saved.assignedVehicle ? saved.assignedVehicle : "unassigned",
-            title: (saved.bookingNumber || "") + " - " + (saved.customerName || ""),
-            start: saved.pickupDateTime,
-            end: saved.dropoffDateTime,
-            status: saved.status || "Pending"
-        };
-
-        return { success: true, booking: saved, event };
-
-    } catch (err) {
-        return { success: false, message: (err && err.message) ? err.message : String(err) };
-    }
-}
