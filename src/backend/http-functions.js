@@ -126,8 +126,15 @@ function toImageArray(value){
   const url = toImageUrl(value);
   return url ? [url] : [];
 }
+// Groups the same model written different ways under one key: case, spacing and
+// accents are all dropped. Stripping to [a-z0-9] would erase a name written in
+// Greek entirely, and every such model would then share the empty key and
+// collapse into a single entry \u2014 so the stripped form is only used when it
+// survives, and a name that does not reduce falls back to its own letters.
 function normalizeModelKey(value){
-  return String(value || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "");
+  const base = String(value || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const latin = base.replace(/[^a-z0-9]+/g, "");
+  return latin || base.replace(/\s+/g, "");
 }
 function modelCategoryFallback(model){
   const key = normalizeModelKey(model);
@@ -192,7 +199,12 @@ export async function get_fleet_models(request){
         deriveCategoryCode(item?.categoryCode) ||
         modelCategoryFallback(model);
 
-      if (targetCategory && inferredCategory && inferredCategory !== targetCategory) continue;
+      // A row whose category cannot be determined is left out when a specific
+      // category was asked for. It used to fall through this guard and then be
+      // stamped with targetCategory below, so one unclassifiable car appeared
+      // under every category — including codes that do not exist — labelled as
+      // if it belonged there. With no category requested it is still listed.
+      if (targetCategory && inferredCategory !== targetCategory) continue;
 
       const photos = [
         ...toImageArray(item?.photos),
