@@ -622,6 +622,13 @@ export async function resetPricingDefaults({ authToken, target = 'all' } = {}) {
     const existing = await wixData.query(PRICING_COLLECTIONS.businessSettings).ascending('_createdDate').limit(1).find({ suppressAuth: true }).catch(() => ({ items: [] }));
     const prev = existing.items?.[0] || null;
     const row = { ...(prev || {}), ...fallback.businessSettings };
+    // fallback.businessSettings carries an empty _id, which lands on top of the
+    // real one. Left alone it makes every reset an insert: the collection grows a
+    // duplicate singleton each time, and readBusinessSettings takes the oldest
+    // row, so the settings the site actually uses never change and the reset
+    // looks like it did nothing. seedBusiness pins the id back for this reason.
+    if (prev?._id) row._id = prev._id;
+    else delete row._id;
     const saved = row._id ? await wixData.update(PRICING_COLLECTIONS.businessSettings, row, { suppressAuth: true }) : await wixData.insert(PRICING_COLLECTIONS.businessSettings, row, { suppressAuth: true });
     result.business = { inserted: prev ? 0 : 1, updated: prev ? 1 : 0, total: 1, saved };
     await writePricingAudit(actor, 'pricing.resetDefaults', 'pricing.businessSettings', String(saved._id || 'singleton'), prev, saved, 'Reset business settings στα defaults');

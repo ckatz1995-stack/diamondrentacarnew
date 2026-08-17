@@ -594,13 +594,27 @@ export async function createBooking(data) {
             finalExtras.push(extraKey);
 
             const extraCfg = extrasMap[extraKey] || {};
-            const label = cleanText(typeof rawExtra === 'object' ? (rawExtra.label || rawExtra.name || '') : '') || cleanText(extraCfg.label || extraKey);
-            const mode = cleanText(typeof rawExtra === 'object' ? (rawExtra.mode || rawExtra.billingMode || '') : '') || cleanText(extraCfg.billingMode || extraCfg.mode || 'perDay');
-            const unitPrice = Number(toFiniteNumber(typeof rawExtra === 'object' ? (rawExtra.pricePerDay ?? rawExtra.price ?? rawExtra.amount) : undefined, toFiniteNumber(extraCfg.price, 0)).toFixed(2));
+            // Price, billing mode and label all come from the catalog, never from
+            // the payload. createBooking is anonymously callable, so a price read
+            // out of the request is a price the customer set for themselves: a
+            // supplied 0 made an extra free, a supplied negative drove the whole
+            // booking total below zero, and a supplied billingMode of perBooking
+            // billed a per-day extra once. A key with no catalog row prices at 0
+            // and is still recorded on the booking.
+            // buildExtraMap has already settled the shape of a row that exists:
+            // price is a finite number, mode is exactly perDay or perBooking, and
+            // label is non-empty. So the fallbacks below are for the missing-row
+            // case, where extraCfg is {}.
+            const label = cleanText(extraCfg.label || extraKey);
+            const mode = extraCfg.mode === 'perBooking' ? 'perBooking' : 'perDay';
+            // Clamped because a negative price survives that normaliser.
+            // upsertExtraService refuses one, but seeds, imports and direct
+            // collection edits do not go through upsertExtraService.
+            const unitPrice = Number(Math.max(0, toFiniteNumber(extraCfg.price, 0)).toFixed(2));
             const lineTotal = Number((mode === 'perBooking' ? unitPrice : unitPrice * billableDays).toFixed(2));
 
-            extraLabels.push(label || extraKey);
-            selectedExtrasDetails.push({ key: extraKey, label: label || extraKey, mode: mode === 'perBooking' ? 'perBooking' : 'perDay', unitPrice, lineTotal });
+            extraLabels.push(label);
+            selectedExtrasDetails.push({ key: extraKey, label, mode, unitPrice, lineTotal });
             computedExtrasTotal += lineTotal;
         }
 
