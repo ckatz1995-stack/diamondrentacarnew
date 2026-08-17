@@ -196,6 +196,22 @@ describe('applying the payload', () => {
     expect(bookingRow().phone).toBe('2109999999');
   });
 
+  test('a save that names none of the customer fields leaves all of them intact', async () => {
+    // The test above still mentions phone, so it says nothing about the guard on
+    // the phone line itself. Dropping any one of these guards is a payload that
+    // blanks a field it never mentioned — the failure mode the guards exist for,
+    // and one that only shows up when the field is absent from the payload.
+    install();
+    await save({ internalMemo: 'nothing to do with the customer' });
+    expect(bookingRow()).toMatchObject({
+      customerName: 'A Customer',
+      phone: '2101234567',
+      email: 'customer@example.com',
+      bookingNumber: 'RNT-2026-0001',
+      categoryId: 'ECO',
+    });
+  });
+
   test('clears a field when the payload sends an empty string', async () => {
     install();
     await save({ flightNumber: 'A3 610' });
@@ -348,6 +364,22 @@ describe('the charges block', () => {
     expect(bookingRow().insuranceExtraPerDay).toBe(20);
   });
 
+  test('the total the charges block computes is discarded before it is stored', async () => {
+    // The block writes booking.totalPrice itself, then syncBookingChargeFields
+    // recomputes it from the charge lines a few statements later. Only the five
+    // named booking fields it sets survive, so the arithmetic on that one line —
+    // discount included — is unobservable. Pinned so a future reader does not
+    // "fix" a sign there expecting anything to change, and so the five that do
+    // survive are stated outright.
+    install();
+    await save({ charges: { rental: 135, insurance: 36, options: 12, ageFee: 8, nightFee: 5, discount: 10 } });
+    expect(bookingRow()).toMatchObject({
+      baseCost: 135, insuranceCost: 36, extrasTotal: 12, ageFee: 8, nightFee: 5,
+    });
+    // 135 + 36 + 12 + 8 + 5 - 10, re-derived rather than carried over.
+    expect(bookingRow().totalPrice).toBe(186);
+  });
+
   test('a bare totalPrice is honoured only when no charges came with it', async () => {
     install();
     await save({ totalPrice: 999 });
@@ -438,13 +470,18 @@ describe('the stage argument', () => {
     expect(rentalRow().internalMemo).toBe('note');
   });
 
+  // Compared to the millisecond. String(date) prints to the second, so two
+  // saves inside the same second read as equal whether the timestamp moved or
+  // not — a re-stamp on every save would slip straight through.
+  const stampOf = (value) => new Date(value).getTime();
+
   test('the checkout timestamp is stamped once and not moved by a later save', async () => {
     install();
     await save({}, { stage: 'checkout' });
     const first = rentalRow().checkoutAt;
     expect(first).toBeTruthy();
     await save({ internalMemo: 'again' }, { stage: 'checkout' });
-    expect(String(rentalRow().checkoutAt)).toBe(String(first));
+    expect(stampOf(rentalRow().checkoutAt)).toBe(stampOf(first));
   });
 
   test('the check-in timestamp is stamped once too', async () => {
@@ -453,7 +490,7 @@ describe('the stage argument', () => {
     const first = rentalRow().checkinAt;
     expect(first).toBeTruthy();
     await save({}, { stage: 'final' });
-    expect(String(rentalRow().checkinAt)).toBe(String(first));
+    expect(stampOf(rentalRow().checkinAt)).toBe(stampOf(first));
   });
 
   test('checkout freezes a copy of the financial snapshot on both records', async () => {
@@ -627,6 +664,67 @@ describe('the pricing override gate', () => {
     const res = await save({ charges: { rental: 135, insurance: 36, discount: 20 } }, { email: CLERK });
     expect(res.success).toBe(false);
     expect(bookingRow().totalPrice).toBe(171);
+  });
+
+  test('money moved between lines is drift even though the total is unchanged', async () => {
+    // A 20 transport fee cancelled by a 20 discount leaves the gross at exactly
+    // 171. Drift is decided line by line rather than on the total, so this is
+    // still an override — which is the point: the customer is being charged for
+    // something different, and the two halves could be unwound separately.
+    install({ bookingRow: withSnapshot() });
+    const res = await save({
+      charges: { rental: 135, insurance: 36, transport: 20, discount: 20 },
+    }, { email: CLERK });
+
+    expect(res.success).toBe(false);
+    expect(res.message).toContain('pricing override permission');
+  });
+
+  test('and the delta reported for it is zero, since the total really did not move', async () => {
+    install({ bookingRow: withSnapshot() });
+    await save({
+      charges: { rental: 135, insurance: 36, transport: 20, discount: 20 },
+    }, { email: ADMIN });
+
+    expect(rentalRow().pricingOverride).toMatchObject({ status: 'override', deltaGross: 0 });
+    expect(rentalRow().pricingReview.drift.hasDelta).toBe(true);
+  });
+
+  test('an admin reaches both permissions through the special list, not a separate check', async () => {
+    // requireStaffAccess fills every special in for an admin role, so the
+    // isAdmin term in saveContract's own two checks never decides anything on
+    // its own. Pinned because the two look like independent grants and are not:
+    // an admin who somehow arrived with an empty special list would still pass,
+    // and this is the record of which of those is load-bearing.
+    install({ bookingRow: withSnapshot() });
+    await save({
+      charges: { rental: 135, insurance: 36, damages: 40 },
+      pricingOverride: { approveNow: true },
+    }, { email: ADMIN });
+    expect(rentalRow().pricingOverride.status).toBe('approved');
+
+    // The same save by a role holding both specials explicitly, and no admin
+    // flag at all, lands identically.
+    const s = seed({ bookingRow: withSnapshot() });
+    s.StaffRoles.push({
+      _id: 'role-both', key: 'super', label: 'Super', active: true,
+      rentalsView: true, rentalsEdit: true,
+      specialPermissions: 'overridePricing|approveManualOverride',
+    });
+    s.StaffUsers.push({ _id: 'u-both', email: 'both@example.com', fullName: 'Both', roleKey: 'super', active: true });
+    const passwordSalt = randomHex(16);
+    s.StaffCredentials.push({
+      _id: 'cred-both', email: 'both@example.com', passwordSalt,
+      passwordHash: derivePasswordHash(PASSWORD, passwordSalt), active: true,
+    });
+    fake.restore();
+    fake = createFakeWixData(s).install(wixData);
+
+    await save({
+      charges: { rental: 135, insurance: 36, damages: 40 },
+      pricingOverride: { approveNow: true },
+    }, { email: 'both@example.com' });
+    expect(rentalRow().pricingOverride).toMatchObject({ status: 'approved', approvedBy: 'Both' });
   });
 
   test('the stored snapshot is what drift is measured against, not the last save', async () => {
