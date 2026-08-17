@@ -413,7 +413,13 @@ export async function getFleetModelsPreview({ vehicleId, categoryCode } = {}) {
   const grouped = new Map();
   for (const entry of (res.items || [])) {
     const entryCategoryCode = deriveFleetCategoryCode(entry?.Category) || deriveFleetCategoryCode(entry?.category) || deriveFleetCategoryCode(entry?.categoryCode) || deriveFleetCategoryCode(entry?.categoryId);
-    if (resolvedCategoryCode && entryCategoryCode && entryCategoryCode !== resolvedCategoryCode) continue;
+    // A row whose category cannot be determined is left out when a specific
+    // category was asked for. Requiring entryCategoryCode to be truthy let it
+    // fall past this guard and be stamped with resolvedCategoryCode below, so a
+    // single unclassifiable car appeared under every category — including codes
+    // that do not exist. Same rule as get_fleet_models in http-functions.js,
+    // which is the public twin of this endpoint.
+    if (resolvedCategoryCode && entryCategoryCode !== resolvedCategoryCode) continue;
     const isActive = (entry?.active ?? entry?.Active ?? true) !== false;
     if (!isActive) continue;
     const model = cleanText(entry.model || entry.Model || entry.title || entry.Title || '');
