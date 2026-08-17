@@ -2169,8 +2169,21 @@ function matchBookingAgainstCompanySeeds(booking = {}, rental = {}, seeds = {}){
   if (seeds.vatNumber && vatNumber && vatNumber === seeds.vatNumber) return true;
   if (seeds.email && email && email === seeds.email) return true;
   if (seeds.phone && phone && phone === seeds.phone) return true;
-  if (seeds.companyName && companyName && (companyName === seeds.companyName || companyName.includes(seeds.companyName) || seeds.companyName.includes(companyName))) return true;
-  if (seeds.tradeName && tradeName && (tradeName === seeds.tradeName || tradeName.includes(seeds.tradeName) || seeds.tradeName.includes(tradeName))) return true;
+  // Exact, word for word. A company has a registered name, and the VAT number,
+  // email and phone above are the identifiers that carry weight — the name is the
+  // weakest of the four and used to be the loosest.
+  //
+  // Substring matching in either direction merged separate businesses: searching
+  // "Diamond Rentals Ltd" also returned "Blue Diamond Rentals Ltd", searching
+  // "Diamond" returned every company with the word in its name, and searching
+  // "Ltd" returned all of them at once. Each of those put another company's
+  // rentals and another company's spend on a corporate account.
+  //
+  // Requiring every searched word to be present is not enough here, the way it is
+  // for a person: "Blue Diamond Rentals Ltd" contains every word of "Diamond
+  // Rentals Ltd" and is still a different company.
+  if (seeds.companyName && companyName && companyName === seeds.companyName) return true;
+  if (seeds.tradeName && tradeName && tradeName === seeds.tradeName) return true;
   return false;
 }
 
