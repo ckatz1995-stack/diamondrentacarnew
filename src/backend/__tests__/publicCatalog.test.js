@@ -348,3 +348,103 @@ describe('the sample models shown for a category', () => {
     expect(result.items).toEqual([]);
   });
 });
+
+describe('a fleet row nobody can classify', () => {
+  // The same fault get_fleet_models had in http-functions.js, in this endpoint's
+  // twin. The mismatch guard required the row's own category to be truthy, so a
+  // row with none fell straight past it and was then stamped with whatever the
+  // caller asked for — one unclassifiable car appearing under every category,
+  // including codes that do not exist, each time labelled as though it belonged.
+  const unclassifiable = () => {
+    const { category: _c, ...rest } = fleetRow({ _id: 'car-x', model: 'Bugatti Chiron' });
+    return rest;
+  };
+
+  test('is not offered under a category it was never in', async () => {
+    install({ FleetNew: [fleetRow(), unclassifiable()] });
+    const result = await getFleetModelsPreview({ categoryCode: 'ECO' });
+    expect(result.items.map((i) => i.model)).toEqual(['Aygo']);
+  });
+
+  test('is not offered under every other category either', async () => {
+    install({
+      VehiclesNew: [category(), category({ _id: 'cat-lux', category: 'LUX', title: 'Luxury', price: 120 })],
+      FleetNew: [fleetRow(), unclassifiable()],
+    });
+    expect((await getFleetModelsPreview({ categoryCode: 'LUX' })).items).toEqual([]);
+  });
+
+  test('and not under a category code that does not exist', async () => {
+    install({ FleetNew: [fleetRow(), unclassifiable()] });
+    expect((await getFleetModelsPreview({ categoryCode: 'ZZZ' })).items).toEqual([]);
+  });
+
+  test('but is still listed when no category is asked for', async () => {
+    // Hiding it everywhere would lose the car from the site altogether.
+    install({ FleetNew: [fleetRow(), unclassifiable()] });
+    const models = (await getFleetModelsPreview({})).items.map((i) => i.model);
+    expect(models).toContain('Bugatti Chiron');
+    expect(models).toContain('Aygo');
+  });
+});
+
+describe('where a fleet row keeps its category', () => {
+  // Rows have been written by several hands, so four spellings are read. Each is
+  // asserted against a model the code cannot guess a category for, so a passing
+  // test means that spelling was genuinely read rather than rescued elsewhere.
+  test.each([
+    ['Category', 'Category'],
+    ['category', 'category'],
+    ['categoryCode', 'categoryCode'],
+    ['categoryId', 'categoryId'],
+  ])('%s is read', async (_label, field) => {
+    const { category: _c, ...rest } = fleetRow({ _id: 'car-1', model: 'Aygo' });
+    install({ FleetNew: [{ ...rest, [field]: 'ECO' }] });
+    expect((await getFleetModelsPreview({ categoryCode: 'ECO' })).items.map((i) => i.model)).toEqual(['Aygo']);
+  });
+
+  test('a spelling that is not read leaves the row unclassified', async () => {
+    // Guards the assumption the block above rests on: if every field name
+    // matched, those four tests would prove nothing.
+    const { category: _c, ...rest } = fleetRow({ _id: 'car-1', model: 'Aygo' });
+    install({ FleetNew: [{ ...rest, vehicleGroup: 'ECO' }] });
+    expect((await getFleetModelsPreview({ categoryCode: 'ECO' })).items).toEqual([]);
+  });
+});
+
+describe('where a fleet row keeps its model name', () => {
+  test.each([
+    ['model', 'model'],
+    ['Model', 'Model'],
+    ['title', 'title'],
+    ['Title', 'Title'],
+  ])('%s is read', async (_label, field) => {
+    const { model: _m, ...rest } = fleetRow();
+    install({ FleetNew: [{ ...rest, [field]: 'Aygo' }] });
+    expect((await getFleetModelsPreview({ categoryCode: 'ECO' })).items.map((i) => i.model)).toEqual(['Aygo']);
+  });
+
+  test('a row with no model under any spelling is skipped', async () => {
+    const { model: _m, ...rest } = fleetRow();
+    install({ FleetNew: [{ ...rest }, fleetRow({ _id: 'car-2', model: 'Picanto' })] });
+    expect((await getFleetModelsPreview({ categoryCode: 'ECO' })).items.map((i) => i.model)).toEqual(['Picanto']);
+  });
+});
+
+describe('whether a fleet row counts as active', () => {
+  test.each([
+    ['active', 'active'],
+    ['Active', 'Active'],
+  ])('%s set to false leaves the row out', async (_label, field) => {
+    const { active: _a, ...rest } = fleetRow();
+    install({ FleetNew: [{ ...rest, [field]: false }, fleetRow({ _id: 'car-2', model: 'Picanto' })] });
+    expect((await getFleetModelsPreview({ categoryCode: 'ECO' })).items.map((i) => i.model)).toEqual(['Picanto']);
+  });
+
+  test('a row with no active flag is treated as active', async () => {
+    // Defaulting the other way would empty the site on a schema change.
+    const { active: _a, ...rest } = fleetRow();
+    install({ FleetNew: [rest] });
+    expect((await getFleetModelsPreview({ categoryCode: 'ECO' })).items.map((i) => i.model)).toEqual(['Aygo']);
+  });
+});
