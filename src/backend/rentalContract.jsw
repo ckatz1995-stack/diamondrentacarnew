@@ -2012,13 +2012,36 @@ function bookingSourceLabelBackend(booking = {}){
   );
 }
 
+// Splits a name into comparable words. Punctuation and repeated spaces are
+// dropped so "Anna-Maria  Smith" and "Anna Maria Smith" line up.
+function nameWords(value){
+  return normalizeLoose(value).split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+}
+
+// Every word of the name being looked up has to appear as a whole word in the
+// booking's name. Raw substring matching — in either direction — pulled in
+// strangers: "Anna Smith" matched "Joanna Smithson", and a booking recorded
+// against the single letter "A" joined the history of everyone whose name
+// contained one. That is somebody else's rentals and somebody else's lifetime
+// spend on a profile a desk reads to make decisions.
+//
+// One direction only, and it is this one: a booking carrying more words than the
+// name searched for still matches ("Anna Smith" finds "Anna M Smith"), while a
+// booking carrying fewer no longer drags itself into the result.
+function nameMatchesSeed(bookingName, seedName){
+  const wanted = nameWords(seedName);
+  if (!wanted.length) return false;
+  const have = new Set(nameWords(bookingName));
+  if (!have.size) return false;
+  return wanted.every((word) => have.has(word));
+}
+
 function matchBookingAgainstCustomerSeeds(booking = {}, seeds = {}){
   const bookingEmail = normalizeLoose(booking.email);
   const bookingPhone = digitsOnly(booking.phone);
-  const bookingName = normalizeLoose(booking.customerName);
   if (seeds.email && bookingEmail && bookingEmail === seeds.email) return true;
   if (seeds.phone && bookingPhone && bookingPhone === seeds.phone) return true;
-  if (seeds.fullName && bookingName && (bookingName === seeds.fullName || bookingName.includes(seeds.fullName) || seeds.fullName.includes(bookingName))) return true;
+  if (seeds.fullName && nameMatchesSeed(booking.customerName, seeds.fullName)) return true;
   return false;
 }
 
@@ -2045,7 +2068,16 @@ async function collectBookingMatchesByCustomerSeeds(seeds = {}, limit = 80){
     }
   }
   if (seeds.fullName) {
-    await collect(wixData.query('BookingsNew').contains('customerName', seeds.fullNameRaw || seeds.fullName));
+    // Candidates are fetched by the most distinctive single word as well as by
+    // the whole string. A booking recorded as "Anna M Smith", or surname-first as
+    // "Smith Anna", does not contain "Anna Smith" as text, so the whole-string
+    // query alone could never put it in front of the matcher — and the matcher is
+    // what decides. Over-fetching here costs a query; under-fetching loses a
+    // customer's own history.
+    const words = nameWords(seeds.fullName);
+    const longest = words.slice().sort((a, b) => b.length - a.length)[0] || '';
+    if (longest) await collect(wixData.query('BookingsNew').contains('customerName', longest));
+    await collect(wixData.query('BookingsNew').contains('customerName', safeText(seeds.fullNameRaw || seeds.fullName).trim()));
   }
 
   const filtered = Array.from(map.values()).filter((booking) => matchBookingAgainstCustomerSeeds(booking, seeds));
