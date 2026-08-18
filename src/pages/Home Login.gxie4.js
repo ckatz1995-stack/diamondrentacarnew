@@ -66,8 +66,7 @@ async function handleLogin(msg = {}) {
     storeSessionToken(res?.sessionToken || '', remember);
     await refreshAuthState('Η σύνδεση ολοκληρώθηκε.');
 
-    const nextPath = String((wixLocation.query || {}).next || '').trim();
-    wixLocation.to(nextPath || ROUTES.home);
+    wixLocation.to(safeNextPath((wixLocation.query || {}).next) || ROUTES.home);
   } catch (err) {
     await refreshAuthState(err?.message || 'Η σύνδεση απέτυχε.');
   }
@@ -125,6 +124,23 @@ function post(payload) {
   const html = getLoginComponent();
   if (!html) return;
   if (!postMessageSafe(html, payload, 'home-login')) logSuppressed('postMessage failed');
+}
+
+// `next` arrives in the query string, so it is attacker-controlled: anyone can
+// hand an operator a /home-login?next=... link, and requireBackroomAccess
+// generates links of exactly that shape whenever a guarded page is opened while
+// signed out. Passing it to wixLocation.to unchecked meant a successful sign-in
+// could land the operator on another origin — convincing precisely because the
+// sign-in really did work.
+//
+// A single leading slash is the whole test: that is what every link the site
+// generates looks like. '//evil.example' is protocol-relative and would leave
+// the site, and anything with a scheme is rejected outright.
+function safeNextPath(value) {
+  const raw = String(value || '').trim();
+  if (!raw.startsWith('/')) return '';
+  if (raw.startsWith('//')) return '';
+  return raw;
 }
 
 function clampHeight(value) {

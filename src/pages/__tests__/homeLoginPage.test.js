@@ -341,24 +341,45 @@ describe('where you land after signing in', () => {
     expect(wixLocation.to).toHaveBeenCalledWith('/myroom-bookingboard');
   });
 
-  test('an absolute URL in `next` is followed off-site', async () => {
-    // FINDING, pinned as current behaviour rather than fixed.
-    //
-    // `next` is read from the query string and handed to wixLocation.to with no
-    // check that it is a path on this site. A link of the form
-    //   /home-login?next=https://evil.example/...
-    // therefore lands the operator on another origin immediately after a
-    // successful sign-in — a textbook open redirect, and a convincing one
-    // because the sign-in genuinely succeeded first.
+  test('an absolute URL in `next` is refused, landing home instead', async () => {
+    // This used to be an open redirect: `next` went to wixLocation.to unchecked,
+    // so a /home-login?next=https://evil.example/... link put the operator on
+    // another origin immediately after a *successful* sign-in — convincing
+    // precisely because the sign-in really did work.
     await boot({ query: { next: 'https://evil.example/looks-like-the-backroom' } });
     await send({ type: 'staffLogin', email: STAFF, password: PASSWORD });
-    expect(wixLocation.to).toHaveBeenCalledWith('https://evil.example/looks-like-the-backroom');
+    expect(wixLocation.to).toHaveBeenCalledWith(APP_ROUTES.home);
   });
 
-  test('a protocol-relative URL is followed too', async () => {
+  test('a protocol-relative URL is refused too', async () => {
+    // '//evil.example/x' has no scheme but still leaves the site, which is why
+    // "starts with a slash" is not on its own a sufficient test.
     await boot({ query: { next: '//evil.example/x' } });
     await send({ type: 'staffLogin', email: STAFF, password: PASSWORD });
-    expect(wixLocation.to).toHaveBeenCalledWith('//evil.example/x');
+    expect(wixLocation.to).toHaveBeenCalledWith(APP_ROUTES.home);
+  });
+
+  test('a scheme-relative or javascript URL is refused', async () => {
+    for (const next of ['javascript:alert(1)', 'http://evil.example', 'data:text/html,x', 'myroom-home']) {
+      await boot({ query: { next } });
+      await send({ type: 'staffLogin', email: STAFF, password: PASSWORD });
+      expect(wixLocation.to).toHaveBeenCalledWith(APP_ROUTES.home);
+      env.restore(); env = null; fake.restore(); fake = null;
+    }
+  });
+
+  test('a deep link with its own query string still works', async () => {
+    // requireBackroomAccess produces these for the contract and fleet pages, so
+    // the guard has to be shape-based rather than an allowlist of bare routes.
+    await boot({ query: { next: '/myroom-contract?bookingId=bk-1&mode=analysis' } });
+    await send({ type: 'staffLogin', email: STAFF, password: PASSWORD });
+    expect(wixLocation.to).toHaveBeenCalledWith('/myroom-contract?bookingId=bk-1&mode=analysis');
+  });
+
+  test('a padded same-site path is trimmed and followed', async () => {
+    await boot({ query: { next: '  /myroom-daily  ' } });
+    await send({ type: 'staffLogin', email: STAFF, password: PASSWORD });
+    expect(wixLocation.to).toHaveBeenCalledWith('/myroom-daily');
   });
 
   test('a whitespace-only next falls back to the home route', async () => {
