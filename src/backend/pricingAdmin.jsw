@@ -146,14 +146,26 @@ function categoryLookupMaps(rows = []) {
   return { byId, byCode };
 }
 
+const OPAQUE_ID_PATTERN = /^[0-9A-F-]{16,}$/i;
+
 function resolveFleetCategoryMeta(value, lookups = { byId: new Map(), byCode: new Map() }) {
-  const rawId = value && typeof value === 'object' ? cleanId(value._id || value.id || value.categoryId || value._ref) : '';
+  // A category reference reaches here in three shapes: a code someone typed, an
+  // included reference object, or — when the field holds the reference without
+  // being included — the bare record id as a string. The third used to resolve
+  // to nothing: the id was only read off an object, so byId was never consulted
+  // for it, and the opaque-id guard below then blanked the code because it looks
+  // like an id rather than something a person typed. The row showed with no
+  // category at all, and could not be re-saved, because upsertFleetVehicle runs
+  // this same resolver and rejects an empty category.
+  const rawId = value && typeof value === 'object'
+    ? cleanId(value._id || value.id || value.categoryId || value._ref)
+    : (OPAQUE_ID_PATTERN.test(cleanId(value)) ? cleanId(value) : '');
   const rawCode = resolveFleetCategoryCode(value);
   const byId = lookups?.byId instanceof Map ? lookups.byId : new Map();
   const byCode = lookups?.byCode instanceof Map ? lookups.byCode : new Map();
   const matched = (rawId && byId.get(rawId)) || (rawCode && byCode.get(String(rawCode).toUpperCase())) || null;
   return {
-    code: matched?.category || (rawCode && !/^[0-9A-F-]{16,}$/i.test(rawCode) ? rawCode : ''),
+    code: matched?.category || (rawCode && !OPAQUE_ID_PATTERN.test(rawCode) ? rawCode : ''),
     id: matched?._id || rawId || '',
     title: matched?.title || '',
     displayTitle: matched?.displayTitle || (matched ? buildVehicleCategoryDisplayTitle(matched) : ''),
@@ -707,7 +719,12 @@ export async function deleteVehicleCategory({ authToken, itemId, categoryCode } 
  */
 export async function upsertFleetVehicle({ authToken, payload = {} } = {}){
   const actor = await requirePricingEdit(authToken);
-  const normalized = normalizeFleetVehicleItem(payload);
+  // Normalised against the real categories rather than empty maps. Without them
+  // a category arriving as a record id — which is how a reference field reads
+  // when it has not been included — resolved to nothing and the guard below
+  // rejected the save, so a row stored that way could not be edited at all.
+  const lookups = categoryLookupMaps(await queryAllRows(VEHICLE_CATEGORIES_COLLECTION));
+  const normalized = normalizeFleetVehicleItem(payload, lookups);
   if (!normalized.plate) throw new Error('Missing fleet plate');
   if (!normalized.model) throw new Error('Missing fleet model');
   if (!normalized.category) throw new Error('Missing fleet category');
@@ -721,8 +738,8 @@ export async function upsertFleetVehicle({ authToken, payload = {} } = {}){
     ? await wixData.update(FLEET_COLLECTION, saveRow, { suppressAuth: true })
     : await wixData.insert(FLEET_COLLECTION, saveRow, { suppressAuth: true });
 
-  await writePricingAudit(actor, previous ? 'pricing.updateFleetVehicle' : 'pricing.insertFleetVehicle', 'pricing.fleetVehicle', String(saved?._id || saved?.plate || ''), previous, saved, `${previous ? 'Ενημέρωση' : 'Νέο'} όχημα στόλου ${buildFleetVehicleDisplayTitle(saved)}`);
-  return mapFleetVehicleAdminRow(saved);
+  await writePricingAudit(actor, previous ? 'pricing.updateFleetVehicle' : 'pricing.insertFleetVehicle', 'pricing.fleetVehicle', String(saved?._id || saved?.plate || ''), previous, saved, `${previous ? 'Ενημέρωση' : 'Νέο'} όχημα στόλου ${buildFleetVehicleDisplayTitle(saved, lookups)}`);
+  return mapFleetVehicleAdminRow(saved, lookups);
 }
 
 /**

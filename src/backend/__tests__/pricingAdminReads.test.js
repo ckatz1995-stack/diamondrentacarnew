@@ -264,49 +264,70 @@ describe('the fleet list and its category lookup', () => {
     expect((await snapshot()).fleetVehicles[0]).toMatchObject({ category: 'VAN', categoryTitle: '' });
   });
 
-  test('a bare id string does NOT resolve — the category comes back blank', async () => {
-    // FINDING, pinned as current behaviour rather than fixed.
-    //
-    // categoryLookupMaps builds a byId map, and resolveFleetCategoryMeta reads
-    // it — but the id it looks up is only ever taken from an *object* value. A
-    // category held as a plain string that happens to be a record id therefore
-    // never reaches byId, and the opaque-id guard then blanks the code because
-    // it looks like an id rather than something a person typed.
-    //
-    // Net effect: the vehicle is listed with no category at all, even though
-    // the category exists and the map that would resolve it was built.
+  test('a bare id string resolves through the byId map', async () => {
+    // The third shape a category reference arrives in, and the one that used to
+    // resolve to nothing: a reference field read without being included comes
+    // back as the bare record id. The id was only ever taken off an object, so
+    // byId was never consulted for it, and the opaque-id guard then blanked the
+    // code — the vehicle listed with no category at all, even though the
+    // category existed and the map that would resolve it had been built.
     install({
       VehiclesNew: [category],
       FleetNew: [{ _id: 'f-1', plate: 'ABC-1234', model: 'Kia Picanto', category: ECO_ID }],
     });
     const [row] = (await snapshot()).fleetVehicles;
-    expect(row).toMatchObject({ category: '', categoryId: '', categoryTitle: '', categoryDisplayTitle: '' });
-  });
-
-  test('and such a vehicle cannot be saved from the admin screen at all', async () => {
-    // The same resolver runs on the way in, so the category is blank by the
-    // time the guard checks it — and the guard rejects the save. A row in this
-    // state cannot be edited and re-saved without retyping the category.
-    install({
-      VehiclesNew: [category],
-      FleetNew: [{ _id: 'f-1', plate: 'ABC-1234', model: 'Kia Picanto', category: ECO_ID }],
+    expect(row).toMatchObject({
+      category: 'ECO', categoryId: ECO_ID,
+      categoryTitle: 'Economy', categoryDisplayTitle: 'ECO - Economy',
     });
-    await expect(upsertFleetVehicle({
-      authToken: await token(),
-      payload: { _id: 'f-1', plate: 'ABC-1234', model: 'Kia Picanto', category: ECO_ID },
-    })).rejects.toThrow('Missing fleet category');
   });
 
-  test('retyping the code saves it, which is the only way out today', async () => {
+  test('and such a vehicle can now be saved without retyping its category', async () => {
+    // The same resolver runs on the way in, so this was the second half of the
+    // same fault: the category was blank by the time the guard checked it, and
+    // the save was rejected. The row was stuck — it could not be edited at all
+    // until someone retyped the code.
     install({
       VehiclesNew: [category],
       FleetNew: [{ _id: 'f-1', plate: 'ABC-1234', model: 'Kia Picanto', category: ECO_ID }],
     });
     const saved = await upsertFleetVehicle({
       authToken: await token(),
-      payload: { _id: 'f-1', plate: 'ABC-1234', model: 'Kia Picanto', category: 'ECO' },
+      payload: { _id: 'f-1', plate: 'ABC-1234', model: 'Kia Picanto', category: ECO_ID },
     });
-    expect(saved.category).toBe('ECO');
+    expect(saved).toMatchObject({ category: 'ECO', categoryId: ECO_ID });
+  });
+
+  test('the save normalises the id down to the code, as it does for any shape', async () => {
+    install({
+      VehiclesNew: [category],
+      FleetNew: [{ _id: 'f-1', plate: 'ABC-1234', model: 'Kia Picanto', category: ECO_ID }],
+    });
+    await upsertFleetVehicle({
+      authToken: await token(),
+      payload: { _id: 'f-1', plate: 'ABC-1234', model: 'Kia Picanto', category: ECO_ID },
+    });
+    expect(fake.rows('FleetNew')[0].category).toBe('ECO');
+  });
+
+  test('an id that matches no category still yields no code, rather than the id', async () => {
+    // The opaque-id guard still does its job: an id-shaped value that resolves
+    // to nothing must not be shown to an operator as if it were a category code.
+    install({
+      VehiclesNew: [category],
+      FleetNew: [{ _id: 'f-1', plate: 'ABC-1234', model: 'Kia', category: 'deadbeef-0000-1111-2222-333344445555' }],
+    });
+    expect((await snapshot()).fleetVehicles[0]).toMatchObject({ category: '', categoryTitle: '' });
+  });
+
+  test('a short code that happens to be hex is still treated as a code', async () => {
+    // The guard keys on length as well as alphabet, so a real code like "ABCDEF"
+    // is not mistaken for an id.
+    install({
+      VehiclesNew: [{ _id: 'v-2', category: 'ABCDEF', title: 'Hexish' }],
+      FleetNew: [{ _id: 'f-1', plate: 'ABC-1234', model: 'Kia', category: 'ABCDEF' }],
+    });
+    expect((await snapshot()).fleetVehicles[0]).toMatchObject({ category: 'ABCDEF', categoryTitle: 'Hexish' });
   });
 
   test('active vehicles are listed before inactive ones', async () => {
