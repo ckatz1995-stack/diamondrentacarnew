@@ -58,8 +58,8 @@ beforeEach(() => {
   warns = jest.spyOn(console, 'warn').mockImplementation(() => {});
 });
 
-afterEach(() => {
-  if (ctx) ctx.teardown();
+afterEach(async () => {
+  if (ctx) await ctx.teardown();
   ctx = null;
   html = null;
   errors.mockRestore();

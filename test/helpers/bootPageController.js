@@ -21,6 +21,11 @@ import { installPageEnv, createComponent } from './fakePageEnv.js';
  * @param {string} [options.url]         wixLocation.url
  * @param {string[]} [options.path]      wixLocation.path
  * @param {boolean} [options.fakeTimers] freeze the clock (default true)
+ * @param {() => Promise<void>} [options.beforeStart] runs after the module
+ *   registry is reset but before the controller is imported. Anything a test
+ *   wants to stub on a backend module has to be done here: a module imported
+ *   before this call belongs to the previous generation and the controller will
+ *   never see it.
  */
 export async function bootPageController({
   importer,
@@ -32,6 +37,7 @@ export async function bootPageController({
   url = 'https://diamond.example/site/page',
   path = ['page'],
   fakeTimers = true,
+  beforeStart = null,
 } = {}) {
   jest.resetModules();
   if (fakeTimers) jest.useFakeTimers({ now: new Date('2026-03-10T12:00:00.000Z') });
@@ -57,6 +63,8 @@ export async function bootPageController({
   wixLocation.path = path;
   wixLocation.to = jest.fn();
 
+  if (beforeStart) await beforeStart();
+
   const env = installPageEnv(components);
   await env.start(importer);
 
@@ -67,9 +75,15 @@ export async function bootPageController({
     wixData,
     storage,
     component: (selector) => components[selector],
-    teardown() {
+    // Async on purpose. Draining the pending timers can start async work — a
+    // deferred re-sync, say — whose continuation runs a microtask later. Tearing
+    // `$w` down before that lands leaves the callback reaching for a global that
+    // is no longer there, which surfaces as an unhandled ReferenceError long
+    // after the test that caused it has passed.
+    async teardown() {
       if (env) {
         if (fakeTimers) jest.runOnlyPendingTimers();
+        for (let i = 0; i < 12; i += 1) await Promise.resolve();
         env.restore();
       }
       if (fake) fake.restore();

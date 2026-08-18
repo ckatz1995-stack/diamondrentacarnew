@@ -54,8 +54,8 @@ const storedToken = () => ctx.storage.local.getItem('diamond.backroom.session')
 let warn;
 beforeEach(() => { warn = jest.spyOn(console, 'warn').mockImplementation(() => {}); });
 
-afterEach(() => {
-  if (ctx) ctx.teardown();
+afterEach(async () => {
+  if (ctx) await ctx.teardown();
   ctx = null;
   html = null;
   warn.mockRestore();
