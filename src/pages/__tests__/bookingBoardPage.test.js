@@ -77,6 +77,12 @@ let wixData;
  */
 async function boot({ email = STAFF, query = {}, url = 'https://diamond.example/site/myroom-bookingboard', seedData } = {}) {
   jest.resetModules();
+  // The clock is fake for every test in this file. loadBoard defers a
+  // focusBooking post by 120ms, and a real timer left pending outlives the
+  // test — it then fires against a torn-down environment and fails the whole
+  // run. It did exactly that in CI while passing locally, because whether the
+  // timer lands before or after teardown is a matter of machine speed.
+  jest.useFakeTimers({ now: new Date('2026-03-10T12:00:00.000Z') });
 
   wixLocation = (await import('wix-location')).default;
   wixData = (await import('wix-data')).default;
@@ -110,11 +116,23 @@ async function boot({ email = STAFF, query = {}, url = 'https://diamond.example/
 /** Delivers a message from the embedded UI, from a trusted origin by default. */
 const send = (msg, origin = TRUSTED) => html.emitMessage({ origin, data: msg });
 
+/** Lets the page's deferred focusBooking post run, within the test's lifetime. */
+async function flushDeferred() {
+  jest.runOnlyPendingTimers();
+  await Promise.resolve();
+}
+
 afterEach(() => {
-  if (env) env.restore();
+  // Drain anything still scheduled while $w is still installed, so nothing can
+  // reach into a torn-down environment.
+  if (env) {
+    jest.runOnlyPendingTimers();
+    env.restore();
+  }
   env = null;
   if (fake) fake.restore();
   fake = null;
+  jest.useRealTimers();
 });
 
 describe('booting the page', () => {
@@ -158,6 +176,19 @@ describe('booting the page', () => {
     await boot();
     const [load] = html.postedOfType('loadBookings');
     expect(load.items.map((i) => i._id)).toEqual(['bk-1']);
+  });
+
+  test('a booking named in the url is focused after the board loads', async () => {
+    await boot({ query: { bookingId: 'bk-1' } });
+    expect(html.postedOfType('focusBooking')).toHaveLength(0);
+    await flushDeferred();
+    expect(html.postedOfType('focusBooking').pop()).toEqual({ type: 'focusBooking', bookingId: 'bk-1' });
+  });
+
+  test('with no booking in the url nothing is focused', async () => {
+    await boot();
+    await flushDeferred();
+    expect(html.postedOfType('focusBooking')).toHaveLength(0);
   });
 
   test('the site base is derived from the page url, minus the page segment', async () => {
@@ -412,6 +443,17 @@ describe('changing a booking status', () => {
 
     expect(fake.rows('BookingsNew')[0].status).toBe('Pending');
     expect(html.postedOfType('toast').pop().message).toBe('Error: Invalid status');
+  });
+
+  test('the changed booking is focused once the board has reloaded', async () => {
+    // The page defers this by 120ms so the embedded UI has painted the new rows
+    // before being told which one to open.
+    await boot();
+    await send({ type: 'setStatus', bookingId: 'bk-1', newStatus: 'Hold' });
+
+    expect(html.postedOfType('focusBooking')).toHaveLength(0);
+    await flushDeferred();
+    expect(html.postedOfType('focusBooking').pop()).toEqual({ type: 'focusBooking', bookingId: 'bk-1' });
   });
 
   test('the board is reloaded after a status change', async () => {
