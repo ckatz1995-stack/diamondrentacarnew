@@ -240,6 +240,18 @@ describe('messages from the frame', () => {
     expect(navigatedTo()).toEqual([]);
   });
 
+  // Two mutation survivors on this file, both equivalent:
+  //
+  // - Replacing `if (!data) return;` in the window listener with `|| {}` is
+  //   undetectable — an empty object has no `type`, so it falls past every
+  //   branch to the same nothing. (The component branch has the same shape but
+  //   is not equivalent there, because a `{}` would still be measured against
+  //   the handshake.)
+  // - Turning syncData's `Promise.all` into two sequential awaits changes the
+  //   concurrency but not one observable byte: the same four payloads go out in
+  //   the same order. Nothing here can tell the two apart, and a test that could
+  //   would be pinning wall-clock scheduling rather than behaviour.
+
   test('a navigation that throws is logged rather than propagated', async () => {
     ctx.wixLocation.to.mockImplementation(() => { throw new Error('blocked'); });
 
