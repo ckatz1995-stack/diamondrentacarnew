@@ -229,7 +229,11 @@ async function getVehicleCategoriesAdminRows() {
   return (rows || [])
     .map(mapVehicleCategoryAdminRow)
     .sort((a, b) => {
-      const orderDiff = Number(a.sortOrder || 9999) - Number(b.sortOrder || 9999);
+      // `??` not `||`: the normaliser has already defaulted a *missing* sortOrder
+      // to 9999, so the only value `||` still rewrote was a deliberate 0 — and it
+      // rewrote it to last. An operator typing 0 to mean "show this first" got
+      // the opposite.
+      const orderDiff = Number(a.sortOrder ?? 9999) - Number(b.sortOrder ?? 9999);
       if (orderDiff !== 0) return orderDiff;
       return String(a.displayTitle || '').localeCompare(String(b.displayTitle || ''), 'el');
     });

@@ -384,19 +384,31 @@ describe('merging shipped defaults with stored rows', () => {
     expect(plans.find((p) => p.key === 'cdw').pricePerDay).toBe(35);
   });
 
-  test('a shipped default with no stored row still appears', async () => {
-    // This is the mechanism behind the delete-vs-fallback behaviour reported in
-    // #252: removing the stored row does not remove the option, it restores the
-    // shipped price. Pinned here at its source.
+  test('an empty collection still falls back to the shipped defaults', async () => {
+    // The fallback that remains, and the one it was for: a site that has not
+    // configured anything still gets a working catalogue.
     install({ InsurancePlans: [] });
     expect((await catalog()).insurancePlans.map((p) => p.key)).toContain('cdw');
   });
 
-  test('a stored row with a key of its own is added alongside the defaults', async () => {
+  test('once a collection has any row, the shipped defaults step aside entirely', async () => {
+    // The defaults are a starting point for an unconfigured site, not a per-key
+    // backstop. They used to be merged row by row, which is what let a deleted
+    // row come back at the shipped price.
     install({ InsurancePlans: [{ _id: 'i-9', key: 'housecover', label: 'House cover', pricePerDay: 12 }] });
     const keys = (await catalog()).insurancePlans.map((p) => p.key);
-    expect(keys).toContain('housecover');
-    expect(keys).toContain('cdw');
+    expect(keys).toEqual(['housecover']);
+  });
+
+  test('the same holds for extras and fee rules', async () => {
+    install({
+      ExtraServices: [{ _id: 'x-9', key: 'petcarrier', label: 'Pet carrier', price: 8 }],
+      FeeRules: [{ _id: 'f-9', key: 'lateReturn', label: 'Late return', amount: 25 }],
+    });
+    const snapshot = await catalog();
+    expect(snapshot.extraServices.map((x) => x.key)).toEqual(['petcarrier']);
+    // normalizeKey lower-cases and strips the camel hump.
+    expect(snapshot.feeRules.map((f) => f.key)).toEqual(['latereturn']);
   });
 
   test('the stored id replaces the default row\'s, so a save lands on the right record', async () => {

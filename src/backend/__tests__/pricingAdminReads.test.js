@@ -174,17 +174,15 @@ describe('the vehicle category list', () => {
     expect((await snapshot()).vehicleCategories.map((r) => r.category)).toEqual(['AAA', 'ZZZ']);
   });
 
-  test('an explicit sortOrder of 0 sorts LAST, not first', async () => {
-    // Surprising, and the reason the `|| 9999` in the comparator is not dead
-    // code: the normaliser has already defaulted a missing sortOrder to 9999,
-    // so the only value that `||` still rewrites is a real, deliberate 0 — and
-    // it rewrites it to 9999. An operator typing 0 to mean "show this first"
-    // gets the opposite.
+  test('an explicit sortOrder of 0 sorts first, as typing 0 intends', async () => {
+    // This used to be the other way round: the comparator used `||`, and since
+    // the normaliser has already defaulted a *missing* sortOrder to 9999, the
+    // only value `||` still rewrote was a deliberate 0 — which it sent to last.
     install({ VehiclesNew: [
       { _id: 'a', category: 'AAA', title: 'Alpha', sortOrder: 0 },
       { _id: 'b', category: 'ZZZ', title: 'Zulu', sortOrder: 10 },
     ] });
-    expect((await snapshot()).vehicleCategories.map((r) => r.category)).toEqual(['ZZZ', 'AAA']);
+    expect((await snapshot()).vehicleCategories.map((r) => r.category)).toEqual(['AAA', 'ZZZ']);
   });
 
   test('an unordered category sorts last rather than first', async () => {
