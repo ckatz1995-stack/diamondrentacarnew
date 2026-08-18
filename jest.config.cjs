@@ -18,6 +18,11 @@ module.exports = {
     // arithmetic the note above describes.
     'src/public/**/*.js',
     '!src/public/__tests__/**',
+    // Page controllers too. Only one is covered so far, so this drops the
+    // headline sharply — which is the point: 3,300 lines of controller that no
+    // test touches should be visible as a gap rather than absent from the sum.
+    'src/pages/**/*.js',
+    '!src/pages/__tests__/**',
   ],
   coveragePathIgnorePatterns: ['/node_modules/', '/test/', '/__tests__/'],
   moduleFileExtensions: ['js', 'jsw', 'json'],
@@ -34,5 +39,7 @@ module.exports = {
     '^wix-location$': '<rootDir>/test/mocks/wix-location.js',
     '^wix-storage$': '<rootDir>/test/mocks/wix-storage.js',
     '^backend/(.*)$': '<rootDir>/src/backend/$1',
+    // Page controllers import shared modules by the Velo 'public/...' specifier.
+    '^public/(.*)$': '<rootDir>/src/public/$1',
   },
 };
