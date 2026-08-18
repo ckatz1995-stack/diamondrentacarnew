@@ -38,6 +38,7 @@ module.exports = {
     '^wix-fetch$': '<rootDir>/test/mocks/wix-fetch.js',
     '^wix-location$': '<rootDir>/test/mocks/wix-location.js',
     '^wix-storage$': '<rootDir>/test/mocks/wix-storage.js',
+    '^wix-members-frontend$': '<rootDir>/test/mocks/wix-members-frontend.js',
     '^backend/(.*)$': '<rootDir>/src/backend/$1',
     // Page controllers import shared modules by the Velo 'public/...' specifier.
     '^public/(.*)$': '<rootDir>/src/public/$1',

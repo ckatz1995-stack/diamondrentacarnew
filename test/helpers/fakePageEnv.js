@@ -80,8 +80,24 @@ export function installPageEnv(components = {}) {
   const previous = global.$w;
   global.$w = $w;
 
+  // masterPage listens on `window` rather than on a component. The node test
+  // environment has no window, so one is provided with just the listener
+  // surface, and `emitWindowMessage` delivers an event to it.
+  const windowListeners = { message: [] };
+  const previousWindow = global.window;
+  global.window = {
+    addEventListener(type, fn) { (windowListeners[type] ||= []).push(fn); },
+    removeEventListener(type, fn) {
+      windowListeners[type] = (windowListeners[type] || []).filter((f) => f !== fn);
+    },
+  };
+
   return {
     $w,
+    async emitWindowMessage(event) {
+      for (const fn of (windowListeners.message || [])) await fn(event);
+    },
+    windowListenerCount: () => (windowListeners.message || []).length,
     component: (id) => byId.get(id),
     /**
      * Imports the controller and runs its ready callback.
@@ -101,6 +117,8 @@ export function installPageEnv(components = {}) {
     restore() {
       if (previous === undefined) delete global.$w;
       else global.$w = previous;
+      if (previousWindow === undefined) delete global.window;
+      else global.window = previousWindow;
     },
   };
 }
