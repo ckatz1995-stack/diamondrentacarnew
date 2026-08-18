@@ -12,6 +12,12 @@ module.exports = {
   collectCoverageFrom: [
     'src/backend/**/*.{js,jsw}',
     '!src/backend/__tests__/**',
+    // src/public is shared page code — the postMessage bridge and the backroom
+    // auth guard. Left out, a file there was neither covered nor uncovered and
+    // simply vanished from the denominator, which is the same flattering
+    // arithmetic the note above describes.
+    'src/public/**/*.js',
+    '!src/public/__tests__/**',
   ],
   coveragePathIgnorePatterns: ['/node_modules/', '/test/', '/__tests__/'],
   moduleFileExtensions: ['js', 'jsw', 'json'],
@@ -25,6 +31,8 @@ module.exports = {
     '^wix-users-backend$': '<rootDir>/test/mocks/wix-users-backend.js',
     '^wix-http-functions$': '<rootDir>/test/mocks/wix-http-functions.js',
     '^wix-fetch$': '<rootDir>/test/mocks/wix-fetch.js',
+    '^wix-location$': '<rootDir>/test/mocks/wix-location.js',
+    '^wix-storage$': '<rootDir>/test/mocks/wix-storage.js',
     '^backend/(.*)$': '<rootDir>/src/backend/$1',
   },
 };
