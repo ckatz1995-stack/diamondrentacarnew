@@ -314,6 +314,14 @@ describe('the fleet calendar when its field mapping cannot be read', () => {
     });
   });
 
+  // The three catches inside ensureFieldMapping — the ones that keep the default
+  // field names when a collection cannot be sampled — are left uncovered on
+  // purpose. Reaching them means breaking the sampling query while leaving the
+  // fetch that follows it working, which takes a call-ordered stub: a test that
+  // would pass for reasons unrelated to what it claims, and break the next time
+  // a query is added anywhere above it. The behaviour they protect (a fresh or
+  // unreadable collection leaves the defaults in place) is already covered by
+  // the empty-site case below.
   test('a calendar with vehicles and bookings still builds when a category arrives as an object', async () => {
     install({
       bookings: [confirmed({ assignedVehicle: 'f-1' })],

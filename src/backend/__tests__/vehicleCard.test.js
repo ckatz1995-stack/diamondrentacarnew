@@ -561,3 +561,47 @@ describe('saving the card', () => {
     expect(result.fleet.readyToGo).toBe(true);
   });
 });
+
+describe('when the rental history cannot be read', () => {
+  test('the card still opens, with an empty history rather than an error', async () => {
+    // The vehicle's own record is what the operator came for; a rentals
+    // collection that will not answer should cost them the history panel, not
+    // the whole screen.
+    install();
+    const sessionToken = await token();
+    const original = wixData.query;
+    wixData.query = (name) => {
+      if (name === 'RentalsNew') throw new Error('collection missing');
+      return original.call(wixData, name);
+    };
+    let res;
+    try {
+      res = await getVehicleCardData({ sessionToken, fleetVehicleId: FLEET_ID });
+    } finally {
+      wixData.query = original;
+    }
+
+    expect(res.success).toBe(true);
+    expect(res.fleet).toMatchObject({ plate: 'AAA-1111' });
+    expect(res.rentals).toEqual([]);
+    expect(res.summary).toMatchObject({ totalRentals: 0 });
+  });
+
+  test('the operational flags still come through', async () => {
+    install();
+    const sessionToken = await token();
+    const original = wixData.query;
+    wixData.query = (name) => {
+      if (name === 'RentalsNew') throw new Error('collection missing');
+      return original.call(wixData, name);
+    };
+    let res;
+    try {
+      res = await getVehicleCardData({ sessionToken, fleetVehicleId: FLEET_ID });
+    } finally {
+      wixData.query = original;
+    }
+
+    expect(res.summary.operationalFlags).toMatchObject({ readyToGo: true, hardHold: false });
+  });
+});

@@ -745,3 +745,29 @@ describe('saving a vehicle category that does not exist yet', () => {
     expect(JSON.stringify(saved)).toContain('https://example.com/car.jpg');
   });
 });
+
+describe('when a lookup query cannot be run at all', () => {
+  test('a category save falls back to an insert rather than failing', async () => {
+    // queryFirstByField swallows a query failure and answers "no such row". The
+    // consequence is worth naming: a save during an outage inserts rather than
+    // updates, so the collection can grow a duplicate. That is the deliberate
+    // trade — a failed save loses the operator's work, a duplicate is
+    // recoverable.
+    install();
+    const authToken = await token();
+    const original = wixData.query;
+    wixData.query = (name) => {
+      if (name === 'VehiclesNew') throw new Error('collection missing');
+      return original.call(wixData, name);
+    };
+    let saved;
+    try {
+      saved = await upsertVehicleCategory({ authToken, payload: { category: 'LUX', title: 'Luxury' } });
+    } finally {
+      wixData.query = original;
+    }
+
+    expect(saved).toMatchObject({ category: 'LUX' });
+    expect(fake.rows('VehiclesNew')).toHaveLength(1);
+  });
+});
