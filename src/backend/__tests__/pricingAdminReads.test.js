@@ -3,6 +3,7 @@ import { createFakeWixData } from '../../../test/helpers/fakeWixData.js';
 import { loginStaff, derivePasswordHash, randomHex } from '../staffAccess.jsw';
 import {
   getPricingAdminSnapshot,
+  upsertVehicleCategory,
   saveBusinessSettings,
   upsertPickupLocation,
   exportPricingCatalogSnapshot,
@@ -688,5 +689,59 @@ describe('the station profiles carried on the business settings', () => {
     const saved = await save({ stationSettings: { '   ': { openingHours: '24h' } } });
 
     expect(saved.stationSettings).toEqual({ default: { openingHours: '24h' } });
+  });
+});
+
+describe('saving a vehicle category that does not exist yet', () => {
+  test('a new category is inserted rather than failing to find a row to update', async () => {
+    install();
+
+    const saved = await upsertVehicleCategory({
+      authToken: await token(), payload: { category: 'LUX', title: 'Luxury', price: 150 },
+    });
+
+    expect(saved).toMatchObject({ category: 'LUX', title: 'Luxury' });
+    expect(fake.rows('VehiclesNew')).toHaveLength(1);
+  });
+
+  test('saving the same code again updates that row rather than adding another', async () => {
+    install();
+    const authToken = await token();
+
+    await upsertVehicleCategory({ authToken, payload: { category: 'LUX', title: 'Luxury', price: 150 } });
+    await upsertVehicleCategory({ authToken, payload: { category: 'LUX', title: 'Luxury', price: 175 } });
+
+    expect(fake.rows('VehiclesNew')).toHaveLength(1);
+    expect(fake.rows('VehiclesNew')[0].price).toBe(175);
+  });
+
+  test('the insert is recorded in the audit log as an insert, not an update', async () => {
+    install();
+
+    await upsertVehicleCategory({ authToken: await token(), payload: { category: 'LUX', title: 'Luxury' } });
+
+    expect(fake.rows('StaffAuditLog').some((r) => r.action === 'pricing.insertVehicleCategory')).toBe(true);
+  });
+
+  test('a Wix media reference on the category is rewritten into a loadable URL', async () => {
+    install();
+
+    const saved = await upsertVehicleCategory({
+      authToken: await token(),
+      payload: { category: 'LUX', title: 'Luxury', image: 'wix:image://v1/abc123~mv2.jpg/car.jpg' },
+    });
+
+    expect(JSON.stringify(saved)).toContain('https://static.wixstatic.com/media/abc123~mv2.jpg');
+  });
+
+  test('an https image is left as it is', async () => {
+    install();
+
+    const saved = await upsertVehicleCategory({
+      authToken: await token(),
+      payload: { category: 'LUX', title: 'Luxury', image: 'https://example.com/car.jpg' },
+    });
+
+    expect(JSON.stringify(saved)).toContain('https://example.com/car.jpg');
   });
 });

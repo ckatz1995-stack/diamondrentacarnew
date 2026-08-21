@@ -752,6 +752,24 @@ describe('the category code a fleet model is filed under', () => {
     expect(items[0].category).toBe('ECO');
   });
 
+  test('a category arriving as an included object is walked for a usable code', async () => {
+    // Wix include() hands back the referenced row rather than its id, so the
+    // code can be nested one level down under any of several key spellings.
+    const items = await modelsFor([
+      { _id: 'f-1', Model: 'Fiat Panda', Category: { title: 'ECO - Economy' }, Active: true },
+    ]);
+
+    expect(items[0].category).toBe('ECO');
+  });
+
+  test('a category object holding nothing usable yields no code', async () => {
+    const items = await modelsFor([
+      { _id: 'f-1', Model: 'Fiat Panda', Category: { unrelated: 'Economy' }, Active: true },
+    ]);
+
+    expect(items[0].category).not.toContain('object Object');
+  });
+
   test('a fleet listing that cannot be read is reported as a server error', async () => {
     install({ FleetNew: [], VehiclesNew: [] });
     const original = wixData.query;
