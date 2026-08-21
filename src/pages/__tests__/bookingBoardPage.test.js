@@ -490,3 +490,61 @@ describe('when the board fails to load', () => {
     }
   });
 });
+
+describe('when the board cannot be loaded', () => {
+  test('a backend that throws leaves the board empty and says why', async () => {
+    // Both posts matter. The empty list clears whatever was on screen, so the
+    // operator is not left reading rows that may no longer be true; the toast
+    // is the only thing telling them the screen is stale rather than quiet.
+    await boot();
+    const board = await import('../../backend/bookingsBoard.jsw');
+    const original = board.getBookingsBoardData;
+    board.getBookingsBoardData = () => Promise.reject(new Error('database down'));
+    try {
+      await send({ type: 'menuAction', action: 'reload' });
+      await flushDeferred();
+    } finally {
+      board.getBookingsBoardData = original;
+    }
+
+    const payload = html.postedOfType('loadBookings').pop();
+    expect(payload.items).toEqual([]);
+    expect(payload.filters).toEqual(expect.any(Object));
+    expect(html.postedOfType('toast').pop().message).toBe('Error: database down');
+  });
+
+  test('a thrown value with no message still names the failure', async () => {
+    await boot();
+    const board = await import('../../backend/bookingsBoard.jsw');
+    const original = board.getBookingsBoardData;
+    board.getBookingsBoardData = () => Promise.reject('just a string');
+    try {
+      await send({ type: 'menuAction', action: 'reload' });
+      await flushDeferred();
+    } finally {
+      board.getBookingsBoardData = original;
+    }
+
+    expect(html.postedOfType('toast').pop().message).toBe('Error: just a string');
+  });
+
+  test('the range the operator asked for survives a failed load', async () => {
+    // The filters go back out with the empty list, so the date pickers keep
+    // showing what was requested rather than snapping back to a default.
+    await boot();
+    await send({ type: 'requestBoardData', startDate: '2026-04-01', endDate: '2026-04-30' });
+    await flushDeferred();
+    const board = await import('../../backend/bookingsBoard.jsw');
+    const original = board.getBookingsBoardData;
+    board.getBookingsBoardData = () => Promise.reject(new Error('database down'));
+    try {
+      await send({ type: 'menuAction', action: 'reload' });
+      await flushDeferred();
+    } finally {
+      board.getBookingsBoardData = original;
+    }
+
+    expect(html.postedOfType('loadBookings').pop().filters)
+      .toMatchObject({ startDate: '2026-04-01', endDate: '2026-04-30' });
+  });
+});

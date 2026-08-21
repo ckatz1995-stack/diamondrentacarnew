@@ -37,7 +37,7 @@ let wixLocation;
 let wixData;
 let storage;
 
-async function boot({ query = {}, url = 'https://diamond.example/home-login', componentId = HTML_ID } = {}) {
+async function boot({ query = {}, url = 'https://diamond.example/home-login', componentId = HTML_ID, component = null } = {}) {
   jest.resetModules();
   jest.useFakeTimers({ now: new Date('2026-03-10T12:00:00.000Z') });
 
@@ -55,7 +55,7 @@ async function boot({ query = {}, url = 'https://diamond.example/home-login', co
   wixLocation.path = ['home-login'];
   wixLocation.to = jest.fn();
 
-  html = createComponent(componentId);
+  html = component || createComponent(componentId);
   env = installPageEnv({ [componentId]: html });
   await env.start(() => import('../Home Login.gxie4.js'));
   return html;
@@ -480,5 +480,81 @@ describe('refreshing and resizing', () => {
     const before = html.posted.length;
     await send({ type: 'somethingElse' });
     expect(html.posted).toHaveLength(before);
+  });
+});
+
+describe('the failures the panel is told about', () => {
+  test('a panel that refuses to expand is logged and still wired up', async () => {
+    // The panel is the only way in, so a page that gave up here would leave an
+    // operator with a blank screen and no explanation in the console either.
+    const warns = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      await boot({ component: createComponent(HTML_ID, { expand() { throw new Error('locked'); } }) });
+
+      expect(warns).toHaveBeenCalledWith('[Home Login] expand/show failed', 'locked');
+      expect(lastAuthState()).toBeTruthy();
+    } finally {
+      warns.mockRestore();
+    }
+  });
+
+  test('a recovery request that throws is reported in the panel rather than swallowed', async () => {
+    await boot();
+    const staff = await import('../../backend/staffAccess.jsw');
+    const original = staff.requestAccessRecovery;
+    staff.requestAccessRecovery = () => Promise.reject(new Error('mail server down'));
+    try {
+      await send({ type: 'requestAccessRecovery', email: STAFF });
+    } finally {
+      staff.requestAccessRecovery = original;
+    }
+
+    expect(lastAuthState().errorMessage).toBe('mail server down');
+  });
+
+  test('a recovery failure with no message still says something', async () => {
+    await boot();
+    const staff = await import('../../backend/staffAccess.jsw');
+    const original = staff.requestAccessRecovery;
+    staff.requestAccessRecovery = () => Promise.reject(new Error(''));
+    try {
+      await send({ type: 'requestAccessRecovery', email: STAFF });
+    } finally {
+      staff.requestAccessRecovery = original;
+    }
+
+    expect(lastAuthState().errorMessage).toBe('Αποτυχία καταχώρησης recovery request.');
+  });
+
+  test('a recovery request that succeeds without a message says so too', async () => {
+    await boot();
+    const staff = await import('../../backend/staffAccess.jsw');
+    const original = staff.requestAccessRecovery;
+    staff.requestAccessRecovery = () => Promise.resolve({});
+    try {
+      await send({ type: 'requestAccessRecovery', email: STAFF });
+    } finally {
+      staff.requestAccessRecovery = original;
+    }
+
+    expect(lastAuthState().errorMessage).toBe('Το αίτημα recovery καταχωρήθηκε.');
+  });
+
+  test('a resize the panel refuses is logged rather than left to throw', async () => {
+    const warns = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const stubborn = createComponent(HTML_ID);
+      Object.defineProperty(stubborn, 'height', {
+        get() { return undefined; },
+        set() { throw new Error('read only'); },
+      });
+      await boot({ component: stubborn });
+
+      await send({ type: 'resizeShell', height: 1000 });
+
+      expect(warns).toHaveBeenCalledWith('[Home Login] resizeShell height set failed', 'read only');
+    } finally {
+      warns.mockRestore();
+    }
   });
 });
