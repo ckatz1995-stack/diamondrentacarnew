@@ -226,6 +226,13 @@ describe('what a fresh rental inherits from its booking', () => {
     expect(res.rental.chargeLines.length).toBeGreaterThan(0);
   });
 
+  test('a charges block that is not an object is rebuilt from the booking', async () => {
+    const res = await contract({ rentals: [{ _id: 'r-1', bookingId: BOOKING_ID, charges: 'not an object' }] });
+
+    expect(res.rental.charges).toEqual(expect.any(Object));
+    expect(res.rental.chargeLines.length).toBeGreaterThan(0);
+  });
+
   test('the transactions fall back to the booking’s own list', async () => {
     const res = await contract({
       bookingRow: booking({ financialTransactions: [{ type: 'payment', amount: 50 }] }),
@@ -496,5 +503,40 @@ describe('the photos field', () => {
 
   test('an empty list stays empty', async () => {
     expect(await savePhotos([])).toEqual([]);
+  });
+});
+
+describe('the drivers a contract document prints', () => {
+  test('the main driver and every additional one reach the package', async () => {
+    // The document is what the customer signs, so an additional driver missing
+    // from it is a driver who is not covered by what was signed.
+    const { exportContractDocumentPackage } = await import('../rentalContract.jsw');
+    install({
+      rentals: [{
+        _id: 'r-1', bookingId: BOOKING_ID,
+        mainDriver: { fullName: 'A Driver', idNo: 'ID-1', licenseNo: 'DL-1' },
+        additionalDrivers: [
+          { fullName: 'B Driver', idNo: 'ID-2', licenseNo: 'DL-2' },
+          { fullName: 'C Driver', idNo: 'ID-3', licenseNo: 'DL-3' },
+        ],
+      }],
+    });
+
+    const res = await exportContractDocumentPackage({ authToken: await token(), bookingId: BOOKING_ID });
+
+    expect(res.success).toBe(true);
+    const blob = JSON.stringify(res.package);
+    expect(blob).toContain('B Driver');
+    expect(blob).toContain('C Driver');
+    expect(blob).toContain('DL-2');
+  });
+
+  test('a rental with no additional drivers prints none rather than a blank row', async () => {
+    const { exportContractDocumentPackage } = await import('../rentalContract.jsw');
+    install({ rentals: [{ _id: 'r-1', bookingId: BOOKING_ID, additionalDrivers: [] }] });
+
+    const res = await exportContractDocumentPackage({ authToken: await token(), bookingId: BOOKING_ID });
+
+    expect(res.success).toBe(true);
   });
 });

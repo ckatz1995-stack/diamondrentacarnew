@@ -696,3 +696,98 @@ async function withBrokenPdfkit(fn) {
     broken.mockRestore();
   }
 }
+
+describe('the document endpoints when the layer beneath them throws', () => {
+  // Each of the five endpoints wraps its own work. What that buys is a failure
+  // the panel can show — `{ success:false, message }` — rather than a rejected
+  // promise the page controller has to catch for itself. The contract screen
+  // reads `success` on every one of these, so an unwrapped throw would surface
+  // as a silent dead button rather than as an error.
+  const brokenBookingRead = async (fn) => {
+    install();
+    const authToken = await token();
+    const original = wixData.get;
+    wixData.get = (collection, ...rest) => (
+      collection === 'BookingsNew'
+        ? Promise.reject(new Error('collection missing'))
+        : original.call(wixData, collection, ...rest)
+    );
+    try { return await fn(authToken); } finally { wixData.get = original; }
+  };
+
+  test('the package endpoint reports a failed booking read', async () => {
+    const res = await brokenBookingRead((authToken) =>
+      contract.exportContractDocumentPackage({ authToken, bookingId: BOOKING_ID }));
+
+    expect(res).toMatchObject({ success: false, message: 'collection missing' });
+  });
+
+  test('the printable endpoint passes a failure straight through rather than re-wrapping it', async () => {
+    const res = await brokenBookingRead((authToken) =>
+      contract.exportContractPrintableModel({ authToken, bookingId: BOOKING_ID }));
+
+    expect(res).toMatchObject({ success: false, message: 'collection missing' });
+  });
+
+  test('the rendered endpoint does the same', async () => {
+    const res = await brokenBookingRead((authToken) =>
+      contract.exportContractRenderedDocument({ authToken, bookingId: BOOKING_ID }));
+
+    expect(res).toMatchObject({ success: false, message: 'collection missing' });
+  });
+
+  test('the pdf endpoint does the same', async () => {
+    const res = await brokenBookingRead((authToken) =>
+      contract.exportContractPdfFromHtml({ authToken, bookingId: BOOKING_ID }));
+
+    expect(res).toMatchObject({ success: false });
+  });
+
+  test('a thrown value with no message still names the failure', async () => {
+    install();
+    const authToken = await token();
+    const original = wixData.get;
+    wixData.get = () => Promise.reject('just a string');
+    try {
+      expect(await contract.exportContractDocumentPackage({ authToken, bookingId: BOOKING_ID }))
+        .toMatchObject({ success: false, message: 'just a string' });
+    } finally {
+      wixData.get = original;
+    }
+  });
+
+  test('the capabilities probe answers rather than throwing, whatever the renderer says', async () => {
+    install();
+
+    const res = await contract.getContractDocumentRenderCapabilities({ authToken: await token() });
+
+    expect(res.success).toBe(true);
+    expect(res.capabilities).toEqual(expect.any(Object));
+  });
+
+  test('the self-test probe answers with a report', async () => {
+    install();
+
+    const res = await contract.selfTestContractDocumentRenderer({ authToken: await token() });
+
+    expect(res).toMatchObject({ success: true, selfTest: expect.any(Object) });
+  });
+
+  test('the template regression harness answers with a report', async () => {
+    install();
+
+    const res = await contract.runContractDocumentTemplateRegression({ authToken: await token() });
+
+    expect(res).toMatchObject({ success: true, report: expect.any(Object) });
+  });
+
+  test.each([
+    ['getContractDocumentRenderCapabilities', 'getContractDocumentRenderCapabilities'],
+    ['selfTestContractDocumentRenderer', 'selfTestContractDocumentRenderer'],
+    ['runContractDocumentTemplateRegression', 'runContractDocumentTemplateRegression'],
+  ])('%s is refused without a session', async (_label, name) => {
+    install();
+
+    await expect(contract[name]({ authToken: 'f'.repeat(64) })).rejects.toThrow();
+  });
+});
