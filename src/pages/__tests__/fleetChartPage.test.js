@@ -348,46 +348,83 @@ describe('moving a booking to another vehicle', () => {
     expect(ctx.fake.rows('BookingsNew').find((b) => b._id === 'b-3').assignedVehicle).toBe('f-2');
   });
 
-  test('a view-only operator’s move is refused by the backend — and the frame is told nothing', async () => {
-    // The booking is safe: fleet/Edit is enforced server-side and the record is
-    // untouched. But moveBookingVehicleOnly *throws* on a permission failure
-    // while returning {success:false} for a business refusal, and this handler
-    // only handles the second kind — so the rejection escapes the onMessage
-    // callback and neither moveRejected nor a toast is ever posted.
-    //
-    // The visible effect is a drag that silently snaps back with no
-    // explanation, for exactly the operators most likely to try it. Pinned here
-    // as it behaves rather than fixed in a test-coverage change; the fix is a
-    // try/catch around this call and the autoAssignSingle one below it.
+  test('a view-only operator’s move is refused, and the frame is told why', async () => {
+    // The backend refuses a move in two shapes: a business rule returns
+    // { success:false }, a permission failure throws. Only the first used to be
+    // handled, so this drag silently snapped back with no explanation — for
+    // exactly the operators most likely to attempt it. Both shapes now reach
+    // the frame the same way.
     await boot({ signInAs: VIEWER });
 
-    await expect(send({ type: 'moveBooking', bookingId: 'b-1', newVehicleId: 'f-2' }))
-      .rejects.toThrow('ACCESS_DENIED');
+    await send({ type: 'moveBooking', bookingId: 'b-1', newVehicleId: 'f-2' });
+    await flush();
 
+    expect(last('moveRejected')).toEqual({
+      type: 'moveRejected', bookingId: 'b-1', reason: 'ACCESS_DENIED',
+    });
+    expect(toasts()).toContain('Move rejected: ACCESS_DENIED');
     expect(ctx.fake.rows('BookingsNew').find((b) => b._id === 'b-1').assignedVehicle).toBe('f-1');
-    expect(of('moveRejected')).toEqual([]);
-    expect(toasts()).toEqual([]);
   });
 
-  test('a view-only operator’s auto-assign fails the same silent way', async () => {
+  test('a view-only operator’s auto-assign is reported too', async () => {
     await boot({ signInAs: VIEWER });
 
-    await expect(send({ type: 'autoAssignSingle', bookingId: 'b-2' }))
-      .rejects.toThrow('ACCESS_DENIED');
+    await send({ type: 'autoAssignSingle', bookingId: 'b-2' });
+    await flush();
 
+    expect(toasts()).toContain('Auto-assign failed: ACCESS_DENIED');
     expect(ctx.fake.rows('BookingsNew').find((b) => b._id === 'b-2').status).toBe('Pending');
-    expect(toasts()).toEqual([]);
   });
 
-  test('a bulk auto-assign refused on permissions does reach the frame', async () => {
-    // The contrast worth having: autoAssignRange wraps its work in a try/catch,
-    // so the same ACCESS_DENIED that vanishes above is reported here.
+  test('a bulk auto-assign refused on permissions reaches the frame as well', async () => {
+    // autoAssignRange always wrapped its work; the two single-booking paths now
+    // match it, so all three report the same refusal the same way.
     await boot({ signInAs: VIEWER });
 
     await send({ type: 'autoAssignUnassigned', from: FROM, to: TO });
     await flush();
 
     expect(toasts()).toContain('Auto-assign failed: ACCESS_DENIED');
+  });
+
+  test('a move that throws something with no message still names the failure', async () => {
+    await boot();
+    const fleet = await import('../../backend/fleetCalendar.jsw');
+    const original = fleet.moveBookingVehicleOnly;
+    fleet.moveBookingVehicleOnly = () => Promise.reject('just a string');
+    try {
+      await send({ type: 'moveBooking', bookingId: 'b-1', newVehicleId: 'f-2' });
+      await flush();
+    } finally {
+      fleet.moveBookingVehicleOnly = original;
+    }
+
+    expect(last('moveRejected').reason).toBe('just a string');
+  });
+
+  test('an auto-assign that throws something with no message still names the failure', async () => {
+    await boot();
+    const fleet = await import('../../backend/fleetCalendar.jsw');
+    const original = fleet.confirmAndAutoAssign;
+    fleet.confirmAndAutoAssign = () => Promise.reject('just a string');
+    try {
+      await send({ type: 'autoAssignSingle', bookingId: 'b-2' });
+      await flush();
+    } finally {
+      fleet.confirmAndAutoAssign = original;
+    }
+
+    expect(toasts()).toContain('Auto-assign failed: just a string');
+  });
+
+  test('a refused move still refreshes nothing, so the chart keeps what it had', async () => {
+    await boot({ signInAs: VIEWER });
+    const before = of('patchItems').length;
+
+    await send({ type: 'moveBooking', bookingId: 'b-1', newVehicleId: 'f-2' });
+    await flush();
+
+    expect(of('patchItems')).toHaveLength(before);
   });
 
   test('a move naming no booking or no vehicle is refused', async () => {
