@@ -460,3 +460,96 @@ describe('the cached catalog afterwards', () => {
     expect(after.maps.insurance.full).toBeDefined();
   });
 });
+
+describe('seeding and resetting a site that has no settings row at all', () => {
+  // Both endpoints open with `await ensurePricingSeeded()`, which creates the
+  // settings row if the collection is empty. So by the time either reaches its
+  // own "is there a row?" check, there always is one — and both insert branches
+  // are unreachable through the public API. That is pinned below as an update
+  // rather than an insert, because it is the observable truth and because the
+  // dead branch is worth knowing about before someone edits it.
+  const emptySite = () => staffSeed({
+    BusinessSettings: [],
+    InsurancePlans: [], ExtraServices: [], FeeRules: [],
+    PricingSeasons: [], CategoryRateRules: [], PickupLocations: [],
+    VehiclesNew: [], FleetNew: [], PricingAuditLog: [],
+  });
+
+  test('seeding a site with no settings row leaves exactly one behind', async () => {
+    install(emptySite());
+
+    const res = await seedPricingDefaults({ authToken: await adminToken(), target: 'business' });
+
+    // Counted as an update: ensurePricingSeeded put the row there a moment ago.
+    expect(res.business).toMatchObject({ inserted: 0, total: 1 });
+    expect(fake.rows(COLLECTIONS.business)).toHaveLength(1);
+    expect(fake.rows(COLLECTIONS.business)[0].currency).toBe(FALLBACK.businessSettings.currency);
+  });
+
+  test('the created row is written to the audit log',  async () => {
+    install(emptySite());
+
+    await seedPricingDefaults({ authToken: await adminToken(), target: 'business' });
+
+    expect(fake.rows('StaffAuditLog').some((r) => r.action === 'pricing.seedDefaults')).toBe(true);
+  });
+
+  test('seeding twice does not create a second settings row', async () => {
+    install(emptySite());
+    const authToken = await adminToken();
+
+    await seedPricingDefaults({ authToken, target: 'business' });
+    const second = await seedPricingDefaults({ authToken, target: 'business' });
+
+    expect(fake.rows(COLLECTIONS.business)).toHaveLength(1);
+    expect(second.business.inserted).toBe(0);
+  });
+
+  test('resetting a site with no settings row leaves exactly one behind too', async () => {
+    install(emptySite());
+
+    const res = await resetPricingDefaults({ authToken: await adminToken(), target: 'business' });
+
+    expect(res.business).toMatchObject({ inserted: 0, updated: 1, total: 1 });
+    expect(fake.rows(COLLECTIONS.business)).toHaveLength(1);
+  });
+
+  test('resetting twice updates the same row rather than growing a duplicate', async () => {
+    // The failure this guards against is specific and quiet: the shipped
+    // defaults carry an empty _id, and left alone every reset inserts a second
+    // singleton. readBusinessSettings then takes the oldest row, so the settings
+    // the site actually uses never change and the reset looks like it did
+    // nothing at all.
+    install(emptySite());
+    const authToken = await adminToken();
+
+    await resetPricingDefaults({ authToken, target: 'business' });
+    const second = await resetPricingDefaults({ authToken, target: 'business' });
+
+    expect(fake.rows(COLLECTIONS.business)).toHaveLength(1);
+    expect(second.business).toMatchObject({ inserted: 0, updated: 1 });
+  });
+
+  test('a reset is written to the audit log with the previous value', async () => {
+    install(emptySite());
+    const authToken = await adminToken();
+    await resetPricingDefaults({ authToken, target: 'business' });
+
+    await resetPricingDefaults({ authToken, target: 'business' });
+
+    const entries = fake.rows('StaffAuditLog').filter((r) => r.action === 'pricing.resetDefaults');
+    expect(entries.length).toBeGreaterThan(1);
+    expect(entries[entries.length - 1].oldValue).not.toBe('');
+  });
+
+  test('seeding everything on an empty site fills all four collections', async () => {
+    install(emptySite());
+
+    await seedPricingDefaults({ authToken: await adminToken(), target: 'all' });
+
+    expect(fake.rows(COLLECTIONS.business)).toHaveLength(1);
+    expect(fake.rows(COLLECTIONS.insurance).length).toBeGreaterThan(0);
+    expect(fake.rows(COLLECTIONS.extras).length).toBeGreaterThan(0);
+    expect(fake.rows(COLLECTIONS.fees).length).toBeGreaterThan(0);
+  });
+});
