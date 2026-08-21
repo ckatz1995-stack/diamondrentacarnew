@@ -249,6 +249,57 @@ describe('reading a category code off whatever shape it arrives in', () => {
   });
 });
 
+describe('the labels the calendar renders', () => {
+  const calendar = async (options) => {
+    install(options);
+    return getFleetCalendarData({ authToken: await token(), from: DATE, to: '2026-03-24' });
+  };
+
+  test('a category that arrives as an included object is labelled from it', async () => {
+    const res = await calendar({
+      bookings: [confirmed({ assignedVehicle: 'f-1', categoryId: { title: 'Economy' } })],
+      fleetRows: [{ _id: 'f-1', plate: 'AAA-1', model: 'Fiat Panda', category: 'ECO', active: true }],
+    });
+
+    expect(JSON.stringify(res.items)).toContain('Economy');
+  });
+
+  test('a category object with none of the known keys yields no label rather than "[object Object]"', async () => {
+    const res = await calendar({
+      bookings: [confirmed({ assignedVehicle: 'f-1', categoryId: { somethingElse: 'Economy' } })],
+      fleetRows: [{ _id: 'f-1', plate: 'AAA-1', model: 'Fiat Panda', category: 'ECO', active: true }],
+    });
+
+    expect(JSON.stringify(res.items)).not.toContain('object Object');
+  });
+
+  test('a category that arrives as a number is stringified rather than dropped', async () => {
+    const res = await calendar({
+      bookings: [confirmed({ assignedVehicle: 'f-1', categoryId: 7 })],
+      fleetRows: [{ _id: 'f-1', plate: 'AAA-1', model: 'Fiat Panda', category: 'ECO', active: true }],
+    });
+
+    expect(res.items.length).toBeGreaterThan(0);
+  });
+
+  test.each([
+    ['true', true, 'Ready'],
+    ['false', false, 'Not ready'],
+    ['the text "yes"', 'yes', 'yes'],
+    ['an empty string', '', '—'],
+    ['null', null, '—'],
+  ])('a readiness flag of %s renders as %p', async (_label, readyToGo, expected) => {
+    // Three outcomes rather than two: a flag nobody has set yet reads as an
+    // em-dash, which is honestly "unknown" rather than a confident "not ready".
+    const res = await calendar({
+      bookings: [],
+      fleetRows: [{ _id: 'f-1', plate: 'AAA-1', model: 'Fiat Panda', category: 'ECO', active: true, ready: readyToGo }],
+    });
+
+    expect(JSON.stringify(res)).toContain(expected);
+  });
+});
+
 describe('the fleet calendar when its field mapping cannot be read', () => {
   test('an unreadable bookings collection leaves the calendar on its default field names', async () => {
     // The mapper samples a row to learn which spelling of each field this site

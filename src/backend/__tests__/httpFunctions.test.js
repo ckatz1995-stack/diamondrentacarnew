@@ -718,6 +718,55 @@ describe('the vehicle listing endpoints', () => {
   });
 });
 
+describe('the category code a fleet model is filed under', () => {
+  const modelsFor = async (fleet) => {
+    install({ FleetNew: fleet, VehiclesNew: [] });
+    return (await http.get_fleet_models(request())).body.items;
+  };
+
+  test('a category carrying a label keeps only the code in front of the dash', async () => {
+    const items = await modelsFor([{ _id: 'f-1', Model: 'Fiat Panda', Category: 'ECO - Economy', Active: true }]);
+
+    expect(items[0].category).toBe('ECO');
+  });
+
+  test('a category that is an opaque record id is not used as a code', async () => {
+    // A uuid stamped on a card as if it were a category is worse than no
+    // category at all — it filters to nothing and reads as gibberish.
+    const items = await modelsFor([
+      { _id: 'f-1', Model: 'Fiat Panda', Category: '8f14e45f-ceea-4e78-9c8f-1a2b3c4d5e6f', Active: true },
+    ]);
+
+    expect(items[0].category).not.toContain('8f14e45f');
+  });
+
+  test('a short code is taken as it stands', async () => {
+    const items = await modelsFor([{ _id: 'f-1', Model: 'Fiat Panda', Category: 'ECO', Active: true }]);
+
+    expect(items[0].category).toBe('ECO');
+  });
+
+  test('a long free-text category yields its leading token', async () => {
+    const items = await modelsFor([{ _id: 'f-1', Model: 'Fiat Panda', Category: 'ECO economy hatchback', Active: true }]);
+
+    expect(items[0].category).toBe('ECO');
+  });
+
+  test('a fleet listing that cannot be read is reported as a server error', async () => {
+    install({ FleetNew: [], VehiclesNew: [] });
+    const original = wixData.query;
+    wixData.query = () => { throw new Error('collection missing'); };
+    try {
+      const res = await http.get_fleet_models(request());
+
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, message: 'collection missing' });
+    } finally {
+      wixData.query = original;
+    }
+  });
+});
+
 describe('the CORS preflight and ping endpoints', () => {
   test.each([
     ['options_vehicle', 'options_vehicle'],
