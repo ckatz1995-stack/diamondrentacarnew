@@ -1,4 +1,4 @@
-import { addDays, addHours, asDate, extractCode, isLikelyId, pickLabel, safeNum, safeText } from '../utils.js';
+import { addDays, addHours, asDate, extractCode, isLikelyId, normalizeDateParam, pickLabel, safeNum, safeText } from '../utils.js';
 
 // Shared coercion helpers. These are small enough to look obviously correct,
 // which is exactly why they are worth pinning: safeText and addDays each have a
@@ -165,5 +165,53 @@ describe('extractCode', () => {
     // An id is not a category. Returning its first characters would silently
     // group unrelated vehicles together.
     expect(extractCode('3f1a2b4c-9d8e-4f0a-b1c2-d3e4f5a6b7c8')).toBe('');
+  });
+});
+
+describe('normalizeDateParam', () => {
+  // The shared version of a check three page controllers each wrote for
+  // themselves. It is a shape test and nothing more: it answers "does this look
+  // like a date the rest of the code can split on dashes", not "is this a day
+  // that exists".
+  test.each(['2026-03-10', '2026-01-01', '2026-12-31'])('%s is accepted as-is', (value) => {
+    expect(normalizeDateParam(value)).toBe(value);
+  });
+
+  test('surrounding whitespace is trimmed off before the check', () => {
+    expect(normalizeDateParam('  2026-03-10  ')).toBe('2026-03-10');
+  });
+
+  test.each([
+    ['a European ordering', '10-03-2026'],
+    ['slashes', '2026/03/10'],
+    ['a two-digit year', '26-03-10'],
+    ['a single-digit month', '2026-3-10'],
+    ['a timestamp', '2026-03-10T08:00:00.000Z'],
+    ['a word', 'today'],
+    ['an empty string', ''],
+    ['whitespace only', '   '],
+  ])('%s is rejected', (_label, value) => {
+    expect(normalizeDateParam(value)).toBe('');
+  });
+
+  test.each([null, undefined, 0, {}, []])('%p is rejected rather than coerced', (value) => {
+    expect(normalizeDateParam(value)).toBe('');
+  });
+
+  test('a date that is well-shaped but impossible is accepted', () => {
+    // Worth stating plainly, because callers pass the result straight to
+    // `new Date(y, m - 1, d)`, which rolls 2026-13-45 over into February 2027.
+    // The check is deliberately about shape; anything that needs a real
+    // calendar day has to say so itself.
+    expect(normalizeDateParam('2026-13-45')).toBe('2026-13-45');
+    expect(normalizeDateParam('2026-02-30')).toBe('2026-02-30');
+    expect(normalizeDateParam('0000-00-00')).toBe('0000-00-00');
+  });
+
+  test('a longer string containing a valid date is still rejected', () => {
+    // Anchored at both ends, so a date with anything appended does not sneak
+    // through and become a query parameter.
+    expect(normalizeDateParam('2026-03-10 and more')).toBe('');
+    expect(normalizeDateParam('x2026-03-10')).toBe('');
   });
 });

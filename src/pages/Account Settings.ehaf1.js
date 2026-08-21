@@ -264,7 +264,14 @@ $w.onReady(async function () {
 
       if (msg.type === 'navigate') {
         const route = String(msg.route || '');
-        if (route && ROUTES[route]) { wixLocation.to(ROUTES[route]); }
+        // hasOwnProperty rather than a bare index: ROUTES is a plain object, so
+        // ROUTES['constructor'] and ROUTES['__proto__'] resolve to inherited
+        // values, are truthy, and were navigated to — the page called
+        // wixLocation.to with a function or with Object.prototype. Not an open
+        // redirect, since the destination is not attacker-chosen, but a message
+        // naming any inherited property made the page navigate when it should
+        // have done nothing.
+        if (route && Object.prototype.hasOwnProperty.call(ROUTES, route)) { wixLocation.to(ROUTES[route]); }
         return;
       }
 

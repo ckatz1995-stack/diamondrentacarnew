@@ -195,11 +195,28 @@ describe('removing a row', () => {
     expect((await getPricingCatalog()).maps.insurance.cdw).not.toBe(35);
   });
 
-  test('deleting a row whose key has a built-in default reverts to that default rather than removing it', async () => {
-    // Not what "delete" suggests, and worth pinning until it is decided one way
-    // or the other. readInsurancePlans merges the shipped fallback options with
-    // the stored rows, so a key that exists in both survives its own deletion —
-    // at the fallback's price. For cdw that price is 0.
+  test('deleting a row whose key has a built-in default really removes it', async () => {
+    // This used to be the other way round. The catalogue readers merged the
+    // shipped fallback options with the stored rows key by key, so a key that
+    // existed in both survived its own deletion — at the fallback's price, which
+    // for cdw is 0. A plan an operator had priced at 35 came back free.
+    install({ InsurancePlans: [
+      { _id: 'plan-1', key: 'cdw', label: 'CDW', pricePerDay: 35, active: true, publicVisible: true },
+      { _id: 'plan-2', key: 'scdw', label: 'Super CDW', pricePerDay: 20, active: true, publicVisible: true },
+    ] });
+
+    await del({ collectionName: 'InsurancePlans', itemId: 'plan-1' });
+
+    const catalog = await getPricingCatalog({ scope: 'public' });
+    expect(catalog.insurancePlans.map((p) => p.key)).not.toContain('cdw');
+    expect(catalog.insurancePlans.map((p) => p.key)).toContain('scdw');
+  });
+
+  test('but emptying the collection entirely restores the shipped set', async () => {
+    // The remaining edge, and it is deliberate rather than a leftover: an empty
+    // collection means "not configured", and ensurePricingSeeded writes the
+    // shipped rows back into it on the next admin load. Deleting the last row is
+    // therefore a reset, not a removal. Anything short of that is a removal.
     install({ InsurancePlans: [{ _id: 'plan-1', key: 'cdw', label: 'CDW', pricePerDay: 35, active: true, publicVisible: true }] });
 
     await del({ collectionName: 'InsurancePlans', itemId: 'plan-1' });

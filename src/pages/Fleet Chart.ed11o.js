@@ -71,7 +71,17 @@ $w.onReady(async function () {
     }
 
     if (msg.type === 'moveBooking') {
-      const result = await moveBookingVehicleOnly({ authToken: authState.sessionToken, bookingId: msg.bookingId, newVehicleId: msg.newVehicleId });
+      // The backend refuses a move in two different ways: a business rule
+      // returns { success:false }, but a permission failure *throws*. Only the
+      // first was handled, so a fleet/View-only operator dragging a booking got
+      // no moveRejected and no toast — the card silently snapped back with no
+      // explanation, for exactly the operators most likely to hit it.
+      let result;
+      try {
+        result = await moveBookingVehicleOnly({ authToken: authState.sessionToken, bookingId: msg.bookingId, newVehicleId: msg.newVehicleId });
+      } catch (error) {
+        result = { success: false, message: error?.message || String(error) };
+      }
       if (!result?.success) {
         post({ type: 'moveRejected', bookingId: String(msg.bookingId || ''), reason: result?.message || 'Move failed' });
         post({ type: 'toast', message: `Move rejected: ${result?.message || 'failed'}` });
@@ -82,7 +92,14 @@ $w.onReady(async function () {
     }
 
     if (msg.type === 'autoAssignSingle') {
-      const result = await confirmAndAutoAssign({ authToken: authState.sessionToken, bookingId: msg.bookingId });
+      // Same two shapes, same fix: autoAssignRange below already wraps its work,
+      // so a bulk assign reported an ACCESS_DENIED that a single one swallowed.
+      let result;
+      try {
+        result = await confirmAndAutoAssign({ authToken: authState.sessionToken, bookingId: msg.bookingId });
+      } catch (error) {
+        result = { success: false, message: error?.message || String(error) };
+      }
       post({ type: 'toast', message: result?.success ? (result?.assigned ? 'Vehicle auto-assigned' : 'Confirmed without assignment') : `Auto-assign failed: ${result?.message || 'error'}` });
       await loadCalendar(lastRange, false);
       return;

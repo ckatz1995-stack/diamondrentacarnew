@@ -3,6 +3,9 @@ import { createFakeWixData } from '../../../test/helpers/fakeWixData.js';
 import { loginStaff, derivePasswordHash, randomHex } from '../staffAccess.jsw';
 import {
   getPricingAdminSnapshot,
+  upsertVehicleCategory,
+  saveBusinessSettings,
+  upsertPickupLocation,
   exportPricingCatalogSnapshot,
   getStaffPricingCatalog,
   upsertFleetVehicle,
@@ -174,17 +177,15 @@ describe('the vehicle category list', () => {
     expect((await snapshot()).vehicleCategories.map((r) => r.category)).toEqual(['AAA', 'ZZZ']);
   });
 
-  test('an explicit sortOrder of 0 sorts LAST, not first', async () => {
-    // Surprising, and the reason the `|| 9999` in the comparator is not dead
-    // code: the normaliser has already defaulted a missing sortOrder to 9999,
-    // so the only value that `||` still rewrites is a real, deliberate 0 — and
-    // it rewrites it to 9999. An operator typing 0 to mean "show this first"
-    // gets the opposite.
+  test('an explicit sortOrder of 0 sorts first, as typing 0 intends', async () => {
+    // This used to be the other way round: the comparator used `||`, and since
+    // the normaliser has already defaulted a *missing* sortOrder to 9999, the
+    // only value `||` still rewrote was a deliberate 0 — which it sent to last.
     install({ VehiclesNew: [
       { _id: 'a', category: 'AAA', title: 'Alpha', sortOrder: 0 },
       { _id: 'b', category: 'ZZZ', title: 'Zulu', sortOrder: 10 },
     ] });
-    expect((await snapshot()).vehicleCategories.map((r) => r.category)).toEqual(['ZZZ', 'AAA']);
+    expect((await snapshot()).vehicleCategories.map((r) => r.category)).toEqual(['AAA', 'ZZZ']);
   });
 
   test('an unordered category sorts last rather than first', async () => {
@@ -474,5 +475,299 @@ describe('the two smaller exports', () => {
     install({ PickupLocations: [{ _id: 'p-1', key: 'depot', label: 'Depot', publicVisible: false }] });
     const res = await getStaffPricingCatalog({ authToken: await token() });
     expect(res.pickupLocations.map((p) => p.key)).toContain('depot');
+  });
+});
+
+describe('the pickup location list', () => {
+  const location = (extra = {}) => ({
+    key: 'ath', label: 'Athens Airport', address: 'Athens Airport', active: true, ...extra,
+  });
+
+  test('locations are listed in their configured order', async () => {
+    install({
+      PickupLocations: [
+        { _id: 'p-3', key: 'c', label: 'Third', address: 'C', sortOrder: 30 },
+        { _id: 'p-1', key: 'a', label: 'First', address: 'A', sortOrder: 10 },
+        { _id: 'p-2', key: 'b', label: 'Second', address: 'B', sortOrder: 20 },
+      ],
+    });
+
+    const rows = (await snapshot()).pickupLocations;
+
+    expect(rows.map((r) => r.label)).toEqual(['First', 'Second', 'Third']);
+  });
+
+  test('locations sharing an order fall back to their display title', async () => {
+    install({
+      PickupLocations: [
+        { _id: 'p-2', key: 'b', label: 'Beta', address: 'B', sortOrder: 10 },
+        { _id: 'p-1', key: 'a', label: 'Alpha', address: 'A', sortOrder: 10 },
+      ],
+    });
+
+    const rows = (await snapshot()).pickupLocations;
+
+    expect(rows.map((r) => r.label)).toEqual(['Alpha', 'Beta']);
+  });
+
+  test('a location with no order sinks to the bottom rather than to the top', async () => {
+    install({
+      PickupLocations: [
+        { _id: 'p-1', key: 'a', label: 'Unordered', address: 'A' },
+        { _id: 'p-2', key: 'b', label: 'Ordered', address: 'B', sortOrder: 10 },
+      ],
+    });
+
+    const rows = (await snapshot()).pickupLocations;
+
+    expect(rows.map((r) => r.label)).toEqual(['Ordered', 'Unordered']);
+  });
+
+  test('a location with no label of its own is titled "Location", not by its address', async () => {
+    // The display title reads `label || address || key || 'Location'`, but only
+    // the first term is ever reached: normalizePickupLocationItem has already
+    // defaulted a missing label to the literal 'Location'. Pinned as it behaves
+    // — the three fallbacks behind it are dead, which is worth knowing before
+    // anyone relies on a location being titled by its address.
+    install({
+      PickupLocations: [
+        { _id: 'p-1', key: 'ath', label: 'Athens Airport', address: 'Somewhere' },
+        { _id: 'p-2', key: 'skg', label: '', address: 'Thessaloniki Port' },
+      ],
+    });
+
+    const byKey = Object.fromEntries((await snapshot()).pickupLocations.map((r) => [r.key, r.displayTitle]));
+
+    expect(byKey).toMatchObject({ ath: 'Athens Airport', skg: 'Location' });
+  });
+
+  test('a saved location appears in the next snapshot', async () => {
+    install();
+
+    await upsertPickupLocation({ authToken: await token(), payload: location() });
+
+    expect((await snapshot()).pickupLocations.map((r) => r.key)).toContain('ath');
+  });
+});
+
+describe('saving the business settings for the first time', () => {
+  // Every other test in the pricing suites starts from a site that already has
+  // a settings row, so the insert half of this endpoint has never run.
+  test('a site with no settings row gets one created', async () => {
+    install({ BusinessSettings: [] });
+
+    const saved = await saveBusinessSettings({
+      authToken: await token(), payload: { currency: 'USD', nightStartHour: 23 },
+    });
+
+    expect(saved._id).toBeTruthy();
+    expect(fake.rows('BusinessSettings')).toHaveLength(1);
+    expect(fake.rows('BusinessSettings')[0]).toMatchObject({ currency: 'USD' });
+  });
+
+  test('saving again updates that row rather than adding another', async () => {
+    install({ BusinessSettings: [] });
+    const authToken = await token();
+
+    await saveBusinessSettings({ authToken, payload: { currency: 'USD' } });
+    await saveBusinessSettings({ authToken, payload: { currency: 'GBP' } });
+
+    expect(fake.rows('BusinessSettings')).toHaveLength(1);
+    expect(fake.rows('BusinessSettings')[0].currency).toBe('GBP');
+  });
+
+  test('the first save is written to the audit log like any other', async () => {
+    install({ BusinessSettings: [] });
+
+    await saveBusinessSettings({ authToken: await token(), payload: { currency: 'USD' } });
+
+    // Written to StaffAuditLog, which is where every pricing action is logged —
+    // PricingAuditLog exists in the seeds but nothing writes to it.
+    expect(fake.rows('StaffAuditLog').some((r) => r.action === 'pricing.saveBusinessSettings')).toBe(true);
+  });
+});
+
+describe('the station profiles carried on the business settings', () => {
+  const save = async (payload) => {
+    install();
+    return saveBusinessSettings({ authToken: await token(), payload });
+  };
+
+  test('a station list is normalised into keyed profiles', async () => {
+    const saved = await save({
+      stationProfiles: [
+        { key: 'ATH', label: 'Athens Airport', city: 'Athens', address: 'Airport', sortOrder: 10 },
+      ],
+    });
+
+    expect(saved.stationProfiles).toEqual([{
+      key: 'ath', label: 'Athens Airport', description: '', city: 'Athens',
+      address: 'Airport', sortOrder: 10, active: true,
+    }]);
+  });
+
+  test('the legacy field names are accepted', async () => {
+    const saved = await save({
+      stationProfiles: [{ stationKey: 'SKG', stationLabel: 'Port', stationCity: 'Thessaloniki', stationAddress: 'Quay 1' }],
+    });
+
+    expect(saved.stationProfiles[0]).toMatchObject({
+      key: 'skg', label: 'Port', city: 'Thessaloniki', address: 'Quay 1',
+    });
+  });
+
+  test('a station with no key or label at all is filed under "default"', async () => {
+    const saved = await save({ stationProfiles: [{ city: 'Athens' }] });
+
+    expect(saved.stationProfiles[0]).toMatchObject({ key: 'default', label: 'Κεντρικός σταθμός' });
+  });
+
+  test('a duplicate key keeps the first entry rather than the last', async () => {
+    // The list is what the admin screen renders; two rows with one key would
+    // render twice and save inconsistently.
+    const saved = await save({
+      stationProfiles: [
+        { key: 'ath', label: 'Athens Airport' },
+        { key: 'ATH', label: 'Athens Airport (duplicate)' },
+      ],
+    });
+
+    expect(saved.stationProfiles).toHaveLength(1);
+    expect(saved.stationProfiles[0].label).toBe('Athens Airport');
+  });
+
+  test('an inactive station is kept in the list, flagged', async () => {
+    const saved = await save({ stationProfiles: [{ key: 'skg', label: 'Port', active: false }] });
+
+    expect(saved.stationProfiles[0]).toMatchObject({ key: 'skg', active: false });
+  });
+
+  test.each([
+    ['a string', 'ATH'],
+    ['null', null],
+    ['a number', 7],
+    ['nothing at all', undefined],
+  ])('a station list sent as %s leaves the single default station standing', async (_label, stationProfiles) => {
+    // Two copies of normalizeStationProfiles exist — one in pricingAdmin, one in
+    // pricingCatalog — and they disagree about the empty case. The admin copy
+    // returns an empty list; the catalog copy, which is what seeds and reads the
+    // settings row, appends a default station when the list comes out empty. So
+    // a site never ends up with *no* station, whatever the admin screen sends.
+    // Pinned as it behaves; the divergence is worth knowing before either copy
+    // is edited on the assumption it is the only one.
+    const saved = await save(stationProfiles === undefined ? {} : { stationProfiles });
+
+    expect(saved.stationProfiles).toEqual([
+      { key: 'default', label: 'Κεντρικός σταθμός', description: '' },
+    ]);
+  });
+
+  test('the per-station settings map is keyed the same way as the profiles', async () => {
+    const saved = await save({
+      stationSettings: { 'ATH': { openingHours: '08:00-22:00' }, 'SKG Port': { openingHours: '09:00-21:00' } },
+    });
+
+    expect(Object.keys(saved.stationSettings).sort()).toEqual(['ath', 'skg_port']);
+    expect(saved.stationSettings.ath).toEqual({ openingHours: '08:00-22:00' });
+  });
+
+  test('a settings entry that is not an object is dropped', async () => {
+    const saved = await save({
+      stationSettings: { ath: { openingHours: '08:00-22:00' }, skg: 'closed', port: ['a'], hotel: null },
+    });
+
+    expect(Object.keys(saved.stationSettings)).toEqual(['ath']);
+  });
+
+  test('a settings map that is not an object at all becomes an empty one', async () => {
+    expect((await save({ stationSettings: ['ath'] })).stationSettings).toEqual({});
+    expect((await save({ stationSettings: 'ath' })).stationSettings).toEqual({});
+    expect((await save({})).stationSettings).toEqual({});
+  });
+
+  test('an entry with no usable key is filed under "default"', async () => {
+    const saved = await save({ stationSettings: { '   ': { openingHours: '24h' } } });
+
+    expect(saved.stationSettings).toEqual({ default: { openingHours: '24h' } });
+  });
+});
+
+describe('saving a vehicle category that does not exist yet', () => {
+  test('a new category is inserted rather than failing to find a row to update', async () => {
+    install();
+
+    const saved = await upsertVehicleCategory({
+      authToken: await token(), payload: { category: 'LUX', title: 'Luxury', price: 150 },
+    });
+
+    expect(saved).toMatchObject({ category: 'LUX', title: 'Luxury' });
+    expect(fake.rows('VehiclesNew')).toHaveLength(1);
+  });
+
+  test('saving the same code again updates that row rather than adding another', async () => {
+    install();
+    const authToken = await token();
+
+    await upsertVehicleCategory({ authToken, payload: { category: 'LUX', title: 'Luxury', price: 150 } });
+    await upsertVehicleCategory({ authToken, payload: { category: 'LUX', title: 'Luxury', price: 175 } });
+
+    expect(fake.rows('VehiclesNew')).toHaveLength(1);
+    expect(fake.rows('VehiclesNew')[0].price).toBe(175);
+  });
+
+  test('the insert is recorded in the audit log as an insert, not an update', async () => {
+    install();
+
+    await upsertVehicleCategory({ authToken: await token(), payload: { category: 'LUX', title: 'Luxury' } });
+
+    expect(fake.rows('StaffAuditLog').some((r) => r.action === 'pricing.insertVehicleCategory')).toBe(true);
+  });
+
+  test('a Wix media reference on the category is rewritten into a loadable URL', async () => {
+    install();
+
+    const saved = await upsertVehicleCategory({
+      authToken: await token(),
+      payload: { category: 'LUX', title: 'Luxury', image: 'wix:image://v1/abc123~mv2.jpg/car.jpg' },
+    });
+
+    expect(JSON.stringify(saved)).toContain('https://static.wixstatic.com/media/abc123~mv2.jpg');
+  });
+
+  test('an https image is left as it is', async () => {
+    install();
+
+    const saved = await upsertVehicleCategory({
+      authToken: await token(),
+      payload: { category: 'LUX', title: 'Luxury', image: 'https://example.com/car.jpg' },
+    });
+
+    expect(JSON.stringify(saved)).toContain('https://example.com/car.jpg');
+  });
+});
+
+describe('when a lookup query cannot be run at all', () => {
+  test('a category save falls back to an insert rather than failing', async () => {
+    // queryFirstByField swallows a query failure and answers "no such row". The
+    // consequence is worth naming: a save during an outage inserts rather than
+    // updates, so the collection can grow a duplicate. That is the deliberate
+    // trade — a failed save loses the operator's work, a duplicate is
+    // recoverable.
+    install();
+    const authToken = await token();
+    const original = wixData.query;
+    wixData.query = (name) => {
+      if (name === 'VehiclesNew') throw new Error('collection missing');
+      return original.call(wixData, name);
+    };
+    let saved;
+    try {
+      saved = await upsertVehicleCategory({ authToken, payload: { category: 'LUX', title: 'Luxury' } });
+    } finally {
+      wixData.query = original;
+    }
+
+    expect(saved).toMatchObject({ category: 'LUX' });
+    expect(fake.rows('VehiclesNew')).toHaveLength(1);
   });
 });

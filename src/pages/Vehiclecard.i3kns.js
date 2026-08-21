@@ -60,8 +60,12 @@ $w.onReady(async function () {
     }
     if (msg.type === 'navigate') {
       const route = String(msg.route || '').trim();
-      const target = ROUTES[route];
-      if (target) wixLocation.to(target);
+      // hasOwnProperty rather than a bare index: ROUTES is a plain object, so
+      // ROUTES['constructor'] and ROUTES['__proto__'] resolve to inherited
+      // values, pass the truthiness test, and were navigated to — the page
+      // called wixLocation.to with a function. Same defect as the one already
+      // fixed on the account settings page.
+      if (route && Object.prototype.hasOwnProperty.call(ROUTES, route)) wixLocation.to(ROUTES[route]);
       return;
     }
     if (msg.type === 'openContract') {

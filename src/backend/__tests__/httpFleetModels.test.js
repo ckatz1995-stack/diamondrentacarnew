@@ -389,3 +389,55 @@ describe('the order they come back in', () => {
     expect(await models({ category: 'A' })).toEqual(a);
   });
 });
+
+describe('the photos a fleet model carries', () => {
+  const photosOf = async (over) => {
+    install([car(over)]);
+    return (await body({})).items[0].photos;
+  };
+
+  test('a plain url is listed', async () => {
+    expect(await photosOf({ photos: 'https://example.com/a.jpg' })).toEqual(['https://example.com/a.jpg']);
+  });
+
+  test('a Wix media reference is rewritten into a loadable URL', async () => {
+    expect(await photosOf({ photos: 'wix:image://v1/abc123~mv2.jpg/car.jpg' }))
+      .toEqual(['https://static.wixstatic.com/media/abc123~mv2.jpg']);
+  });
+
+  test.each([
+    ['src', { src: 'https://example.com/a.jpg' }],
+    ['url', { url: 'https://example.com/a.jpg' }],
+  ])('an object exposing %s is unwrapped', async (_label, photos) => {
+    expect(await photosOf({ photos })).toEqual(['https://example.com/a.jpg']);
+  });
+
+  test('an object with neither is walked for whatever it does hold', async () => {
+    // Wix galleries arrive as objects keyed by index rather than as arrays, so
+    // the values have to be walked or the whole gallery is lost.
+    expect(await photosOf({ photos: { 0: 'https://example.com/a.jpg', 1: 'https://example.com/b.jpg' } }))
+      .toEqual(['https://example.com/a.jpg', 'https://example.com/b.jpg']);
+  });
+
+  test('a nested structure is flattened', async () => {
+    expect(await photosOf({
+      photos: [['https://example.com/a.jpg', 'https://example.com/c.jpg'], { src: 'https://example.com/b.jpg' }],
+    })).toEqual(['https://example.com/a.jpg', 'https://example.com/c.jpg', 'https://example.com/b.jpg']);
+  });
+
+  test('the alternative field spellings are all read', async () => {
+    install([car({ Photos: 'https://example.com/a.jpg', gallery: 'https://example.com/b.jpg', Image: 'https://example.com/c.jpg' })]);
+
+    expect((await body({})).items[0].photos).toEqual(expect.arrayContaining([
+      'https://example.com/a.jpg', 'https://example.com/b.jpg', 'https://example.com/c.jpg',
+    ]));
+  });
+
+  test.each([null, undefined, '', 0, false, {}])('%p contributes nothing', async (photos) => {
+    expect(await photosOf({ photos })).toEqual([]);
+  });
+
+  test('a car with no photo fields at all lists none', async () => {
+    expect(await photosOf({})).toEqual([]);
+  });
+});

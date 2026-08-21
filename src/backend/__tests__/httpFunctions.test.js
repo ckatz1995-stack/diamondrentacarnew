@@ -515,3 +515,312 @@ describe('get_ping', () => {
     expect(Number.isFinite(body.ts)).toBe(true);
   });
 });
+
+describe('the public pricing catalogue endpoint', () => {
+  test('the catalogue is returned alongside a success flag', async () => {
+    install({
+      BusinessSettings: [{ _id: 'bs-1', currency: 'EUR' }],
+      InsurancePlans: [{ _id: 'i-1', key: 'cdw', label: 'CDW', pricePerDay: 12, active: true }],
+      ExtraServices: [], FeeRules: [], PricingSeasons: [], CategoryRateRules: [], PickupLocations: [],
+    });
+    const { clearPricingCatalogCache } = await import('../pricingCatalog.jsw');
+    clearPricingCatalogCache();
+
+    const res = await http.get_pricing_catalog(request());
+
+    expect(res.body.success).toBe(true);
+    expect(res.body.insurancePlans.map((r) => r.key)).toContain('cdw');
+    clearPricingCatalogCache();
+  });
+
+  test('it is cacheable by nobody — the price must not be served stale', async () => {
+    install({
+      BusinessSettings: [], InsurancePlans: [], ExtraServices: [], FeeRules: [],
+      PricingSeasons: [], CategoryRateRules: [], PickupLocations: [],
+    });
+    const { clearPricingCatalogCache } = await import('../pricingCatalog.jsw');
+    clearPricingCatalogCache();
+
+    const res = await http.get_pricing_catalog(request());
+
+    expect(res.headers['Cache-Control']).toBe('no-store');
+    clearPricingCatalogCache();
+  });
+
+  test('a failure is reported as a server error rather than as an empty catalogue', async () => {
+    // An empty catalogue would render as a page with no insurance options and
+    // no prices, which reads as "we sell nothing" rather than "try again".
+    const pricing = await import('../pricingCatalog.jsw');
+    const original = pricing.getPublicPricingCatalog;
+    pricing.getPublicPricingCatalog = () => Promise.reject(new Error('catalogue offline'));
+    try {
+      const res = await http.get_pricing_catalog(request());
+
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, message: 'catalogue offline' });
+    } finally {
+      pricing.getPublicPricingCatalog = original;
+    }
+  });
+
+  test('a thrown value with no message still names something', async () => {
+    const pricing = await import('../pricingCatalog.jsw');
+    const original = pricing.getPublicPricingCatalog;
+    pricing.getPublicPricingCatalog = () => Promise.reject('just a string');
+    try {
+      expect((await http.get_pricing_catalog(request())).body)
+        .toMatchObject({ success: false, message: 'just a string' });
+    } finally {
+      pricing.getPublicPricingCatalog = original;
+    }
+  });
+});
+
+describe('the vehicle listing endpoints', () => {
+  const vehicle = (extra = {}) => ({
+    _id: 'v-1', category: 'ECO', title: 'ECO - Fiat Panda', price: 30, active: true,
+    transmission: 'Manual', fuelType: 'Petrol', seats: 5, doors: 5, airCondition: true, ...extra,
+  });
+
+  test('active vehicles are listed, cheapest first', async () => {
+    install({ VehiclesNew: [
+      vehicle({ _id: 'v-2', title: 'SUV - Jeep', category: 'SUV', price: 70 }),
+      vehicle({ _id: 'v-1', price: 30 }),
+    ] });
+
+    const res = await http.get_vehicles(request());
+
+    expect(res.body.items.map((i) => i.id)).toEqual(['v-1', 'v-2']);
+  });
+
+  test('an inactive vehicle is not listed', async () => {
+    install({ VehiclesNew: [vehicle(), vehicle({ _id: 'v-2', active: false })] });
+
+    expect((await http.get_vehicles(request())).body.items.map((i) => i.id)).toEqual(['v-1']);
+  });
+
+  test('a category filter narrows the list', async () => {
+    install({ VehiclesNew: [vehicle(), vehicle({ _id: 'v-2', category: 'SUV' })] });
+
+    const res = await http.get_vehicles(request({ query: { category: 'SUV' } }));
+
+    expect(res.body.items.map((i) => i.id)).toEqual(['v-2']);
+  });
+
+  test.each(['all', 'default', ''])('the pseudo-category %p lists everything', async (category) => {
+    install({ VehiclesNew: [vehicle(), vehicle({ _id: 'v-2', category: 'SUV' })] });
+
+    const res = await http.get_vehicles(request({ query: { category } }));
+
+    expect(res.body.items).toHaveLength(2);
+  });
+
+  test('the short name drops the category prefix the title carries', async () => {
+    install({ VehiclesNew: [vehicle({ title: 'ECO - Fiat Panda' })] });
+
+    const item = (await http.get_vehicles(request())).body.items[0];
+
+    expect(item).toMatchObject({ name: 'Fiat Panda', title: 'ECO - Fiat Panda', label: 'ECO' });
+  });
+
+  test('a title with no prefix is used whole', async () => {
+    install({ VehiclesNew: [vehicle({ title: 'Fiat Panda' })] });
+
+    expect((await http.get_vehicles(request())).body.items[0].name).toBe('Fiat Panda');
+  });
+
+  test('a vehicle with no title at all falls back to its category', async () => {
+    install({ VehiclesNew: [vehicle({ title: '' })] });
+
+    expect((await http.get_vehicles(request())).body.items[0].name).toBe('ECO');
+  });
+
+  test('the specs the card renders are all present, with dashes for the gaps', async () => {
+    install({ VehiclesNew: [vehicle({ transmission: '', fuelType: '', seats: '', airCondition: false })] });
+
+    expect((await http.get_vehicles(request())).body.items[0].specs).toMatchObject({
+      gearbox: '-', fuel: '-', seats: '-', doors: 5, ac: 'Όχι',
+    });
+  });
+
+  test('a Wix media reference is rewritten into a loadable URL', async () => {
+    install({ VehiclesNew: [vehicle({ image: 'wix:image://v1/abc123~mv2.jpg/car.jpg#originWidth=800' })] });
+
+    expect((await http.get_vehicles(request())).body.items[0].image)
+      .toBe('https://static.wixstatic.com/media/abc123~mv2.jpg');
+  });
+
+  test('an https image is passed through, and an object image is unwrapped', async () => {
+    install({ VehiclesNew: [
+      vehicle({ image: 'https://example.com/a.jpg' }),
+      vehicle({ _id: 'v-2', price: 40, image: { src: 'https://example.com/b.jpg' } }),
+    ] });
+
+    expect((await http.get_vehicles(request())).body.items.map((i) => i.image))
+      .toEqual(['https://example.com/a.jpg', 'https://example.com/b.jpg']);
+  });
+
+  test('a missing image is an empty string rather than a broken url', async () => {
+    install({ VehiclesNew: [vehicle({ image: null })] });
+
+    expect((await http.get_vehicles(request())).body.items[0].image).toBe('');
+  });
+
+  test('a failing query is reported as a server error', async () => {
+    install({ VehiclesNew: [] });
+    const original = wixData.query;
+    wixData.query = () => { throw new Error('collection missing'); };
+    try {
+      const res = await http.get_vehicles(request());
+
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, message: 'collection missing' });
+    } finally {
+      wixData.query = original;
+    }
+  });
+
+  test('a single vehicle can be fetched by id', async () => {
+    install({ VehiclesNew: [vehicle()] });
+
+    const res = await http.get_vehicle(request({ query: { id: 'v-1' } }));
+
+    expect(res.body).toMatchObject({ success: true, item: { id: 'v-1', label: 'ECO' } });
+  });
+
+  test('a request with no id is refused', async () => {
+    install({ VehiclesNew: [vehicle()] });
+
+    const res = await http.get_vehicle(request({ query: {} }));
+
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ success: false, message: 'Missing id' });
+  });
+
+  test('an inactive vehicle is not fetchable by id either', async () => {
+    // Same 400 as a vehicle that does not exist: a withdrawn category must not
+    // be bookable through a saved link.
+    install({ VehiclesNew: [vehicle({ active: false })] });
+
+    const res = await http.get_vehicle(request({ query: { id: 'v-1' } }));
+
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ success: false, message: 'Vehicle not found' });
+  });
+
+  test('an id that matches nothing is reported the same way', async () => {
+    install({ VehiclesNew: [vehicle()] });
+
+    const res = await http.get_vehicle(request({ query: { id: 'v-nope' } }));
+
+    expect(res.status).toBe(400);
+    expect(res.body).toMatchObject({ success: false, message: 'Vehicle not found' });
+  });
+});
+
+describe('the category code a fleet model is filed under', () => {
+  const modelsFor = async (fleet) => {
+    install({ FleetNew: fleet, VehiclesNew: [] });
+    return (await http.get_fleet_models(request())).body.items;
+  };
+
+  test('a category carrying a label keeps only the code in front of the dash', async () => {
+    const items = await modelsFor([{ _id: 'f-1', Model: 'Fiat Panda', Category: 'ECO - Economy', Active: true }]);
+
+    expect(items[0].category).toBe('ECO');
+  });
+
+  test('a category that is an opaque record id is not used as a code', async () => {
+    // A uuid stamped on a card as if it were a category is worse than no
+    // category at all — it filters to nothing and reads as gibberish.
+    const items = await modelsFor([
+      { _id: 'f-1', Model: 'Fiat Panda', Category: '8f14e45f-ceea-4e78-9c8f-1a2b3c4d5e6f', Active: true },
+    ]);
+
+    expect(items[0].category).not.toContain('8f14e45f');
+  });
+
+  test('a short code is taken as it stands', async () => {
+    const items = await modelsFor([{ _id: 'f-1', Model: 'Fiat Panda', Category: 'ECO', Active: true }]);
+
+    expect(items[0].category).toBe('ECO');
+  });
+
+  test('a long free-text category yields its leading token', async () => {
+    const items = await modelsFor([{ _id: 'f-1', Model: 'Fiat Panda', Category: 'ECO economy hatchback', Active: true }]);
+
+    expect(items[0].category).toBe('ECO');
+  });
+
+  test('a category arriving as an included object is walked for a usable code', async () => {
+    // Wix include() hands back the referenced row rather than its id, so the
+    // code can be nested one level down under any of several key spellings.
+    const items = await modelsFor([
+      { _id: 'f-1', Model: 'Fiat Panda', Category: { title: 'ECO - Economy' }, Active: true },
+    ]);
+
+    expect(items[0].category).toBe('ECO');
+  });
+
+  test('a category object holding nothing usable yields no code', async () => {
+    const items = await modelsFor([
+      { _id: 'f-1', Model: 'Fiat Panda', Category: { unrelated: 'Economy' }, Active: true },
+    ]);
+
+    expect(items[0].category).not.toContain('object Object');
+  });
+
+  test('a fleet listing that cannot be read is reported as a server error', async () => {
+    install({ FleetNew: [], VehiclesNew: [] });
+    const original = wixData.query;
+    wixData.query = () => { throw new Error('collection missing'); };
+    try {
+      const res = await http.get_fleet_models(request());
+
+      expect(res.status).toBe(500);
+      expect(res.body).toMatchObject({ success: false, message: 'collection missing' });
+    } finally {
+      wixData.query = original;
+    }
+  });
+});
+
+describe('the CORS preflight and ping endpoints', () => {
+  test.each([
+    ['options_vehicle', 'options_vehicle'],
+    ['options_vehicles', 'options_vehicles'],
+    ['options_pricing_catalog', 'options_pricing_catalog'],
+  ])('%s answers a preflight for GET only', (_label, name) => {
+    const res = http[name](request());
+
+    expect(res.headers).toMatchObject({
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    });
+  });
+
+  test('none of the read preflights advertises POST', () => {
+    // The only endpoint that accepts a POST is the booking mutation, and it has
+    // its own preflight with its own origin gate. A read preflight advertising
+    // POST would invite a browser to try one against an endpoint that has no
+    // gate at all.
+    for (const name of ['options_vehicle', 'options_vehicles', 'options_pricing_catalog']) {
+      expect(http[name](request()).headers['Access-Control-Allow-Methods']).not.toContain('POST');
+    }
+  });
+
+  test('ping answers ok with a timestamp', () => {
+    const res = http.get_ping(request());
+
+    const body = JSON.parse(res.body);
+    expect(body.ok).toBe(true);
+    expect(typeof body.ts).toBe('number');
+  });
+
+  test('ping says nothing about the site beyond that it is up', () => {
+    const body = http.get_ping(request()).body;
+
+    expect(body).not.toMatch(/version|build|env|secret|host/i);
+  });
+});
